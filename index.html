@@ -1415,27 +1415,44 @@
   // GOOGLE AUTH
   // ============================================================
   function loadGoogleScripts() {
-    return new Promise(resolve => {
+    return new Promise((resolve, reject) => {
+      if (typeof google !== 'undefined' && google.accounts) { resolve(); return; }
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
-      script.onload = resolve;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        // Esperar a que google.accounts esté disponible
+        const check = setInterval(() => {
+          if (typeof google !== 'undefined' && google.accounts) {
+            clearInterval(check); resolve();
+          }
+        }, 50);
+        setTimeout(() => { clearInterval(check); reject(new Error('Timeout cargando Google')); }, 10000);
+      };
+      script.onerror = reject;
       document.head.appendChild(script);
     });
   }
 
   async function initAuth() {
-    await loadGoogleScripts();
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: async (resp) => {
-        if (resp.error) { showToast('Error de autenticación: ' + resp.error, 'error'); return; }
-        accessToken = resp.access_token;
-        await getUserInfo();
-        await loadAllData();
-        showApp();
-      }
-    });
+    try {
+      await loadGoogleScripts();
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: async (resp) => {
+          if (resp.error) { showToast('Error de autenticación: ' + resp.error, 'error'); return; }
+          accessToken = resp.access_token;
+          await getUserInfo();
+          await loadAllData();
+          showApp();
+        }
+      });
+    } catch(e) {
+      console.error('Error iniciando auth:', e);
+      showToast('Error cargando Google. Recarga la página.', 'error');
+    }
   }
 
   function signIn() {
