@@ -1571,6 +1571,7 @@
     renderUsuarios();
     poblarSelects();
     updateBadges();
+    aplicarPermisosUI();
   }
 
   function renderDashboard() {
@@ -1686,8 +1687,8 @@
         <td><span class="badge ${estadoBadge}"><span class="dot"></span>${e.Estado_Operativo || '—'}</span></td>
         <td>${proxPreventivo}</td>
         <td><div class="row-actions">
-          <button class="icon-btn" onclick="editEquipo(${DATA.equipos.indexOf(e)})" title="Editar">✏️</button>
-          <button class="icon-btn" onclick="openModalIntervencionEquipo('${e.ID_Activo}')" title="Nueva intervención">🔧</button>
+          ${puedeHacer('editarEquipos') ? `<button class="icon-btn" onclick="editEquipo(${DATA.equipos.indexOf(e)})" title="Editar">✏️</button>` : ''}
+          ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="openModalIntervencionEquipo('${e.ID_Activo}')" title="Nueva intervención">🔧</button>` : ''}
           <button class="icon-btn" onclick="openModalIncidenciaEquipo('${e.ID_Activo}')" title="Reportar incidencia">⚠️</button>
         </div></td>
       </tr>`;
@@ -1745,8 +1746,8 @@
       <td>${formatDate(i.Fecha_Hora) || '—'}</td>
       <td><span class="badge ${estadoBadge[i.Estado] || 'badge-gray'}">${i.Estado || '—'}</span></td>
       <td><div class="row-actions">
-        <button class="icon-btn" onclick="cambiarEstadoIncidencia(${DATA.incidencias.indexOf(i)})" title="Cambiar estado">🔄</button>
-        <button class="icon-btn" onclick="crearIntervencionDesdeIncidencia('${i.ID_Incidencia}', '${i.Equipo}')" title="Crear intervención">🔧</button>
+        ${puedeHacer('gestionarIncidencias') ? `<button class="icon-btn" onclick="cambiarEstadoIncidencia(${DATA.incidencias.indexOf(i)})" title="Cambiar estado">🔄</button>` : ''}
+        ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="crearIntervencionDesdeIncidencia('${i.ID_Incidencia}', '${i.Equipo}')" title="Crear intervención">🔧</button>` : ''}
       </div></td>
     </tr>`).join('');
   }
@@ -2189,12 +2190,40 @@
     else { badge.style.display = 'none'; }
   }
 
+  // PERMISOS POR ROL
+  const PERMISOS = {
+    Alumno: {
+      nav: ['equipos', 'incidencias'],
+      verIntervenciones: false, editarEquipos: false, crearIntervenciones: false,
+      gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: false,
+    },
+    Profesor: {
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias'],
+      verIntervenciones: true, editarEquipos: false, crearIntervenciones: false,
+      gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
+    },
+    Gestor: {
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'proveedores', 'ubicaciones'],
+      verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
+      gestionarIncidencias: true, configuracion: true, usuarios: false, dashboard: true,
+    },
+    Administrador: {
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'proveedores', 'ubicaciones', 'usuarios'],
+      verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
+      gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
+    }
+  };
+
+  function getPermisos() { return PERMISOS[getUserRole()] || PERMISOS.Alumno; }
+  function puedeHacer(accion) { return getPermisos()[accion] === true; }
+
   function showPage(page) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const p = getPermisos();
+    if (!p.nav.includes(page)) { showToast('No tienes permiso para acceder a esta sección', 'error'); return; }
+    document.querySelectorAll('.page').forEach(pg => pg.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
     document.querySelector(`[onclick="showPage('${page}')"]`)?.classList.add('active');
-
     const titles = { dashboard: 'Panel principal', equipos: 'Inventario de equipos', intervenciones: 'Intervenciones', incidencias: 'Incidencias', proveedores: 'Proveedores', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios' };
     document.getElementById('page-title').textContent = titles[page] || page;
   }
@@ -2202,19 +2231,42 @@
   function showApp() {
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
+    const rol = getUserRole();
+    const p = PERMISOS[rol] || PERMISOS.Alumno;
     document.getElementById('user-name').textContent = currentUser?.name || currentUser?.email || 'Usuario';
-    document.getElementById('user-role').textContent = getUserRole();
+    document.getElementById('user-role').textContent = rol;
     document.getElementById('user-avatar').src = currentUser?.picture || '';
 
-    // Mostrar usuarios solo a administradores
-    const rol = getUserRole();
-    if (rol === 'Administrador') document.getElementById('nav-usuarios').style.display = '';
+    // Mostrar/ocultar nav según rol
+    document.querySelectorAll('.nav-item').forEach(el => {
+      const onclick = el.getAttribute('onclick') || '';
+      const match = onclick.match(/showPage\('(\w+)'\)/);
+      if (match) el.style.display = p.nav.includes(match[1]) ? '' : 'none';
+    });
+
+    // Ocultar label Configuración si no tiene acceso
+    document.querySelectorAll('.nav-section-label').forEach(el => {
+      if (el.textContent.trim() === 'Configuración') el.style.display = p.configuracion ? '' : 'none';
+    });
+
+    // Ir a primera página disponible
+    showPage(p.dashboard ? 'dashboard' : (p.nav[0] || 'equipos'));
   }
 
   function getUserRole() {
-    if (!currentUser?.email) return 'Profesor';
-    const u = DATA.usuarios.find(u => u.Email === currentUser.email);
-    return u?.Rol || 'Profesor';
+    if (!currentUser?.email) return 'Alumno';
+    const u = DATA.usuarios.find(u => u.Email?.toLowerCase() === currentUser.email?.toLowerCase());
+    return u?.Rol || 'Alumno';
+  }
+
+  function aplicarPermisosUI() {
+    const p = getPermisos();
+    const btnNuevoEquipo = document.querySelector('#page-equipos .btn-primary');
+    if (btnNuevoEquipo) btnNuevoEquipo.style.display = p.editarEquipos ? '' : 'none';
+    const btnNuevaInt = document.querySelector('#page-intervenciones .btn-primary');
+    if (btnNuevaInt) btnNuevaInt.style.display = p.crearIntervenciones ? '' : 'none';
+    const btnNuevaInc = document.querySelector('#page-incidencias .btn-primary');
+    if (btnNuevaInc) btnNuevaInc.style.display = '';
   }
 
   // ============================================================
