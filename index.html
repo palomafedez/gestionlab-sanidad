@@ -863,6 +863,24 @@
             <tbody id="tabla-proximos"></tbody>
           </table>
         </div>
+      <div id="dashboard-averiados" style="display:none;margin-top:20px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">⚠️ Equipos no operativos</div></div>
+          <table>
+            <thead><tr><th>ID</th><th>Equipo</th><th>Ubicación</th><th>Estado</th></tr></thead>
+            <tbody id="tabla-averiados"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="dashboard-mis-incidencias" style="display:none;margin-top:20px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📋 Mis incidencias</div></div>
+          <table>
+            <thead><tr><th>ID</th><th>Equipo</th><th>Descripción</th><th>Estado</th><th>Fecha</th></tr></thead>
+            <tbody id="tabla-mis-incidencias"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- EQUIPOS -->
@@ -1084,8 +1102,8 @@
           </select>
         </div>
         <div class="form-group">
-          <label>Marca</label>
-          <input id="eq-marca" placeholder="Ej: Eppendorf">
+          <label>Marca *</label>
+          <input id="eq-marca" placeholder="Ej: Eppendorf" required>
         </div>
         <div class="form-group">
           <label>Modelo</label>
@@ -1112,7 +1130,8 @@
           <select id="eq-financiacion">
             <option value="">Seleccionar...</option>
             <option>Fondos propios</option><option>Subvención Xunta</option>
-            <option>Proyecto europeo</option><option>Donación</option><option>Otro</option>
+            <option>Proyecto europeo</option><option>Proyecto de innovación</option>
+            <option>PFFP</option><option>Donación</option><option>Otro</option>
           </select>
         </div>
         <div class="form-group">
@@ -1132,10 +1151,14 @@
         </div>
         <div class="form-group">
           <label>Periodicidad mantenimiento</label>
-          <select id="eq-periodicidad">
+          <select id="eq-periodicidad" onchange="togglePeriodicidadCustom(this.value)">
             <option>Mensual</option><option>Trimestral</option>
             <option>Semestral</option><option>Anual</option><option>Personalizada</option>
           </select>
+        </div>
+        <div class="form-group" id="eq-periodicidad-custom-wrap" style="display:none">
+          <label>Descripción periodicidad personalizada</label>
+          <input id="eq-periodicidad-custom" placeholder="Ej: Cada 2 años, o según contrato SAT...">
         </div>
         <div class="form-group">
           <label>Fecha último preventivo</label>
@@ -1288,12 +1311,16 @@
           <label>Nombre comercial *</label>
           <input id="prov-nombre" placeholder="Ej: Sigma-Aldrich">
         </div>
-        <div class="form-group">
-          <label>Tipo</label>
-          <select id="prov-tipo">
-            <option>Reactivos</option><option>Consumibles</option><option>Equipos</option>
-            <option>Servicio técnico</option><option>Material fungible</option><option>Otro</option>
-          </select>
+        <div class="form-group full">
+          <label>Tipo (selección múltiple)</label>
+          <div id="prov-tipo-checks" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer"><input type="checkbox" value="Reactivos"> Reactivos</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer"><input type="checkbox" value="Consumibles"> Consumibles</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer"><input type="checkbox" value="Equipos"> Equipos</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer"><input type="checkbox" value="Servicio técnico"> Servicio técnico</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer"><input type="checkbox" value="Material fungible"> Material fungible</label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:13px;cursor:pointer"><input type="checkbox" value="Otro"> Otro</label>
+          </div>
         </div>
         <div class="form-group">
           <label>Persona de contacto</label>
@@ -1575,6 +1602,9 @@
   }
 
   function renderDashboard() {
+    const rol = getUserRole();
+    const esProfesor = rol === 'Profesor';
+
     // Stats
     document.getElementById('stat-equipos').textContent = DATA.equipos.length;
 
@@ -1625,6 +1655,39 @@
           <div class="alert-text">${incAbiertas.map(i => i.ID_Incidencia + ' · ' + i.Equipo).join(' – ')}</div>
         </div>
       </div>`;
+    }
+
+    // Equipos averiados / no operativos (para todos los roles)
+    const averiados = DATA.equipos.filter(e => ['Averiado','Fuera de servicio','En mantenimiento'].includes(e.Estado_Operativo));
+    const divAveriados = document.getElementById('dashboard-averiados');
+    const tbodyAveriados = document.getElementById('tabla-averiados');
+    if (averiados.length) {
+      divAveriados.style.display = '';
+      tbodyAveriados.innerHTML = averiados.map(e => `<tr>
+        <td><strong>${e.ID_Activo}</strong></td>
+        <td>${e.Tipo_Equipo || '—'} ${e.Marca ? '· ' + e.Marca : ''}</td>
+        <td>${e.Ubicacion || '—'}</td>
+        <td><span class="badge ${{ 'Averiado': 'badge-red', 'Fuera de servicio': 'badge-gray', 'En mantenimiento': 'badge-orange' }[e.Estado_Operativo] || 'badge-gray'}">${e.Estado_Operativo}</span></td>
+      </tr>`).join('');
+    } else {
+      divAveriados.style.display = 'none';
+    }
+
+    // Mis incidencias (solo Profesor)
+    const divMisInc = document.getElementById('dashboard-mis-incidencias');
+    if (esProfesor) {
+      const nombreUsuario = currentUser?.name || currentUser?.email || '';
+      const misInc = DATA.incidencias.filter(i => i.Reportado_Por === nombreUsuario && i.Estado !== 'Cerrada');
+      divMisInc.style.display = misInc.length ? '' : 'none';
+      document.getElementById('tabla-mis-incidencias').innerHTML = misInc.map(i => `<tr>
+        <td><strong>${i.ID_Incidencia}</strong></td>
+        <td>${i.Equipo || '—'}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.Descripcion_Problema || '—'}</td>
+        <td><span class="badge ${{ 'Abierta': 'badge-red', 'En gestión': 'badge-orange', 'Resuelta': 'badge-green' }[i.Estado] || 'badge-gray'}">${i.Estado}</span></td>
+        <td>${formatDate(i.Fecha_Hora) || '—'}</td>
+      </tr>`).join('');
+    } else {
+      divMisInc.style.display = 'none';
     }
 
     // Tabla próximos preventivos
@@ -1725,6 +1788,11 @@
   function renderIncidencias(filtroEstado = '') {
     const tbody = document.getElementById('tabla-incidencias');
     let items = DATA.incidencias;
+    // Profesor solo ve sus propias incidencias
+    if (getUserRole() === 'Profesor') {
+      const nombreUsuario = currentUser?.name || currentUser?.email || '';
+      items = items.filter(i => i.Reportado_Por === nombreUsuario);
+    }
     if (filtroEstado) items = items.filter(i => i.Estado === filtroEstado);
     items = [...items].sort((a, b) => new Date(b.Fecha_Hora) - new Date(a.Fecha_Hora));
 
@@ -1754,19 +1822,24 @@
 
   function renderProveedores() {
     const tbody = document.getElementById('tabla-proveedores');
+    const puedeEditar = puedeHacer('configuracion'); // Gestor/Admin pueden editar
+    // Mostrar/ocultar botón nuevo proveedor según rol
+    const btnNuevoProv = document.querySelector('#page-proveedores .btn-primary');
+    if (btnNuevoProv) btnNuevoProv.style.display = (puedeEditar || getPermisos().añadirProveedores) ? '' : 'none';
+
     if (!DATA.proveedores.length) {
       tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-title">Sin proveedores registrados</div></div></td></tr>`;
       return;
     }
     tbody.innerHTML = DATA.proveedores.map(p => `<tr>
       <td><strong>${p.Nombre_Proveedor || '—'}</strong></td>
-      <td><span class="badge badge-gray">${p.Tipo_Proveedor || '—'}</span></td>
+      <td>${(p.Tipo_Proveedor || '—').split(',').map(t => `<span class="badge badge-gray" style="margin:1px">${t.trim()}</span>`).join('')}</td>
       <td>${p.Persona_Contacto || '—'}</td>
       <td>${p.Email_Contacto ? `<a href="mailto:${p.Email_Contacto}" style="color:var(--accent)">${p.Email_Contacto}</a>` : '—'}</td>
       <td>${p.Telefono || '—'}</td>
       <td>${p.Activo !== 'FALSE' ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-gray">Inactivo</span>'}</td>
       <td><div class="row-actions">
-        <button class="icon-btn" onclick="editProveedor(${DATA.proveedores.indexOf(p)})">✏️</button>
+        ${puedeEditar ? `<button class="icon-btn" onclick="editProveedor(${DATA.proveedores.indexOf(p)})">✏️</button>` : ''}
       </div></td>
     </tr>`).join('');
   }
@@ -1849,12 +1922,14 @@
   }
 
   async function guardarEquipo() {
-    const id = v('eq-id'); const tipo = v('eq-tipo');
-    if (!id || !tipo) { showToast('ID y tipo son obligatorios', 'error'); return; }
+    const id = v('eq-id'); const tipo = v('eq-tipo'); const marca = v('eq-marca');
+    if (!id || !tipo || !marca) { showToast('ID, tipo y marca son obligatorios', 'error'); return; }
 
     const ultimo = v('eq-ultimo-preventivo');
-    const periodicidad = v('eq-periodicidad');
-    const proximo = calcProximoPreventivo(ultimo, periodicidad);
+    const periodicidadBase = v('eq-periodicidad');
+    const periodicidadCustom = v('eq-periodicidad-custom');
+    const periodicidad = periodicidadBase === 'Personalizada' && periodicidadCustom ? 'Personalizada: ' + periodicidadCustom : periodicidadBase;
+    const proximo = calcProximoPreventivo(ultimo, periodicidadBase);
 
     const row = [id, tipo, v('eq-marca'), v('eq-modelo'), v('eq-serie'), v('eq-ubicacion'), v('eq-responsable'), v('eq-fecha-adq'), v('eq-financiacion'), v('eq-proveedor-compra'), v('eq-proveedor-sat'), v('eq-estado'), periodicidad, ultimo, proximo, '', v('eq-observaciones')];
 
@@ -1933,8 +2008,10 @@
   async function guardarProveedor() {
     const nombre = v('prov-nombre');
     if (!nombre) { showToast('El nombre es obligatorio', 'error'); return; }
+    const tiposSeleccionados = Array.from(document.querySelectorAll('#prov-tipo-checks input:checked')).map(cb => cb.value).join(', ');
+    if (!tiposSeleccionados) { showToast('Selecciona al menos un tipo', 'error'); return; }
     const id = genId('PRV-');
-    const row = [id, nombre, v('prov-tipo'), v('prov-contacto'), v('prov-email'), v('prov-telefono'), v('prov-web'), v('prov-observaciones'), 'TRUE'];
+    const row = [id, nombre, tiposSeleccionados, v('prov-contacto'), v('prov-email'), v('prov-telefono'), v('prov-web'), v('prov-observaciones'), 'TRUE'];
 
     showLoading('Guardando...');
     try {
@@ -2031,7 +2108,12 @@
   function editProveedor(idx) {
     const p = DATA.proveedores[idx];
     editingRow = { sheet: 'Proveedores', rowIndex: idx };
-    sv('prov-nombre', p.Nombre_Proveedor); sv('prov-tipo', p.Tipo_Proveedor);
+    sv('prov-nombre', p.Nombre_Proveedor);
+    // Restore multiselect checkboxes
+    const tiposGuardados = (p.Tipo_Proveedor || '').split(',').map(t => t.trim());
+    document.querySelectorAll('#prov-tipo-checks input').forEach(cb => {
+      cb.checked = tiposGuardados.includes(cb.value);
+    });
     sv('prov-contacto', p.Persona_Contacto); sv('prov-email', p.Email_Contacto);
     sv('prov-telefono', p.Telefono); sv('prov-web', p.Web);
     sv('prov-observaciones', p.Observaciones);
@@ -2056,6 +2138,11 @@
   // ============================================================
   // HELPERS MODALES
   // ============================================================
+  function togglePeriodicidadCustom(val) {
+    document.getElementById('eq-periodicidad-custom-wrap').style.display = val === 'Personalizada' ? '' : 'none';
+    if (val !== 'Personalizada') sv('eq-periodicidad-custom', '');
+  }
+
   function openModalEquipo() {
     editingRow = null;
     document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
@@ -2101,7 +2188,7 @@
     }, 50);
   }
 
-  function openModalProveedor() { editingRow = null; ['prov-nombre','prov-contacto','prov-email','prov-telefono','prov-web','prov-observaciones'].forEach(id => sv(id,'')); openModal('modal-proveedor'); }
+  function openModalProveedor() { editingRow = null; ['prov-nombre','prov-contacto','prov-email','prov-telefono','prov-web','prov-observaciones'].forEach(id => sv(id,'')); document.querySelectorAll('#prov-tipo-checks input').forEach(cb => cb.checked = false); openModal('modal-proveedor'); }
   function openModalUbicacion() { editingRow = null; ['ubi-id','ubi-lab','ubi-zona','ubi-subzona','ubi-desc'].forEach(id => sv(id,'')); openModal('modal-ubicacion'); }
   function openModalUsuario() { editingRow = null; ['usr-nombre','usr-email'].forEach(id => sv(id,'')); sv('usr-rol','Profesor'); openModal('modal-usuario'); }
 
@@ -2198,9 +2285,10 @@
       gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: false,
     },
     Profesor: {
-      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias'],
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'proveedores'],
       verIntervenciones: true, editarEquipos: false, crearIntervenciones: false,
       gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
+      añadirProveedores: true,
     },
     Gestor: {
       nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'proveedores', 'ubicaciones'],
