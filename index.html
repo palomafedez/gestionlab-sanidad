@@ -727,6 +727,85 @@
 
     .progress-fill.warning { background: var(--warning); }
     .progress-fill.danger { background: var(--danger); }
+
+    /* MULTI-SELECT CHECKBOXES para tipos de proveedor */
+    .checkbox-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 8px 0;
+    }
+
+    .checkbox-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-soft);
+      transition: all 0.15s;
+      user-select: none;
+      background: var(--surface);
+    }
+
+    .checkbox-chip input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+      accent-color: var(--accent);
+    }
+
+    .checkbox-chip:has(input:checked) {
+      border-color: var(--accent);
+      background: var(--accent-light);
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* Periodicidad personalizada */
+    #eq-periodicidad-custom-group {
+      display: none;
+      grid-column: 1 / -1;
+    }
+
+    /* Upload area para PDFs */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--surface2);
+    }
+    .upload-area:hover {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+    .upload-area input[type="file"] {
+      display: none;
+    }
+    .upload-area-text { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .upload-preview {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--text-soft);
+    }
+    .upload-preview .remove-file {
+      margin-left: auto;
+      cursor: pointer;
+      color: var(--danger);
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -780,11 +859,12 @@
         <span class="nav-icon">⚠️</span> Incidencias
         <span class="nav-badge" id="badge-incidencias" style="display:none">0</span>
       </div>
-      <div class="nav-section-label" style="margin-top:12px">Configuración</div>
-      <div class="nav-item" onclick="showPage('proveedores')">
+      <!-- RENOMBRADO: "Catálogo" en vez de "Configuración" -->
+      <div class="nav-section-label" style="margin-top:12px" id="label-catalogo">Catálogo</div>
+      <div class="nav-item" onclick="showPage('proveedores')" id="nav-proveedores">
         <span class="nav-icon">🏢</span> Proveedores
       </div>
-      <div class="nav-item" onclick="showPage('ubicaciones')">
+      <div class="nav-item" onclick="showPage('ubicaciones')" id="nav-ubicaciones">
         <span class="nav-icon">📍</span> Ubicaciones
       </div>
       <div class="nav-item" onclick="showPage('usuarios')" id="nav-usuarios" style="display:none">
@@ -932,6 +1012,7 @@
                 <th>Realizado por</th>
                 <th>Resultado</th>
                 <th>Operativo</th>
+                <th>PDF</th>
                 <th></th>
               </tr>
             </thead>
@@ -988,7 +1069,7 @@
             <thead>
               <tr>
                 <th>Nombre</th>
-                <th>Tipo</th>
+                <th>Tipo(s)</th>
                 <th>Contacto</th>
                 <th>Email</th>
                 <th>Teléfono</th>
@@ -1007,7 +1088,7 @@
           <div class="card-header">
             <div class="card-title">Ubicaciones</div>
             <div class="card-actions">
-              <button class="btn btn-primary" onclick="openModalUbicacion()">+ Nueva ubicación</button>
+              <button class="btn btn-primary" id="btn-nueva-ubicacion" onclick="openModalUbicacion()">+ Nueva ubicación</button>
             </div>
           </div>
           <table>
@@ -1083,9 +1164,10 @@
             <option>Nevera</option><option>Congelador</option><option>Otro</option>
           </select>
         </div>
+        <!-- MARCA AHORA OBLIGATORIA -->
         <div class="form-group">
-          <label>Marca</label>
-          <input id="eq-marca" placeholder="Ej: Eppendorf">
+          <label>Marca *</label>
+          <input id="eq-marca" placeholder="Ej: Eppendorf" required>
         </div>
         <div class="form-group">
           <label>Modelo</label>
@@ -1107,12 +1189,18 @@
           <label>Fecha adquisición</label>
           <input id="eq-fecha-adq" type="date">
         </div>
+        <!-- ORIGEN FINANCIACIÓN CON NUEVAS OPCIONES -->
         <div class="form-group">
           <label>Origen financiación</label>
           <select id="eq-financiacion">
             <option value="">Seleccionar...</option>
-            <option>Fondos propios</option><option>Subvención Xunta</option>
-            <option>Proyecto europeo</option><option>Donación</option><option>Otro</option>
+            <option>Fondos propios</option>
+            <option>Subvención Xunta</option>
+            <option>Proyecto europeo</option>
+            <option>Proyecto de innovación</option>
+            <option>PFFP</option>
+            <option>Donación</option>
+            <option>Otro</option>
           </select>
         </div>
         <div class="form-group">
@@ -1130,12 +1218,17 @@
             <option>Averiado</option><option>Fuera de servicio</option>
           </select>
         </div>
+        <!-- PERIODICIDAD CON CAMPO PERSONALIZADA -->
         <div class="form-group">
           <label>Periodicidad mantenimiento</label>
-          <select id="eq-periodicidad">
+          <select id="eq-periodicidad" onchange="togglePeriodicidadCustom(this.value)">
             <option>Mensual</option><option>Trimestral</option>
             <option>Semestral</option><option>Anual</option><option>Personalizada</option>
           </select>
+        </div>
+        <div class="form-group" id="eq-periodicidad-custom-group">
+          <label>Descripción periodicidad personalizada</label>
+          <input id="eq-periodicidad-custom" placeholder="Ej: Cada 18 meses, o según fabricante...">
         </div>
         <div class="form-group">
           <label>Fecha último preventivo</label>
@@ -1189,6 +1282,7 @@
           <label>Fecha realización</label>
           <input id="int-fecha-real" type="date">
         </div>
+        <!-- REALIZADO POR: DROPDOWN DE USUARIOS REGISTRADOS -->
         <div class="form-group">
           <label>Realizado por (interno)</label>
           <select id="int-realizado-por"><option value="">Seleccionar...</option></select>
@@ -1227,6 +1321,21 @@
         <div class="form-group full">
           <label>Observaciones</label>
           <textarea id="int-observaciones" placeholder="Notas adicionales..."></textarea>
+        </div>
+        <!-- ADJUNTO PDF -->
+        <div class="form-group full">
+          <label>Documento adjunto (factura, informe técnico...)</label>
+          <div class="upload-area" onclick="document.getElementById('int-pdf-input').click()">
+            <div>📎 Haz clic para adjuntar un PDF</div>
+            <div class="upload-area-text">Facturas, informes de servicio técnico, certificados de calibración...</div>
+            <input type="file" id="int-pdf-input" accept=".pdf,image/*" onchange="handleFileSelect(this)">
+          </div>
+          <div id="int-pdf-preview" style="display:none" class="upload-preview">
+            <span>📄</span>
+            <span id="int-pdf-name"></span>
+            <span class="remove-file" onclick="removeFile()">✕</span>
+          </div>
+          <input type="hidden" id="int-pdf-url" value="">
         </div>
       </div>
       <div class="form-footer">
@@ -1279,7 +1388,7 @@
 <div class="modal-overlay" id="modal-proveedor">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Nuevo proveedor</div>
+      <div class="modal-title" id="modal-proveedor-title">Nuevo proveedor</div>
       <button class="modal-close" onclick="closeModal('modal-proveedor')">✕</button>
     </div>
     <div class="modal-body">
@@ -1288,12 +1397,17 @@
           <label>Nombre comercial *</label>
           <input id="prov-nombre" placeholder="Ej: Sigma-Aldrich">
         </div>
-        <div class="form-group">
-          <label>Tipo</label>
-          <select id="prov-tipo">
-            <option>Reactivos</option><option>Consumibles</option><option>Equipos</option>
-            <option>Servicio técnico</option><option>Material fungible</option><option>Otro</option>
-          </select>
+        <!-- TIPO PROVEEDOR: MULTI-SELECCIÓN CON CHIPS -->
+        <div class="form-group full">
+          <label>Tipo(s) de proveedor</label>
+          <div class="checkbox-group" id="prov-tipos-group">
+            <label class="checkbox-chip"><input type="checkbox" value="Reactivos"> Reactivos</label>
+            <label class="checkbox-chip"><input type="checkbox" value="Consumibles"> Consumibles</label>
+            <label class="checkbox-chip"><input type="checkbox" value="Equipos"> Equipos</label>
+            <label class="checkbox-chip"><input type="checkbox" value="Servicio técnico"> Servicio técnico</label>
+            <label class="checkbox-chip"><input type="checkbox" value="Material fungible"> Material fungible</label>
+            <label class="checkbox-chip"><input type="checkbox" value="Otro"> Otro</label>
+          </div>
         </div>
         <div class="form-group">
           <label>Persona de contacto</label>
@@ -1318,7 +1432,7 @@
       </div>
       <div class="form-footer">
         <button class="btn btn-secondary" onclick="closeModal('modal-proveedor')">Cancelar</button>
-        <button class="btn btn-primary" onclick="guardarProveedor()">Guardar proveedor</button>
+        <button class="btn btn-primary" id="btn-guardar-proveedor" onclick="guardarProveedor()">Guardar proveedor</button>
       </div>
     </div>
   </div>
@@ -1409,7 +1523,8 @@
   let tokenClient, accessToken;
   let currentUser = null;
   let DATA = { equipos: [], intervenciones: [], incidencias: [], proveedores: [], ubicaciones: [], usuarios: [] };
-  let editingRow = null; // { sheet, rowIndex }
+  let editingRow = null;
+  let pendingFileBase64 = null; // Para adjuntos PDF en intervenciones
 
   // ============================================================
   // GOOGLE AUTH
@@ -1422,13 +1537,12 @@
       script.async = true;
       script.defer = true;
       script.onload = () => {
-        // Esperar a que google.accounts esté disponible
         const check = setInterval(() => {
           if (typeof google !== 'undefined' && google.accounts) {
             clearInterval(check); resolve();
           }
         }, 50);
-        setTimeout(() => { clearInterval(check); reject(new Error('Timeout cargando Google')); }, 10000);
+        setTimeout(() => { clearInterval(check); reject(new Error('Timeout')); }, 10000);
       };
       script.onerror = reject;
       document.head.appendChild(script);
@@ -1455,9 +1569,7 @@
     }
   }
 
-  function signIn() {
-    tokenClient.requestAccessToken({ prompt: 'select_account consent' });
-  }
+  function signIn() { tokenClient.requestAccessToken({ prompt: 'select_account consent' }); }
 
   function signOut() {
     google.accounts.oauth2.revoke(accessToken, () => {
@@ -1508,13 +1620,6 @@
     );
   }
 
-  async function sheetsClear(range) {
-    await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`,
-      { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-  }
-
   // ============================================================
   // CARGAR DATOS
   // ============================================================
@@ -1522,8 +1627,8 @@
     showLoading('Cargando datos...');
     try {
       const [equipos, intervenciones, incidencias, proveedores, ubicaciones, usuarios] = await Promise.all([
-        sheetsGet('Equipos!A2:Q'),
-        sheetsGet('Intervenciones!A2:P'),
+        sheetsGet('Equipos!A2:R'),        // ahora 18 cols (añadimos periodicidad_custom)
+        sheetsGet('Intervenciones!A2:Q'), // ahora 17 cols (añadimos url_adjunto)
         sheetsGet('Incidencias!A2:I'),
         sheetsGet('Proveedores!A2:I'),
         sheetsGet('Ubicaciones!A2:F'),
@@ -1531,8 +1636,8 @@
       ]);
 
       const cols = {
-        equipos: ['ID_Activo','Tipo_Equipo','Marca','Modelo','Numero_Serie','Ubicacion','Responsable','Fecha_Adquisicion','Origen_Financiacion','Proveedor_Compra','Proveedor_Servicio_Tecnico','Estado_Operativo','Periodicidad_Mantenimiento','Fecha_Ultimo_Preventivo','Fecha_Proximo_Preventivo','Manual_Ficha_Tecnica','Observaciones'],
-        intervenciones: ['ID_Intervencion','Equipo','Tipo','Origen','Fecha_Planificada','Fecha_Realizacion','Realizado_Por','Tecnico_Externo','Proveedor','Descripcion_Actuacion','Resultado','Equipo_Operativo_Tras_Intervencion','Documento_Adjunto','Factura_Asociada','Actualiza_Proximo_Preventivo','Observaciones'],
+        equipos: ['ID_Activo','Tipo_Equipo','Marca','Modelo','Numero_Serie','Ubicacion','Responsable','Fecha_Adquisicion','Origen_Financiacion','Proveedor_Compra','Proveedor_Servicio_Tecnico','Estado_Operativo','Periodicidad_Mantenimiento','Periodicidad_Custom','Fecha_Ultimo_Preventivo','Fecha_Proximo_Preventivo','Manual_Ficha_Tecnica','Observaciones'],
+        intervenciones: ['ID_Intervencion','Equipo','Tipo','Origen','Fecha_Planificada','Fecha_Realizacion','Realizado_Por','Tecnico_Externo','Proveedor','Descripcion_Actuacion','Resultado','Equipo_Operativo_Tras_Intervencion','URL_Adjunto','Factura_Asociada','Actualiza_Proximo_Preventivo','Observaciones','Nombre_Adjunto'],
         incidencias: ['ID_Incidencia','Equipo','Reportado_Por','Fecha_Hora','Descripcion_Problema','Impacto','Urgencia','Estado','Intervencion_Generada'],
         proveedores: ['ID_Proveedor','Nombre_Proveedor','Tipo_Proveedor','Persona_Contacto','Email_Contacto','Telefono','Web','Observaciones','Activo'],
         ubicaciones: ['ID_Ubicacion','Laboratorio_Aula','Zona','Subzona','Descripcion_Completa','Activa'],
@@ -1575,15 +1680,13 @@
   }
 
   function renderDashboard() {
-    // Stats
     document.getElementById('stat-equipos').textContent = DATA.equipos.length;
 
     const hoy = new Date();
     const en30 = new Date(); en30.setDate(hoy.getDate() + 30);
     const preventivos = DATA.equipos.filter(e => {
       if (!e.Fecha_Proximo_Preventivo) return false;
-      const f = new Date(e.Fecha_Proximo_Preventivo);
-      return f <= en30;
+      return new Date(e.Fecha_Proximo_Preventivo) <= en30;
     });
     document.getElementById('stat-preventivos').textContent = preventivos.length;
 
@@ -1606,6 +1709,18 @@
       if (!e.Fecha_Proximo_Preventivo) return false;
       return new Date(e.Fecha_Proximo_Preventivo) < hoy;
     });
+
+    // Equipos averiados (relevante también para Profesores)
+    const averiados = DATA.equipos.filter(e => e.Estado_Operativo === 'Averiado' || e.Estado_Operativo === 'Fuera de servicio');
+    if (averiados.length) {
+      alertas.innerHTML += `<div class="alert-banner danger">
+        <div class="alert-icon">🔴</div>
+        <div class="alert-content">
+          <div class="alert-title">${averiados.length} equipo(s) fuera de servicio o averiado(s)</div>
+          <div class="alert-text">${averiados.map(e => e.ID_Activo + ' – ' + (e.Tipo_Equipo||'') + ' ' + (e.Marca||'')).join(' · ')}</div>
+        </div>
+      </div>`;
+    }
 
     if (vencidos.length) {
       alertas.innerHTML += `<div class="alert-banner danger">
@@ -1669,7 +1784,7 @@
       return;
     }
 
-    tbody.innerHTML = items.map((e, i) => {
+    tbody.innerHTML = items.map((e) => {
       const estadoBadge = { 'Operativo': 'badge-green', 'En mantenimiento': 'badge-orange', 'Averiado': 'badge-red', 'Fuera de servicio': 'badge-gray' }[e.Estado_Operativo] || 'badge-gray';
       const proxPreventivo = e.Fecha_Proximo_Preventivo ? (() => {
         const diffDias = Math.ceil((new Date(e.Fecha_Proximo_Preventivo) - new Date()) / 86400000);
@@ -1702,29 +1817,44 @@
     items = [...items].sort((a, b) => new Date(b.Fecha_Realizacion || b.Fecha_Planificada) - new Date(a.Fecha_Realizacion || a.Fecha_Planificada));
 
     if (!items.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🔧</div><div class="empty-state-title">Sin intervenciones registradas</div></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">🔧</div><div class="empty-state-title">Sin intervenciones registradas</div></div></td></tr>`;
       return;
     }
 
     const tipoBadge = { 'Preventivo': 'badge-green', 'Correctivo': 'badge-red', 'Calibración': 'badge-blue', 'Verificación funcional': 'badge-blue', 'Limpieza': 'badge-gray', 'Sustitución de pieza': 'badge-orange', 'Control de temperatura': 'badge-blue' };
 
-    tbody.innerHTML = items.map(i => `<tr>
-      <td><strong>${i.ID_Intervencion}</strong></td>
-      <td>${i.Equipo || '—'}</td>
-      <td><span class="badge ${tipoBadge[i.Tipo] || 'badge-gray'}">${i.Tipo || '—'}</span></td>
-      <td>${formatDate(i.Fecha_Realizacion) || formatDate(i.Fecha_Planificada) || '—'}</td>
-      <td>${i.Realizado_Por || i.Tecnico_Externo || '—'}</td>
-      <td>${i.Resultado || '—'}</td>
-      <td>${i.Equipo_Operativo_Tras_Intervencion === 'Sí' ? '<span class="badge badge-green">Sí</span>' : i.Equipo_Operativo_Tras_Intervencion === 'No' ? '<span class="badge badge-red">No</span>' : '—'}</td>
-      <td><div class="row-actions">
-        <button class="icon-btn" onclick="editIntervencion(${DATA.intervenciones.indexOf(i)})" title="Editar">✏️</button>
-      </div></td>
-    </tr>`).join('');
+    tbody.innerHTML = items.map(i => {
+      const pdfLink = i.URL_Adjunto
+        ? `<a href="${i.URL_Adjunto}" target="_blank" title="${i.Nombre_Adjunto || 'Ver documento'}" style="color:var(--accent);font-size:16px">📄</a>`
+        : '<span class="text-muted">—</span>';
+
+      return `<tr>
+        <td><strong>${i.ID_Intervencion}</strong></td>
+        <td>${i.Equipo || '—'}</td>
+        <td><span class="badge ${tipoBadge[i.Tipo] || 'badge-gray'}">${i.Tipo || '—'}</span></td>
+        <td>${formatDate(i.Fecha_Realizacion) || formatDate(i.Fecha_Planificada) || '—'}</td>
+        <td>${i.Realizado_Por || i.Tecnico_Externo || '—'}</td>
+        <td>${i.Resultado || '—'}</td>
+        <td>${i.Equipo_Operativo_Tras_Intervencion === 'Sí' ? '<span class="badge badge-green">Sí</span>' : i.Equipo_Operativo_Tras_Intervencion === 'No' ? '<span class="badge badge-red">No</span>' : '—'}</td>
+        <td>${pdfLink}</td>
+        <td><div class="row-actions">
+          <button class="icon-btn" onclick="editIntervencion(${DATA.intervenciones.indexOf(i)})" title="Editar">✏️</button>
+        </div></td>
+      </tr>`;
+    }).join('');
   }
 
   function renderIncidencias(filtroEstado = '') {
     const tbody = document.getElementById('tabla-incidencias');
+    const rol = getUserRole();
     let items = DATA.incidencias;
+
+    // PROFESORES: solo ven sus propias incidencias
+    if (rol === 'Profesor') {
+      const miNombre = currentUser?.name || '';
+      items = items.filter(i => i.Reportado_Por === miNombre);
+    }
+
     if (filtroEstado) items = items.filter(i => i.Estado === filtroEstado);
     items = [...items].sort((a, b) => new Date(b.Fecha_Hora) - new Date(a.Fecha_Hora));
 
@@ -1758,17 +1888,27 @@
       tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">🏢</div><div class="empty-state-title">Sin proveedores registrados</div></div></td></tr>`;
       return;
     }
-    tbody.innerHTML = DATA.proveedores.map(p => `<tr>
-      <td><strong>${p.Nombre_Proveedor || '—'}</strong></td>
-      <td><span class="badge badge-gray">${p.Tipo_Proveedor || '—'}</span></td>
-      <td>${p.Persona_Contacto || '—'}</td>
-      <td>${p.Email_Contacto ? `<a href="mailto:${p.Email_Contacto}" style="color:var(--accent)">${p.Email_Contacto}</a>` : '—'}</td>
-      <td>${p.Telefono || '—'}</td>
-      <td>${p.Activo !== 'FALSE' ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-gray">Inactivo</span>'}</td>
-      <td><div class="row-actions">
-        <button class="icon-btn" onclick="editProveedor(${DATA.proveedores.indexOf(p)})">✏️</button>
-      </div></td>
-    </tr>`).join('');
+
+    const rol = getUserRole();
+    const puedeEditar = rol === 'Administrador' || rol === 'Gestor';
+
+    tbody.innerHTML = DATA.proveedores.map(p => {
+      // Tipos como badges (puede ser string con comas)
+      const tipos = (p.Tipo_Proveedor || '').split(',').map(t => t.trim()).filter(Boolean);
+      const tiposBadges = tipos.map(t => `<span class="badge badge-gray" style="margin-right:3px">${t}</span>`).join('');
+
+      return `<tr>
+        <td><strong>${p.Nombre_Proveedor || '—'}</strong></td>
+        <td>${tiposBadges || '—'}</td>
+        <td>${p.Persona_Contacto || '—'}</td>
+        <td>${p.Email_Contacto ? `<a href="mailto:${p.Email_Contacto}" style="color:var(--accent)">${p.Email_Contacto}</a>` : '—'}</td>
+        <td>${p.Telefono || '—'}</td>
+        <td>${p.Activo !== 'FALSE' ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-gray">Inactivo</span>'}</td>
+        <td><div class="row-actions">
+          ${puedeEditar ? `<button class="icon-btn" onclick="editProveedor(${DATA.proveedores.indexOf(p)})">✏️</button>` : ''}
+        </div></td>
+      </tr>`;
+    }).join('');
   }
 
   function renderUbicaciones() {
@@ -1777,6 +1917,13 @@
       tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📍</div><div class="empty-state-title">Sin ubicaciones registradas</div></div></td></tr>`;
       return;
     }
+    const rol = getUserRole();
+    const puedeEditar = rol === 'Administrador' || rol === 'Gestor';
+
+    // Ocultar botón nueva ubicación si es Profesor
+    const btnNuevaUbi = document.getElementById('btn-nueva-ubicacion');
+    if (btnNuevaUbi) btnNuevaUbi.style.display = puedeEditar ? '' : 'none';
+
     tbody.innerHTML = DATA.ubicaciones.map(u => `<tr>
       <td><strong>${u.ID_Ubicacion || '—'}</strong></td>
       <td>${u.Laboratorio_Aula || '—'}</td>
@@ -1785,7 +1932,7 @@
       <td>${u.Descripcion_Completa || '—'}</td>
       <td>${u.Activa !== 'FALSE' ? '<span class="badge badge-green">Sí</span>' : '<span class="badge badge-gray">No</span>'}</td>
       <td><div class="row-actions">
-        <button class="icon-btn" onclick="editUbicacion(${DATA.ubicaciones.indexOf(u)})">✏️</button>
+        ${puedeEditar ? `<button class="icon-btn" onclick="editUbicacion(${DATA.ubicaciones.indexOf(u)})">✏️</button>` : ''}
       </div></td>
     </tr>`).join('');
   }
@@ -1821,6 +1968,7 @@
     };
 
     const ubicNames = DATA.ubicaciones.filter(u => u.Activa !== 'FALSE').map(u => u.ID_Ubicacion + (u.Laboratorio_Aula ? ' – ' + u.Laboratorio_Aula : ''));
+    // USUARIOS ACTIVOS para el dropdown de "Realizado por"
     const usuariosNames = DATA.usuarios.filter(u => u.Activo !== 'FALSE').map(u => u.Nombre);
     const proveedoresNames = DATA.proveedores.filter(p => p.Activo !== 'FALSE').map(p => p.Nombre_Proveedor);
     const equiposIds = DATA.equipos.map(e => e.ID_Activo + (e.Tipo_Equipo ? ' – ' + e.Tipo_Equipo : '') + (e.Marca ? ' ' + e.Marca : ''));
@@ -1833,6 +1981,92 @@
   }
 
   // ============================================================
+  // PERIODICIDAD PERSONALIZADA
+  // ============================================================
+  function togglePeriodicidadCustom(val) {
+    const group = document.getElementById('eq-periodicidad-custom-group');
+    if (group) group.style.display = val === 'Personalizada' ? 'flex' : 'none';
+  }
+
+  // ============================================================
+  // ADJUNTOS PDF — upload a Google Drive
+  // ============================================================
+  function handleFileSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const preview = document.getElementById('int-pdf-preview');
+    const nameEl = document.getElementById('int-pdf-name');
+    nameEl.textContent = file.name;
+    preview.style.display = 'flex';
+
+    // Leer como base64
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      pendingFileBase64 = { name: file.name, type: file.type, data: e.target.result.split(',')[1] };
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeFile() {
+    pendingFileBase64 = null;
+    document.getElementById('int-pdf-preview').style.display = 'none';
+    document.getElementById('int-pdf-name').textContent = '';
+    document.getElementById('int-pdf-input').value = '';
+    document.getElementById('int-pdf-url').value = '';
+  }
+
+  async function uploadFileToDrive(fileData, fileName, fileType) {
+    // Crear archivo en Google Drive via multipart upload
+    const boundary = '-------GestionLabBoundary';
+    const metadata = JSON.stringify({ name: fileName, mimeType: fileType });
+    const base64Data = fileData;
+
+    const body =
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n` +
+      `--${boundary}\r\nContent-Type: ${fileType}\r\nContent-Transfer-Encoding: base64\r\n\r\n${base64Data}\r\n` +
+      `--${boundary}--`;
+
+    const r = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': `multipart/related; boundary="${boundary}"`
+      },
+      body
+    });
+    const result = await r.json();
+    if (!result.id) throw new Error('Error subiendo archivo a Drive');
+
+    // Hacer el archivo público de lectura
+    await fetch(`https://www.googleapis.com/drive/v3/files/${result.id}/permissions`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: 'reader', type: 'anyone' })
+    });
+
+    return `https://drive.google.com/file/d/${result.id}/view`;
+  }
+
+  // ============================================================
+  // MULTI-SELECT TIPOS PROVEEDOR
+  // ============================================================
+  function getTiposProveedorSeleccionados() {
+    const checks = document.querySelectorAll('#prov-tipos-group input[type="checkbox"]:checked');
+    return Array.from(checks).map(c => c.value).join(', ');
+  }
+
+  function setTiposProveedor(tiposStr) {
+    const tipos = (tiposStr || '').split(',').map(t => t.trim());
+    document.querySelectorAll('#prov-tipos-group input[type="checkbox"]').forEach(cb => {
+      cb.checked = tipos.includes(cb.value);
+    });
+  }
+
+  function clearTiposProveedor() {
+    document.querySelectorAll('#prov-tipos-group input[type="checkbox"]').forEach(cb => cb.checked = false);
+  }
+
+  // ============================================================
   // GUARDAR DATOS
   // ============================================================
   function genId(prefix) {
@@ -1840,7 +2074,7 @@
   }
 
   function calcProximoPreventivo(ultimoPreventivo, periodicidad) {
-    if (!ultimoPreventivo) return '';
+    if (!ultimoPreventivo || periodicidad === 'Personalizada') return '';
     const d = new Date(ultimoPreventivo);
     const meses = { 'Mensual': 1, 'Trimestral': 3, 'Semestral': 6, 'Anual': 12 }[periodicidad];
     if (!meses) return '';
@@ -1849,19 +2083,21 @@
   }
 
   async function guardarEquipo() {
-    const id = v('eq-id'); const tipo = v('eq-tipo');
+    const id = v('eq-id'); const tipo = v('eq-tipo'); const marca = v('eq-marca');
     if (!id || !tipo) { showToast('ID y tipo son obligatorios', 'error'); return; }
+    if (!marca) { showToast('La marca es obligatoria', 'error'); return; }
 
     const ultimo = v('eq-ultimo-preventivo');
     const periodicidad = v('eq-periodicidad');
+    const periodicidadCustom = periodicidad === 'Personalizada' ? v('eq-periodicidad-custom') : '';
     const proximo = calcProximoPreventivo(ultimo, periodicidad);
 
-    const row = [id, tipo, v('eq-marca'), v('eq-modelo'), v('eq-serie'), v('eq-ubicacion'), v('eq-responsable'), v('eq-fecha-adq'), v('eq-financiacion'), v('eq-proveedor-compra'), v('eq-proveedor-sat'), v('eq-estado'), periodicidad, ultimo, proximo, '', v('eq-observaciones')];
+    const row = [id, tipo, marca, v('eq-modelo'), v('eq-serie'), v('eq-ubicacion'), v('eq-responsable'), v('eq-fecha-adq'), v('eq-financiacion'), v('eq-proveedor-compra'), v('eq-proveedor-sat'), v('eq-estado'), periodicidad, periodicidadCustom, ultimo, proximo, '', v('eq-observaciones')];
 
     showLoading('Guardando...');
     try {
       if (editingRow && editingRow.sheet === 'Equipos') {
-        const range = `Equipos!A${editingRow.rowIndex + 2}:Q${editingRow.rowIndex + 2}`;
+        const range = `Equipos!A${editingRow.rowIndex + 2}:R${editingRow.rowIndex + 2}`;
         await sheetsUpdate(range, row);
         DATA.equipos[editingRow.rowIndex] = rowToObj(row, 'equipos');
         showToast('Equipo actualizado', 'success');
@@ -1882,14 +2118,28 @@
 
     const id = genId('INT-');
     const fechaReal = v('int-fecha-real') || new Date().toISOString().split('T')[0];
-    const row = [id, equipo, tipo, v('int-origen'), v('int-fecha-plan'), fechaReal, v('int-realizado-por'), v('int-tecnico-ext'), v('int-proveedor'), desc, v('int-resultado'), v('int-operativo'), '', '', v('int-actualiza-preventivo'), v('int-observaciones')];
+
+    // Subir PDF si hay uno pendiente
+    let urlAdjunto = v('int-pdf-url') || '';
+    let nombreAdjunto = '';
+    if (pendingFileBase64) {
+      showLoading('Subiendo documento...');
+      try {
+        urlAdjunto = await uploadFileToDrive(pendingFileBase64.data, pendingFileBase64.name, pendingFileBase64.type);
+        nombreAdjunto = pendingFileBase64.name;
+      } catch(e) {
+        showToast('Error subiendo el PDF. Revisa permisos de Drive.', 'error');
+        hideLoading(); return;
+      }
+    }
+
+    const row = [id, equipo, tipo, v('int-origen'), v('int-fecha-plan'), fechaReal, v('int-realizado-por'), v('int-tecnico-ext'), v('int-proveedor'), desc, v('int-resultado'), v('int-operativo'), urlAdjunto, '', v('int-actualiza-preventivo'), v('int-observaciones'), nombreAdjunto];
 
     showLoading('Guardando...');
     try {
       await sheetsAppend('Intervenciones', row);
       DATA.intervenciones.push(rowToObj(row, 'intervenciones'));
 
-      // Si actualiza preventivo, recalcular en el equipo
       if (v('int-actualiza-preventivo') === 'Sí' && tipo === 'Preventivo') {
         const equipoId = equipo.split(' – ')[0];
         const eqIdx = DATA.equipos.findIndex(e => e.ID_Activo === equipoId);
@@ -1899,12 +2149,13 @@
           if (nuevo) {
             eq.Fecha_Ultimo_Preventivo = fechaReal;
             eq.Fecha_Proximo_Preventivo = nuevo;
-            const eqRow = Object.values(eq);
-            await sheetsUpdate(`Equipos!A${eqIdx + 2}:Q${eqIdx + 2}`, eqRow);
+            const eqRow = [eq.ID_Activo, eq.Tipo_Equipo, eq.Marca, eq.Modelo, eq.Numero_Serie, eq.Ubicacion, eq.Responsable, eq.Fecha_Adquisicion, eq.Origen_Financiacion, eq.Proveedor_Compra, eq.Proveedor_Servicio_Tecnico, eq.Estado_Operativo, eq.Periodicidad_Mantenimiento, eq.Periodicidad_Custom, eq.Fecha_Ultimo_Preventivo, eq.Fecha_Proximo_Preventivo, eq.Manual_Ficha_Tecnica, eq.Observaciones];
+            await sheetsUpdate(`Equipos!A${eqIdx + 2}:R${eqIdx + 2}`, eqRow);
           }
         }
       }
 
+      pendingFileBase64 = null;
       showToast('Intervención registrada', 'success');
       closeModal('modal-intervencion');
       renderAll();
@@ -1933,8 +2184,9 @@
   async function guardarProveedor() {
     const nombre = v('prov-nombre');
     if (!nombre) { showToast('El nombre es obligatorio', 'error'); return; }
+    const tipos = getTiposProveedorSeleccionados();
     const id = genId('PRV-');
-    const row = [id, nombre, v('prov-tipo'), v('prov-contacto'), v('prov-email'), v('prov-telefono'), v('prov-web'), v('prov-observaciones'), 'TRUE'];
+    const row = [id, nombre, tipos, v('prov-contacto'), v('prov-email'), v('prov-telefono'), v('prov-web'), v('prov-observaciones'), 'TRUE'];
 
     showLoading('Guardando...');
     try {
@@ -2005,12 +2257,16 @@
     const e = DATA.equipos[idx];
     editingRow = { sheet: 'Equipos', rowIndex: idx };
     document.getElementById('modal-equipo-title').textContent = 'Editar equipo';
+    poblarSelects();
     sv('eq-id', e.ID_Activo); sv('eq-tipo', e.Tipo_Equipo); sv('eq-marca', e.Marca);
     sv('eq-modelo', e.Modelo); sv('eq-serie', e.Numero_Serie); sv('eq-ubicacion', e.Ubicacion);
     sv('eq-responsable', e.Responsable); sv('eq-fecha-adq', e.Fecha_Adquisicion);
     sv('eq-financiacion', e.Origen_Financiacion); sv('eq-proveedor-compra', e.Proveedor_Compra);
     sv('eq-proveedor-sat', e.Proveedor_Servicio_Tecnico); sv('eq-estado', e.Estado_Operativo);
-    sv('eq-periodicidad', e.Periodicidad_Mantenimiento); sv('eq-ultimo-preventivo', e.Fecha_Ultimo_Preventivo);
+    sv('eq-periodicidad', e.Periodicidad_Mantenimiento);
+    sv('eq-periodicidad-custom', e.Periodicidad_Custom || '');
+    togglePeriodicidadCustom(e.Periodicidad_Mantenimiento);
+    sv('eq-ultimo-preventivo', e.Fecha_Ultimo_Preventivo);
     sv('eq-observaciones', e.Observaciones);
     openModal('modal-equipo');
   }
@@ -2018,6 +2274,7 @@
   function editIntervencion(idx) {
     const i = DATA.intervenciones[idx];
     editingRow = { sheet: 'Intervenciones', rowIndex: idx };
+    poblarSelects();
     sv('int-equipo', i.Equipo); sv('int-tipo', i.Tipo); sv('int-origen', i.Origen);
     sv('int-fecha-plan', i.Fecha_Planificada); sv('int-fecha-real', i.Fecha_Realizacion);
     sv('int-realizado-por', i.Realizado_Por); sv('int-tecnico-ext', i.Tecnico_Externo);
@@ -2025,13 +2282,21 @@
     sv('int-resultado', i.Resultado); sv('int-operativo', i.Equipo_Operativo_Tras_Intervencion);
     sv('int-actualiza-preventivo', i.Actualiza_Proximo_Preventivo);
     sv('int-observaciones', i.Observaciones);
+    sv('int-pdf-url', i.URL_Adjunto || '');
+    if (i.URL_Adjunto) {
+      document.getElementById('int-pdf-preview').style.display = 'flex';
+      document.getElementById('int-pdf-name').textContent = i.Nombre_Adjunto || 'Documento adjunto';
+    } else {
+      document.getElementById('int-pdf-preview').style.display = 'none';
+    }
     openModal('modal-intervencion');
   }
 
   function editProveedor(idx) {
     const p = DATA.proveedores[idx];
     editingRow = { sheet: 'Proveedores', rowIndex: idx };
-    sv('prov-nombre', p.Nombre_Proveedor); sv('prov-tipo', p.Tipo_Proveedor);
+    sv('prov-nombre', p.Nombre_Proveedor);
+    setTiposProveedor(p.Tipo_Proveedor);
     sv('prov-contacto', p.Persona_Contacto); sv('prov-email', p.Email_Contacto);
     sv('prov-telefono', p.Telefono); sv('prov-web', p.Web);
     sv('prov-observaciones', p.Observaciones);
@@ -2059,15 +2324,18 @@
   function openModalEquipo() {
     editingRow = null;
     document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
-    ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones'].forEach(id => sv(id, ''));
+    ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones','eq-periodicidad-custom'].forEach(id => sv(id, ''));
     ['eq-tipo','eq-ubicacion','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id, ''));
     sv('eq-estado', 'Operativo'); sv('eq-periodicidad', 'Anual');
+    togglePeriodicidadCustom('Anual');
     poblarSelects();
     openModal('modal-equipo');
   }
 
   function openModalIntervencion() {
     editingRow = null;
+    pendingFileBase64 = null;
+    removeFile();
     ['int-equipo','int-realizado-por','int-proveedor','int-tecnico-ext','int-fecha-plan','int-fecha-real','int-descripcion','int-observaciones'].forEach(id => sv(id, ''));
     sv('int-tipo', 'Preventivo'); sv('int-origen', 'Planificado');
     sv('int-resultado', 'Resuelto'); sv('int-operativo', 'Sí'); sv('int-actualiza-preventivo', 'Sí');
@@ -2101,7 +2369,13 @@
     }, 50);
   }
 
-  function openModalProveedor() { editingRow = null; ['prov-nombre','prov-contacto','prov-email','prov-telefono','prov-web','prov-observaciones'].forEach(id => sv(id,'')); openModal('modal-proveedor'); }
+  function openModalProveedor() {
+    editingRow = null;
+    ['prov-nombre','prov-contacto','prov-email','prov-telefono','prov-web','prov-observaciones'].forEach(id => sv(id,''));
+    clearTiposProveedor();
+    openModal('modal-proveedor');
+  }
+
   function openModalUbicacion() { editingRow = null; ['ubi-id','ubi-lab','ubi-zona','ubi-subzona','ubi-desc'].forEach(id => sv(id,'')); openModal('modal-ubicacion'); }
   function openModalUsuario() { editingRow = null; ['usr-nombre','usr-email'].forEach(id => sv(id,'')); sv('usr-rol','Profesor'); openModal('modal-usuario'); }
 
@@ -2122,7 +2396,7 @@
     const next = estados[(estados.indexOf(i.Estado) + 1) % estados.length];
     if (!confirm(`¿Cambiar estado de "${i.ID_Incidencia}" a "${next}"?`)) return;
     i.Estado = next;
-    const row = Object.values(i);
+    const row = [i.ID_Incidencia, i.Equipo, i.Reportado_Por, i.Fecha_Hora, i.Descripcion_Problema, i.Impacto, i.Urgencia, i.Estado, i.Intervencion_Generada];
     showLoading('Actualizando...');
     try {
       await sheetsUpdate(`Incidencias!A${idx + 2}:I${idx + 2}`, row);
@@ -2136,81 +2410,38 @@
   // FILTROS
   // ============================================================
   let _filtroEquipos = ''; let _filtroEquiposEstado = '';
-  function filtrarEquipos(v) { _filtroEquipos = v; renderEquipos(_filtroEquipos, _filtroEquiposEstado); }
-  function filtrarEquiposEstado(v) { _filtroEquiposEstado = v; renderEquipos(_filtroEquipos, _filtroEquiposEstado); }
-  function filtrarIntervencionesTipo(v) { renderIntervenciones(v); }
-  function filtrarIncidenciasEstado(v) { renderIncidencias(v); }
+  function filtrarEquipos(val) { _filtroEquipos = val; renderEquipos(_filtroEquipos, _filtroEquiposEstado); }
+  function filtrarEquiposEstado(val) { _filtroEquiposEstado = val; renderEquipos(_filtroEquipos, _filtroEquiposEstado); }
+  function filtrarIntervencionesTipo(val) { renderIntervenciones(val); }
+  function filtrarIncidenciasEstado(val) { renderIncidencias(val); }
 
   // ============================================================
-  // UI HELPERS
-  // ============================================================
-  function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
-  function sv(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
-
-  function openModal(id) { document.getElementById(id).classList.add('open'); }
-  function closeModal(id) { document.getElementById(id).classList.remove('open'); editingRow = null; }
-
-  function showLoading(msg = 'Cargando...') {
-    document.getElementById('loading-text').textContent = msg;
-    document.getElementById('loading').classList.add('show');
-  }
-  function hideLoading() { document.getElementById('loading').classList.remove('show'); }
-
-  function showToast(msg, type = '') {
-    const c = document.getElementById('toasts');
-    const t = document.createElement('div');
-    t.className = 'toast ' + type;
-    t.textContent = msg;
-    c.appendChild(t);
-    setTimeout(() => t.remove(), 3000);
-  }
-
-  function formatDate(d) {
-    if (!d) return '';
-    try { return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
-    catch { return d; }
-  }
-
-  function rowToObj(row, type) {
-    const keys = {
-      equipos: ['ID_Activo','Tipo_Equipo','Marca','Modelo','Numero_Serie','Ubicacion','Responsable','Fecha_Adquisicion','Origen_Financiacion','Proveedor_Compra','Proveedor_Servicio_Tecnico','Estado_Operativo','Periodicidad_Mantenimiento','Fecha_Ultimo_Preventivo','Fecha_Proximo_Preventivo','Manual_Ficha_Tecnica','Observaciones'],
-      intervenciones: ['ID_Intervencion','Equipo','Tipo','Origen','Fecha_Planificada','Fecha_Realizacion','Realizado_Por','Tecnico_Externo','Proveedor','Descripcion_Actuacion','Resultado','Equipo_Operativo_Tras_Intervencion','Documento_Adjunto','Factura_Asociada','Actualiza_Proximo_Preventivo','Observaciones'],
-      incidencias: ['ID_Incidencia','Equipo','Reportado_Por','Fecha_Hora','Descripcion_Problema','Impacto','Urgencia','Estado','Intervencion_Generada'],
-      proveedores: ['ID_Proveedor','Nombre_Proveedor','Tipo_Proveedor','Persona_Contacto','Email_Contacto','Telefono','Web','Observaciones','Activo'],
-      ubicaciones: ['ID_Ubicacion','Laboratorio_Aula','Zona','Subzona','Descripcion_Completa','Activa'],
-      usuarios: ['ID_Usuario','Nombre','Email','Rol','Activo']
-    };
-    const o = {}; keys[type].forEach((k, i) => o[k] = row[i] || ''); return o;
-  }
-
-  function updateBadges() {
-    const abiertas = DATA.incidencias.filter(i => i.Estado === 'Abierta' || i.Estado === 'En gestión').length;
-    const badge = document.getElementById('badge-incidencias');
-    if (abiertas > 0) { badge.textContent = abiertas; badge.style.display = ''; }
-    else { badge.style.display = 'none'; }
-  }
-
   // PERMISOS POR ROL
+  // ============================================================
   const PERMISOS = {
     Alumno: {
       nav: ['equipos', 'incidencias'],
       verIntervenciones: false, editarEquipos: false, crearIntervenciones: false,
       gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: false,
+      verProveedores: false, verUbicaciones: false, crearProveedores: false,
     },
     Profesor: {
-      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias'],
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'proveedores', 'ubicaciones'],
       verIntervenciones: true, editarEquipos: false, crearIntervenciones: false,
       gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
+      verProveedores: true, verUbicaciones: true, crearProveedores: true,
     },
     Gestor: {
       nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'proveedores', 'ubicaciones'],
       verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
       gestionarIncidencias: true, configuracion: true, usuarios: false, dashboard: true,
+      verProveedores: true, verUbicaciones: true, crearProveedores: true,
     },
     Administrador: {
       nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'proveedores', 'ubicaciones', 'usuarios'],
       verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
       gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
+      verProveedores: true, verUbicaciones: true, crearProveedores: true,
     }
   };
 
@@ -2244,12 +2475,14 @@
       if (match) el.style.display = p.nav.includes(match[1]) ? '' : 'none';
     });
 
-    // Ocultar label Configuración si no tiene acceso
-    document.querySelectorAll('.nav-section-label').forEach(el => {
-      if (el.textContent.trim() === 'Configuración') el.style.display = p.configuracion ? '' : 'none';
-    });
+    // Label catálogo: visible si puede ver proveedores o ubicaciones
+    const labelCatalogo = document.getElementById('label-catalogo');
+    if (labelCatalogo) labelCatalogo.style.display = (p.verProveedores || p.verUbicaciones) ? '' : 'none';
 
-    // Ir a primera página disponible
+    // Botón añadir proveedor: Profesores pueden, pero no editar
+    const btnNuevoProv = document.querySelector('#page-proveedores .btn-primary');
+    if (btnNuevoProv) btnNuevoProv.style.display = p.crearProveedores ? '' : 'none';
+
     showPage(p.dashboard ? 'dashboard' : (p.nav[0] || 'equipos'));
   }
 
@@ -2265,8 +2498,60 @@
     if (btnNuevoEquipo) btnNuevoEquipo.style.display = p.editarEquipos ? '' : 'none';
     const btnNuevaInt = document.querySelector('#page-intervenciones .btn-primary');
     if (btnNuevaInt) btnNuevaInt.style.display = p.crearIntervenciones ? '' : 'none';
-    const btnNuevaInc = document.querySelector('#page-incidencias .btn-primary');
-    if (btnNuevaInc) btnNuevaInc.style.display = '';
+    // Profesores pueden añadir proveedores
+    const btnNuevoProv = document.querySelector('#page-proveedores .btn-primary');
+    if (btnNuevoProv) btnNuevoProv.style.display = p.crearProveedores ? '' : 'none';
+    // Ubicaciones: profesores ven pero no editan (se gestiona en renderUbicaciones)
+    renderUbicaciones();
+  }
+
+  // ============================================================
+  // UI HELPERS
+  // ============================================================
+  function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+  function sv(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
+
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); editingRow = null; }
+
+  function showLoading(msg = 'Cargando...') {
+    document.getElementById('loading-text').textContent = msg;
+    document.getElementById('loading').classList.add('show');
+  }
+  function hideLoading() { document.getElementById('loading').classList.remove('show'); }
+
+  function showToast(msg, type = '') {
+    const c = document.getElementById('toasts');
+    const t = document.createElement('div');
+    t.className = 'toast ' + type;
+    t.textContent = msg;
+    c.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+  }
+
+  function formatDate(d) {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    catch { return d; }
+  }
+
+  function rowToObj(row, type) {
+    const keys = {
+      equipos: ['ID_Activo','Tipo_Equipo','Marca','Modelo','Numero_Serie','Ubicacion','Responsable','Fecha_Adquisicion','Origen_Financiacion','Proveedor_Compra','Proveedor_Servicio_Tecnico','Estado_Operativo','Periodicidad_Mantenimiento','Periodicidad_Custom','Fecha_Ultimo_Preventivo','Fecha_Proximo_Preventivo','Manual_Ficha_Tecnica','Observaciones'],
+      intervenciones: ['ID_Intervencion','Equipo','Tipo','Origen','Fecha_Planificada','Fecha_Realizacion','Realizado_Por','Tecnico_Externo','Proveedor','Descripcion_Actuacion','Resultado','Equipo_Operativo_Tras_Intervencion','URL_Adjunto','Factura_Asociada','Actualiza_Proximo_Preventivo','Observaciones','Nombre_Adjunto'],
+      incidencias: ['ID_Incidencia','Equipo','Reportado_Por','Fecha_Hora','Descripcion_Problema','Impacto','Urgencia','Estado','Intervencion_Generada'],
+      proveedores: ['ID_Proveedor','Nombre_Proveedor','Tipo_Proveedor','Persona_Contacto','Email_Contacto','Telefono','Web','Observaciones','Activo'],
+      ubicaciones: ['ID_Ubicacion','Laboratorio_Aula','Zona','Subzona','Descripcion_Completa','Activa'],
+      usuarios: ['ID_Usuario','Nombre','Email','Rol','Activo']
+    };
+    const o = {}; keys[type].forEach((k, i) => o[k] = row[i] || ''); return o;
+  }
+
+  function updateBadges() {
+    const abiertas = DATA.incidencias.filter(i => i.Estado === 'Abierta' || i.Estado === 'En gestión').length;
+    const badge = document.getElementById('badge-incidencias');
+    if (abiertas > 0) { badge.textContent = abiertas; badge.style.display = ''; }
+    else { badge.style.display = 'none'; }
   }
 
   // ============================================================
