@@ -850,6 +850,58 @@
     .pedido-opcion-nombre { font-weight: 500; font-size: 13px; }
     .pedido-opcion-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
+    /* UBICACIONES agrupadas */
+    .ubi-grupo { margin-bottom: 4px; }
+    .ubi-grupo-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 20px; background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-weight: 600; font-size: 13px; color: var(--text);
+      cursor: pointer; user-select: none;
+    }
+    .ubi-grupo-header:hover { background: var(--accent-light); }
+    .ubi-grupo-toggle { font-size: 11px; color: var(--text-muted); transition: transform 0.2s; }
+    .ubi-grupo-toggle.open { transform: rotate(90deg); }
+    .ubi-grupo-count { margin-left: auto; }
+    .ubi-grupo-rows { display: none; }
+    .ubi-grupo-rows.open { display: block; }
+    .ubi-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 1fr 80px 80px auto;
+      gap: 8px; align-items: center;
+      padding: 10px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .ubi-row:last-child { border-bottom: none; }
+    .ubi-row:hover { background: var(--surface2); }
+
+    /* EQUIPOS — fila expandible */
+    .equipo-row-expand {
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      display: none;
+    }
+    .equipo-row-expand.open { display: table-row; }
+    .equipo-expand-inner {
+      padding: 12px 20px 16px;
+    }
+    .intervenciones-mini-header {
+      display: grid;
+      grid-template-columns: 90px 100px 1fr 90px;
+      gap: 8px;
+      font-size: 10px; font-weight: 600; color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      padding: 4px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 6px;
+    }
+    .intervencion-mini-row {
+      display: grid;
+      grid-template-columns: 90px 100px 1fr 90px;
+      gap: 8px; font-size: 12px; padding: 5px 0;
+      border-bottom: 1px solid var(--border); color: var(--text-soft);
+    }
+    .intervencion-mini-row:last-child { border-bottom: none; }
+
     /* MULTI-SELECT CHECKBOXES para tipos de proveedor */
     .checkbox-group {
       display: flex;
@@ -974,12 +1026,12 @@
       <div class="nav-item" onclick="showPage('equipos')">
         <span class="nav-icon">🔬</span> Inventario
       </div>
-      <div class="nav-item" onclick="showPage('intervenciones')">
-        <span class="nav-icon">🔧</span> Intervenciones
-      </div>
       <div class="nav-item" onclick="showPage('incidencias')">
         <span class="nav-icon">⚠️</span> Incidencias
         <span class="nav-badge" id="badge-incidencias" style="display:none">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('intervenciones')">
+        <span class="nav-icon">🔧</span> Intervenciones
       </div>
       <!-- RENOMBRADO: "Catálogo" en vez de "Configuración" -->
       <div class="nav-section-label" style="margin-top:12px">Material fungible</div>
@@ -1371,21 +1423,7 @@
               <button class="btn btn-primary" id="btn-nueva-ubicacion" onclick="openModalUbicacion()">+ Nueva ubicación</button>
             </div>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Laboratorio / Aula</th>
-                <th>Zona</th>
-                <th>Subzona</th>
-                <th>Descripción</th>
-                <th>Material</th>
-                <th>Activa</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="tabla-ubicaciones"></tbody>
-          </table>
+          <div id="ubicaciones-agrupadas" style="padding:8px 0"></div>
         </div>
       </div>
 
@@ -1436,13 +1474,35 @@
           <label>Tipo de equipo *</label>
           <select id="eq-tipo">
             <option value="">Seleccionar...</option>
-            <option>Centrífuga</option><option>Termociclador</option><option>Cabina de bioseguridad</option>
-            <option>Microscopio</option><option>Microtomo</option><option>Balanza</option>
-            <option>Espectrofotómetro</option><option>Incubador</option><option>Estufa</option>
-            <option>Baño termostatizado</option><option>Lector de microplacas</option>
-            <option>Lavador de microplacas</option><option>Estación de parafina</option>
-            <option>Placa fría</option><option>Equipo de electroforesis</option>
-            <option>Nevera</option><option>Congelador</option><option>Otro</option>
+            <option>Agitador / Vórtex</option>
+            <option>Autoclave</option>
+            <option>Balanza</option>
+            <option>Baño termostatizado</option>
+            <option>Cabina de bioseguridad</option>
+            <option>Centrífuga</option>
+            <option>Congelador</option>
+            <option>Contador de células</option>
+            <option>Crióstato</option>
+            <option>Destilador</option>
+            <option>Equipo de electroforesis</option>
+            <option>Espectrofotómetro</option>
+            <option>Estación de parafina</option>
+            <option>Estufa</option>
+            <option>Fuente de alimentación</option>
+            <option>Incubador</option>
+            <option>Lavador de microplacas</option>
+            <option>Lector de microplacas</option>
+            <option>Micropipeta</option>
+            <option>Microscopio</option>
+            <option>Microtomo</option>
+            <option>Nevera</option>
+            <option>Placa calefactora</option>
+            <option>Placa fría</option>
+            <option>Sistem de imagen / documentación</option>
+            <option>Termociclador</option>
+            <option>Termobloque</option>
+            <option>Transiluminador UV</option>
+            <option>Otro</option>
           </select>
         </div>
         <!-- MARCA AHORA OBLIGATORIA -->
@@ -1518,6 +1578,20 @@
         <div class="form-group full">
           <label>Observaciones</label>
           <textarea id="eq-observaciones" placeholder="Notas adicionales..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Manual / instrucciones (PDF)</label>
+          <div class="upload-area" onclick="document.getElementById('eq-pdf-input').click()">
+            <div>📎 Adjuntar manual o ficha técnica en PDF</div>
+            <div class="upload-area-text">Instrucciones de uso, ficha técnica, certificado...</div>
+            <input type="file" id="eq-pdf-input" accept=".pdf,image/*" onchange="handleEqFileSelect(this)">
+          </div>
+          <div id="eq-pdf-preview" style="display:none" class="upload-preview">
+            <span>📄</span>
+            <span id="eq-pdf-name"></span>
+            <span class="remove-file" onclick="removeEqFile()">✕</span>
+          </div>
+          <input type="hidden" id="eq-pdf-url" value="">
         </div>
       </div>
       <div class="form-footer">
@@ -1805,7 +1879,7 @@
         </div>
         <div class="form-group">
           <label>Nombre *</label>
-          <input id="mat-nombre" placeholder="Ej: Puntas de 200µL azules">
+          <input id="mat-nombre" placeholder="Ej: Puntas de 200µL azules" oninput="autoIdMaterial(this.value)">
         </div>
         <div class="form-group">
           <label>Categoría *</label>
@@ -1885,7 +1959,7 @@
     <div class="modal-body">
       <p style="font-size:13px;color:var(--text-soft);margin-bottom:16px">Busca el material y anota cuánto has usado.</p>
       <div class="form-grid" style="gap:14px">
-        <div class="form-group">
+        <div class="form-group" id="consumo-search-group">
           <label>Material *</label>
           <div class="search-material-wrap">
             <span class="search-icon">🔍</span>
@@ -1991,6 +2065,10 @@
         <div class="form-group" id="sol-nuevo-group" style="display:none">
           <label>Nombre del material *</label>
           <input id="sol-material-libre" placeholder="Describe el material que necesitas...">
+        </div>
+        <div class="form-group" id="sol-unidad-group" style="display:none">
+          <label>Unidad *</label>
+          <input id="sol-unidad" placeholder="Ej: caja, bote, paquete, kg, L...">
         </div>
         <div class="form-grid form-grid-2" style="width:100%">
           <div class="form-group">
@@ -2314,6 +2392,13 @@
     );
   }
 
+  async function sheetsClear(range) {
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`,
+      { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+  }
+
   // ============================================================
   // CARGAR DATOS
   // ============================================================
@@ -2459,6 +2544,18 @@
       </div>`;
     }
 
+    // Solicitudes pendientes
+    const solPendientes = DATA.solicitudes.filter(s => s.Estado === 'Pendiente');
+    if (solPendientes.length && puedeHacer('gestionarPedidos')) {
+      alertas.innerHTML += `<div class="alert-banner" style="cursor:pointer" onclick="showPage('solicitudes')">
+        <div class="alert-icon">📋</div>
+        <div class="alert-content">
+          <div class="alert-title">${solPendientes.length} solicitud(es) de material pendiente(s) de gestión</div>
+          <div class="alert-text">${solPendientes.slice(0,4).map(s => s.Material + ' · ' + s.Solicitante).join(' – ')}${solPendientes.length > 4 ? ' y ' + (solPendientes.length-4) + ' más...' : ''}</div>
+        </div>
+      </div>`;
+    }
+
     // Stock bajo mínimo
     const bajominimo = DATA.material.filter(m => {
       const stock = parseFloat(m.Stock_Actual) || 0;
@@ -2473,12 +2570,21 @@
     if (bajominimo.length) {
       const criticos = bajominimo.filter(m => (parseFloat(m.Stock_Actual) || 0) === 0);
       const bajos = bajominimo.filter(m => (parseFloat(m.Stock_Actual) || 0) > 0);
+      const puedeGestionar = puedeHacer('gestionarPedidos');
+
+      const renderItemsStock = (items) => items.slice(0,5).map(m =>
+        `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px">
+          ${m.Nombre} (${m.Stock_Actual||'0'} ${m.Unidad||''})
+          ${puedeGestionar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();solicitudStockAPedido('${m.ID_Material}')">+ Pedido</button>` : ''}
+        </span>`
+      ).join('');
+
       if (criticos.length) {
         alertasStock.innerHTML += `<div class="alert-banner danger">
           <div class="alert-icon">🔴</div>
           <div class="alert-content">
             <div class="alert-title">${criticos.length} material(es) sin stock</div>
-            <div class="alert-text">${criticos.slice(0,5).map(m => m.Nombre).join(' · ')}${criticos.length > 5 ? ' y ' + (criticos.length-5) + ' más...' : ''}</div>
+            <div class="alert-text" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px">${renderItemsStock(criticos)}${criticos.length > 5 ? ' y ' + (criticos.length-5) + ' más...' : ''}</div>
           </div>
         </div>`;
       }
@@ -2487,7 +2593,7 @@
           <div class="alert-icon">🟡</div>
           <div class="alert-content">
             <div class="alert-title">${bajos.length} material(es) por debajo del mínimo</div>
-            <div class="alert-text">${bajos.slice(0,5).map(m => m.Nombre + ' (' + m.Stock_Actual + ' ' + m.Unidad + ')').join(' · ')}${bajos.length > 5 ? ' y ' + (bajos.length-5) + ' más...' : ''}</div>
+            <div class="alert-text" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px">${renderItemsStock(bajos)}${bajos.length > 5 ? ' y ' + (bajos.length-5) + ' más...' : ''}</div>
           </div>
         </div>`;
       }
@@ -2544,7 +2650,11 @@
         return `<span class="text-muted">${formatDate(e.Fecha_Proximo_Preventivo)}</span>`;
       })() : '<span class="text-muted">—</span>';
 
-      return `<tr>
+      const expandId = 'eq-expand-' + e.ID_Activo.replace(/[^a-zA-Z0-9]/g,'_');
+      const manualLink = e.Manual_Ficha_Tecnica
+        ? `<a href="${e.Manual_Ficha_Tecnica}" target="_blank" class="icon-btn" title="Ver manual">📄</a>` : '';
+
+      return `<tr style="cursor:pointer" onclick="toggleEquipoExpand('${expandId}')">
         <td><strong>${e.ID_Activo}</strong></td>
         <td>${e.Tipo_Equipo || '—'}</td>
         <td>${[e.Marca, e.Modelo].filter(Boolean).join(' · ') || '—'}</td>
@@ -2552,13 +2662,46 @@
         <td>${e.Responsable || '—'}</td>
         <td><span class="badge ${estadoBadge}"><span class="dot"></span>${e.Estado_Operativo || '—'}</span></td>
         <td>${proxPreventivo}</td>
-        <td><div class="row-actions">
+        <td onclick="event.stopPropagation()"><div class="row-actions">
+          ${manualLink}
           ${puedeHacer('editarEquipos') ? `<button class="icon-btn" onclick="editEquipo(${DATA.equipos.indexOf(e)})" title="Editar">✏️</button>` : ''}
           ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="openModalIntervencionEquipo('${e.ID_Activo}')" title="Nueva intervención">🔧</button>` : ''}
           <button class="icon-btn" onclick="openModalIncidenciaEquipo('${e.ID_Activo}')" title="Reportar incidencia">⚠️</button>
         </div></td>
+      </tr>
+      <tr class="equipo-row-expand" id="${expandId}">
+        <td colspan="8">
+          <div class="equipo-expand-inner">
+            ${buildIntervencionesEquipo(e.ID_Activo)}
+          </div>
+        </td>
       </tr>`;
     }).join('');
+  }
+
+  function toggleEquipoExpand(id) {
+    const row = document.getElementById(id);
+    if (row) row.classList.toggle('open');
+  }
+
+  function buildIntervencionesEquipo(equipoId) {
+    const ints = DATA.intervenciones
+      .filter(i => i.Equipo && i.Equipo.startsWith(equipoId))
+      .sort((a, b) => new Date(b.Fecha_Realizacion || b.Fecha_Planificada) - new Date(a.Fecha_Realizacion || a.Fecha_Planificada))
+      .slice(0, 8);
+
+    if (!ints.length) return `<div style="font-size:12px;color:var(--text-muted);padding:4px 0">Sin intervenciones registradas para este equipo.</div>`;
+
+    const tipoBadge = { 'Preventivo': 'badge-green', 'Correctivo': 'badge-red', 'Calibración': 'badge-blue', 'Verificación funcional': 'badge-blue', 'Limpieza': 'badge-gray', 'Sustitución de pieza': 'badge-orange', 'Control de temperatura': 'badge-blue' };
+
+    return `<div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">Últimas intervenciones</div>
+      <div class="intervenciones-mini-header"><span>Tipo</span><span>Fecha</span><span>Descripción</span><span>Resultado</span></div>
+      ${ints.map(i => `<div class="intervencion-mini-row">
+        <span><span class="badge ${tipoBadge[i.Tipo]||'badge-gray'}" style="font-size:10px">${i.Tipo||'—'}</span></span>
+        <span>${formatDate(i.Fecha_Realizacion) || formatDate(i.Fecha_Planificada) || '—'}</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.Descripcion_Actuacion||''}">${i.Descripcion_Actuacion || '—'}</span>
+        <span>${i.Resultado || '—'}${i.Observaciones ? ' · <em>' + i.Observaciones + '</em>' : ''}</span>
+      </div>`).join('')}`;
   }
 
   function renderIntervenciones(filtroTipo = '') {
@@ -2663,38 +2806,69 @@
   }
 
   function renderUbicaciones() {
-    const tbody = document.getElementById('tabla-ubicaciones');
-    if (!tbody) return;
-    if (!DATA.ubicaciones.length) {
-      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">📍</div><div class="empty-state-title">Sin ubicaciones registradas</div></div></td></tr>`;
-      return;
-    }
+    const cont = document.getElementById('ubicaciones-agrupadas');
     const rol = getUserRole();
     const puedeEditar = rol === 'Administrador' || rol === 'Gestor';
-
     const btnNuevaUbi = document.getElementById('btn-nueva-ubicacion');
     if (btnNuevaUbi) btnNuevaUbi.style.display = puedeEditar ? '' : 'none';
+    if (!cont) return;
 
-    tbody.innerHTML = DATA.ubicaciones.map(u => {
-      // Materiales en esta ubicación
-      const matsAqui = DATA.material.filter(m => m.Ubicacion === u.ID_Ubicacion);
-      const matCell = matsAqui.length
-        ? `<span class="badge badge-blue" style="cursor:pointer" title="${matsAqui.map(m=>m.Nombre).join(', ')}" onclick="verMaterialUbicacion('${u.ID_Ubicacion}')">${matsAqui.length} ítem(s)</span>`
-        : `<span class="text-muted">—</span>`;
+    if (!DATA.ubicaciones.length) {
+      cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📍</div><div class="empty-state-title">Sin ubicaciones registradas</div></div>`;
+      return;
+    }
 
-      return `<tr>
-        <td><strong>${u.ID_Ubicacion || '—'}</strong></td>
-        <td>${u.Laboratorio_Aula || '—'}</td>
-        <td>${u.Zona || '—'}</td>
-        <td>${u.Subzona || '—'}</td>
-        <td style="font-size:12px;color:var(--text-muted)">${u.Descripcion_Completa || '—'}</td>
-        <td>${matCell}</td>
-        <td>${u.Activa !== 'FALSE' ? '<span class="badge badge-green">Sí</span>' : '<span class="badge badge-gray">No</span>'}</td>
-        <td><div class="row-actions">
-          ${puedeEditar ? `<button class="icon-btn" onclick="editUbicacion(${DATA.ubicaciones.indexOf(u)})">✏️</button>` : ''}
-        </div></td>
-      </tr>`;
+    // Agrupar por Laboratorio_Aula
+    const grupos = {};
+    DATA.ubicaciones.forEach(u => {
+      const lab = u.Laboratorio_Aula || 'Sin asignar';
+      if (!grupos[lab]) grupos[lab] = [];
+      grupos[lab].push(u);
+    });
+
+    cont.innerHTML = Object.entries(grupos).map(([lab, items], gi) => {
+      const totalMat = items.reduce((s, u) => s + DATA.material.filter(m => m.Ubicacion === u.ID_Ubicacion).length, 0);
+      const grupoId = 'ubg' + gi;
+      const rows = items.map(u => {
+        const matsAqui = DATA.material.filter(m => m.Ubicacion === u.ID_Ubicacion);
+        const matCell = matsAqui.length
+          ? `<span class="badge badge-blue" style="cursor:pointer" onclick="verMaterialUbicacion('${u.ID_Ubicacion}')">${matsAqui.length} ítem(s)</span>`
+          : `<span style="font-size:12px;color:var(--text-muted)">—</span>`;
+        return `<div class="ubi-row">
+          <strong style="font-size:12px">${u.ID_Ubicacion}</strong>
+          <span style="color:var(--text-soft);font-size:13px">${u.Zona || '—'}</span>
+          <span style="font-size:12px;color:var(--text-muted)">${u.Subzona || u.Descripcion_Completa || '—'}</span>
+          <div>${matCell}</div>
+          <div>${u.Activa !== 'FALSE' ? '<span class="badge badge-green">Activa</span>' : '<span class="badge badge-gray">Inactiva</span>'}</div>
+          <div class="row-actions">${puedeEditar ? `<button class="icon-btn" onclick="editUbicacion(${DATA.ubicaciones.indexOf(u)})">✏️</button>` : ''}</div>
+        </div>`;
+      }).join('');
+
+      return `<div class="ubi-grupo">
+        <div class="ubi-grupo-header" onclick="toggleUbiGrupo('${grupoId}')">
+          <span class="ubi-grupo-toggle" id="tog-${grupoId}">▶</span>
+          <span>🏛️ ${lab}</span>
+          <span class="ubi-grupo-count">
+            <span class="badge badge-gray">${items.length} zona(s)</span>
+            ${totalMat > 0 ? `<span class="badge badge-blue" style="margin-left:4px">${totalMat} ítem(s)</span>` : ''}
+          </span>
+        </div>
+        <div class="ubi-grupo-rows" id="${grupoId}">
+          <div style="display:grid;grid-template-columns:140px 1fr 1fr 80px 80px auto;gap:8px;padding:6px 20px;background:var(--surface2);font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)">
+            <span>ID</span><span>Zona</span><span>Subzona / Descripción</span><span>Material</span><span>Estado</span><span></span>
+          </div>
+          ${rows}
+        </div>
+      </div>`;
     }).join('');
+  }
+
+  function toggleUbiGrupo(id) {
+    const rows = document.getElementById(id);
+    const tog = document.getElementById('tog-' + id);
+    if (!rows) return;
+    const isOpen = rows.classList.toggle('open');
+    if (tog) tog.textContent = isOpen ? '▼' : '▶';
   }
 
   function verMaterialUbicacion(ubicacionId) {
@@ -2772,8 +2946,6 @@
     const nameEl = document.getElementById('int-pdf-name');
     nameEl.textContent = file.name;
     preview.style.display = 'flex';
-
-    // Leer como base64
     const reader = new FileReader();
     reader.onload = (e) => {
       pendingFileBase64 = { name: file.name, type: file.type, data: e.target.result.split(',')[1] };
@@ -2787,6 +2959,61 @@
     document.getElementById('int-pdf-name').textContent = '';
     document.getElementById('int-pdf-input').value = '';
     document.getElementById('int-pdf-url').value = '';
+  }
+
+  // PDF para equipos (manual/ficha técnica)
+  let pendingEqFileBase64 = null;
+
+  function handleEqFileSelect(input) {
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('eq-pdf-name').textContent = file.name;
+    document.getElementById('eq-pdf-preview').style.display = 'flex';
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      pendingEqFileBase64 = { name: file.name, type: file.type, data: e.target.result.split(',')[1] };
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removeEqFile() {
+    pendingEqFileBase64 = null;
+    document.getElementById('eq-pdf-preview').style.display = 'none';
+    document.getElementById('eq-pdf-name').textContent = '';
+    document.getElementById('eq-pdf-input').value = '';
+    document.getElementById('eq-pdf-url').value = '';
+  }
+
+  function autoIdMaterial(nombre) {
+    // Solo auto-generar si el campo ID está vacío o fue auto-generado (no editado a mano)
+    const idField = document.getElementById('mat-id');
+    if (!idField) return;
+    // Si el usuario ya escribió algo manualmente distinto de un auto-ID, no sobreescribir
+    const currentVal = idField.value;
+    const autoPattern = /^[A-Z]{2,3}-\d{2,}$/;
+    if (currentVal && !autoPattern.test(currentVal)) return;
+    idField.value = generarIdMaterial(nombre);
+  }
+  function generarIdMaterial(nombre) {
+    if (!nombre) return '';
+    // Extraer primeras letras significativas del nombre (máx 3)
+    const stopWords = ['de','del','la','las','los','el','en','y','a','con','para','por'];
+    const palabras = nombre.split(/\s+/).filter(p => p.length > 1 && !stopWords.includes(p.toLowerCase()));
+    let prefix = '';
+    if (palabras.length >= 2) {
+      prefix = (palabras[0].slice(0,2) + palabras[1].slice(0,1)).toUpperCase();
+    } else if (palabras.length === 1) {
+      prefix = palabras[0].slice(0,3).toUpperCase();
+    } else {
+      prefix = nombre.slice(0,3).toUpperCase();
+    }
+    // Encontrar el siguiente número disponible
+    const existing = DATA.material
+      .map(m => m.ID_Material)
+      .filter(id => id.startsWith(prefix + '-'))
+      .map(id => parseInt(id.split('-')[1]) || 0);
+    const nextNum = existing.length > 0 ? Math.max(...existing) + 1 : 1;
+    return prefix + '-' + String(nextNum).padStart(2, '0');
   }
 
   async function uploadFileToDrive(fileData, fileName, fileType) {
@@ -2866,7 +3093,19 @@
     const periodicidadCustom = periodicidad === 'Personalizada' ? v('eq-periodicidad-custom') : '';
     const proximo = calcProximoPreventivo(ultimo, periodicidad);
 
-    const row = [id, tipo, marca, v('eq-modelo'), v('eq-serie'), v('eq-ubicacion'), v('eq-responsable'), v('eq-fecha-adq'), v('eq-financiacion'), v('eq-proveedor-compra'), v('eq-proveedor-sat'), v('eq-estado'), periodicidad, periodicidadCustom, ultimo, proximo, '', v('eq-observaciones')];
+    // Subir PDF de manual si hay uno pendiente
+    let manualUrl = v('eq-pdf-url') || '';
+    if (pendingEqFileBase64) {
+      showLoading('Subiendo manual...');
+      try {
+        manualUrl = await uploadFileToDrive(pendingEqFileBase64.data, pendingEqFileBase64.name, pendingEqFileBase64.type);
+      } catch(e) {
+        showToast('Error subiendo el PDF. Guardando sin él.', 'error');
+      }
+      pendingEqFileBase64 = null;
+    }
+
+    const row = [id, tipo, marca, v('eq-modelo'), v('eq-serie'), v('eq-ubicacion'), v('eq-responsable'), v('eq-fecha-adq'), v('eq-financiacion'), v('eq-proveedor-compra'), v('eq-proveedor-sat'), v('eq-estado'), periodicidad, periodicidadCustom, ultimo, proximo, manualUrl, v('eq-observaciones')];
 
     showLoading('Guardando...');
     try {
@@ -2882,7 +3121,7 @@
       }
       closeModal('modal-equipo');
       renderAll();
-    } catch(e) { showToast('Error guardando', 'error'); }
+    } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
     hideLoading(); editingRow = null;
   }
 
@@ -3030,6 +3269,7 @@
   function editEquipo(idx) {
     const e = DATA.equipos[idx];
     editingRow = { sheet: 'Equipos', rowIndex: idx };
+    pendingEqFileBase64 = null;
     document.getElementById('modal-equipo-title').textContent = 'Editar equipo';
     poblarSelects();
     sv('eq-id', e.ID_Activo); sv('eq-tipo', e.Tipo_Equipo); sv('eq-marca', e.Marca);
@@ -3042,6 +3282,15 @@
     togglePeriodicidadCustom(e.Periodicidad_Mantenimiento);
     sv('eq-ultimo-preventivo', e.Fecha_Ultimo_Preventivo);
     sv('eq-observaciones', e.Observaciones);
+    // PDF manual existente
+    sv('eq-pdf-url', e.Manual_Ficha_Tecnica || '');
+    if (e.Manual_Ficha_Tecnica) {
+      document.getElementById('eq-pdf-preview').style.display = 'flex';
+      document.getElementById('eq-pdf-name').textContent = 'Manual adjunto (ver 📄)';
+    } else {
+      document.getElementById('eq-pdf-preview').style.display = 'none';
+      document.getElementById('eq-pdf-name').textContent = '';
+    }
     openModal('modal-equipo');
   }
 
@@ -3097,10 +3346,15 @@
   // ============================================================
   function openModalEquipo() {
     editingRow = null;
+    pendingEqFileBase64 = null;
     document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
     ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones','eq-periodicidad-custom'].forEach(id => sv(id, ''));
     ['eq-tipo','eq-ubicacion','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id, ''));
     sv('eq-estado', 'Operativo'); sv('eq-periodicidad', 'Anual');
+    sv('eq-pdf-url', '');
+    document.getElementById('eq-pdf-preview').style.display = 'none';
+    document.getElementById('eq-pdf-name').textContent = '';
+    if (document.getElementById('eq-pdf-input')) document.getElementById('eq-pdf-input').value = '';
     togglePeriodicidadCustom('Anual');
     poblarSelects();
     openModal('modal-equipo');
@@ -3210,9 +3464,9 @@
       verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
     },
     Gestor: {
-      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'ubicaciones'],
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'ubicaciones', 'usuarios'],
       verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
-      gestionarIncidencias: true, configuracion: true, usuarios: false, dashboard: true,
+      gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
       verProveedores: true, verUbicaciones: true, crearProveedores: true,
       verMaterial: true, editarMaterial: true, registrarConsumo: true,
       verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
@@ -3682,13 +3936,30 @@
     openModal('modal-consumo');
   }
 
+  function openModalConsumo() {
+    document.getElementById('consumo-material-id').value = '';
+    document.getElementById('consumo-material-selected').style.display = 'none';
+    document.getElementById('consumo-material-selected').textContent = '';
+    document.getElementById('consumo-search').value = '';
+    // Mostrar búsqueda cuando se abre sin item pre-seleccionado
+    const grp = document.getElementById('consumo-search-group');
+    if (grp) grp.style.display = '';
+    sv('consumo-cantidad',''); sv('consumo-motivo',''); sv('consumo-obs','');
+    openModal('modal-consumo');
+  }
+
   function openModalConsumoMaterial(matId) {
     openModalConsumo();
     const mat = DATA.material.find(m => m.ID_Material === matId);
     if (mat) {
       document.getElementById('consumo-material-id').value = matId;
       const sel = document.getElementById('consumo-material-selected');
-      sel.textContent = mat.Nombre;
+      sel.textContent = mat.Nombre + ' · Stock actual: ' + mat.Stock_Actual + ' ' + (mat.Unidad || '');
+      sel.style.display = 'block';
+      // Ocultar el buscador — ya sabemos qué item es
+      const grp = document.getElementById('consumo-search-group');
+      if (grp) grp.style.display = 'none';
+      // Mostrar el item seleccionado fuera del grupo de búsqueda
       sel.style.display = 'block';
     }
   }
@@ -3850,12 +4121,16 @@
           ${!lineas.length ? `<div class="empty-state" style="padding:24px"><div class="empty-state-icon">📝</div><div class="empty-state-title">Sin líneas todavía</div></div>` :
             lineas.map(l => {
               const estadoLinea = { 'Pendiente': 'badge-orange', 'Recibido parcialmente': 'badge-blue', 'Recibido': 'badge-green' }[l.Estado_Linea] || 'badge-gray';
-              return `<div class="linea-row">
+              const puedeEliminar = puedeEditar && l.Estado_Linea === 'Pendiente';
+              return `<div class="linea-row" style="grid-template-columns:1fr 70px 70px 110px auto">
                 <div style="font-weight:500;font-size:13px">${l.Material}</div>
                 <div style="text-align:center;font-size:12px;color:var(--text-soft)">Ped: ${l.Cantidad_Pedida}</div>
                 <div style="text-align:center;font-size:12px">Rec: ${l.Cantidad_Recibida||'0'}</div>
                 <div><span class="badge ${estadoLinea}" style="font-size:10px">${l.Estado_Linea||'Pendiente'}</span></div>
-                <div>${puedeEditar && l.Estado_Linea !== 'Recibido' ? `<button class="icon-btn" title="Registrar recepción" onclick="openModalRecepcion('${l.ID_Linea}','${pedidoId}')">📥</button>` : ''}</div>
+                <div style="display:flex;gap:4px">
+                  ${puedeEditar && l.Estado_Linea !== 'Recibido' ? `<button class="icon-btn" title="Registrar recepción" onclick="openModalRecepcion('${l.ID_Linea}','${pedidoId}')">📥</button>` : ''}
+                  ${puedeEliminar ? `<button class="icon-btn danger" title="Eliminar línea" onclick="eliminarLineaPedido('${l.ID_Linea}','${pedidoId}')">🗑️</button>` : ''}
+                </div>
               </div>`;
             }).join('')
           }
@@ -3874,6 +4149,9 @@
     let materialId = '';
     if (esNuevo) {
       materialNombre = v('sol-material-libre');
+      const unidad = v('sol-unidad');
+      if (!unidad) { showToast('La unidad es obligatoria para material no catalogado', 'error'); return; }
+      if (materialNombre) materialNombre = materialNombre + ' [' + unidad + ']';
     } else {
       materialId = document.getElementById('sol-material-id').value;
       const mat = DATA.material.find(m => m.ID_Material === materialId);
@@ -3937,10 +4215,13 @@
   async function solicitudAPedido(solId) {
     const pedidosAbiertos = DATA.pedidos.filter(p => p.Estado === 'Abierto');
     if (!pedidosAbiertos.length) {
-      if (confirm('No hay listas abiertas. ¿Crear una nueva?')) openModalNuevoPedido();
+      const sol = DATA.solicitudes.find(s => s.ID_Solicitud === solId);
+      if (sol) {
+        _pendingSolicitudParaPedido = { tipo: 'sol', solId, matNombre: sol.Material, cantidad: sol.Cantidad_Solicitada };
+      }
+      openModalNuevoPedido();
       return;
     }
-    // Guardar la solicitud seleccionada y abrir modal de selección
     document.getElementById('sel-ped-sol-id').value = solId;
     const lista = document.getElementById('sel-ped-lista');
     lista.innerHTML = pedidosAbiertos.map(p => {
@@ -3986,6 +4267,9 @@
   // ============================================================
   // PEDIDOS — GUARDAR
   // ============================================================
+  // Solicitud o material pendiente de añadir al próximo pedido que se cree
+  let _pendingSolicitudParaPedido = null;
+
   async function guardarNuevoPedido() {
     const nombre = v('ped-nombre');
     if (!nombre) { showToast('El nombre es obligatorio', 'error'); return; }
@@ -3997,9 +4281,75 @@
     try {
       await sheetsAppend('Pedidos', row);
       DATA.pedidos.push(rowToObj(row, 'pedidos'));
-      showToast('Lista creada', 'success');
       closeModal('modal-nuevo-pedido');
-      renderPedidos();
+
+      // Si había solicitud o item de stock pendiente de añadir, añadirlo automáticamente
+      if (_pendingSolicitudParaPedido) {
+        const { tipo, solId, matNombre, cantidad } = _pendingSolicitudParaPedido;
+        _pendingSolicitudParaPedido = null;
+        const idLinea = genId('LIN-');
+        const rowLinea = [idLinea, id, matNombre, cantidad, '0', 'Pendiente', tipo === 'sol' ? 'Desde solicitud ' + solId : 'Stock bajo mínimo'];
+        await sheetsAppend('Lineas_Pedido', rowLinea);
+        DATA.lineasPedido.push(rowToObj(rowLinea, 'lineasPedido'));
+
+        if (tipo === 'sol') {
+          const sol = DATA.solicitudes.find(s => s.ID_Solicitud === solId);
+          if (sol) {
+            const solIdx = DATA.solicitudes.indexOf(sol);
+            sol.Estado = 'En pedido'; sol.Lista_Pedido = id;
+            const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En pedido', id, sol.Observaciones];
+            await sheetsUpdate(`Solicitudes!A${solIdx + 2}:J${solIdx + 2}`, rowSol);
+          }
+        }
+        showToast(`Lista creada y "${matNombre}" añadido`, 'success');
+      } else {
+        showToast('Lista creada', 'success');
+      }
+      renderAll();
+    } catch(e) { showToast('Error', 'error'); console.error(e); }
+    hideLoading();
+  }
+
+  // Añadir item con stock bajo a pedido desde el panel principal
+  function solicitudStockAPedido(matId) {
+    const mat = DATA.material.find(m => m.ID_Material === matId);
+    if (!mat) return;
+    const cantidad = prompt(`¿Cuántas unidades (${mat.Unidad || 'uds'}) de "${mat.Nombre}" quieres pedir?`, mat.Stock_Optimo || '');
+    if (!cantidad || parseFloat(cantidad) <= 0) return;
+
+    const pedidosAbiertos = DATA.pedidos.filter(p => p.Estado === 'Abierto');
+    if (!pedidosAbiertos.length) {
+      _pendingSolicitudParaPedido = { tipo: 'stock', matNombre: mat.Nombre, cantidad };
+      openModalNuevoPedido();
+      return;
+    }
+
+    // Abrir modal de selección de pedido
+    document.getElementById('sel-ped-sol-id').value = '__stock__' + matId + '__' + cantidad;
+    const lista = document.getElementById('sel-ped-lista');
+    lista.innerHTML = pedidosAbiertos.map(p => {
+      const nLineas = DATA.lineasPedido.filter(l => l.Pedido === p.ID_Pedido).length;
+      return `<div class="pedido-opcion" onclick="confirmarStockAPedido('${p.ID_Pedido}','${mat.Nombre.replace(/'/g,"\\'")}','${cantidad}')">
+        <div>
+          <div class="pedido-opcion-nombre">${p.Nombre_Lista}</div>
+          <div class="pedido-opcion-meta">${p.Proveedor || 'Sin proveedor'} · ${nLineas} línea(s)</div>
+        </div>
+        <span style="color:var(--accent);font-size:18px">→</span>
+      </div>`;
+    }).join('');
+    openModal('modal-seleccionar-pedido');
+  }
+
+  async function confirmarStockAPedido(pedidoId, matNombre, cantidad) {
+    closeModal('modal-seleccionar-pedido');
+    const idLinea = genId('LIN-');
+    const row = [idLinea, pedidoId, matNombre, cantidad, '0', 'Pendiente', 'Stock bajo mínimo'];
+    showLoading('Añadiendo...');
+    try {
+      await sheetsAppend('Lineas_Pedido', row);
+      DATA.lineasPedido.push(rowToObj(row, 'lineasPedido'));
+      showToast(`"${matNombre}" añadido al pedido`, 'success');
+      renderAll();
     } catch(e) { showToast('Error', 'error'); }
     hideLoading();
   }
@@ -4073,7 +4423,7 @@
     const cantPed = parseFloat(l.Cantidad_Pedida) || 0;
 
     // Comprobar si el material está en el catálogo
-    const mat = DATA.material.find(m => m.Nombre === l.Material);
+    const mat = DATA.material.find(m => m.Nombre === l.Material || l.Material.startsWith(m.Nombre));
     if (!mat && cantRec > 0) {
       // Opción B: material no catalogado — guardar contexto y abrir formulario
       closeModal('modal-recepcion-linea');
@@ -4101,7 +4451,20 @@
   // Estado para recepción pendiente tras catalogar material nuevo
   let _pendingRecepcion = null;
 
-  async function guardarMaterial() {
+  async function eliminarLineaPedido(lineaId, pedidoId) {
+    if (!confirm('¿Eliminar esta línea del pedido?')) return;
+    const idx = DATA.lineasPedido.findIndex(l => l.ID_Linea === lineaId);
+    if (idx === -1) return;
+    showLoading('Eliminando...');
+    try {
+      // Borrar la fila en Sheets limpiando su contenido
+      await sheetsClear(`Lineas_Pedido!A${idx + 2}:G${idx + 2}`);
+      DATA.lineasPedido.splice(idx, 1);
+      showToast('Línea eliminada', 'success');
+      verDetallePedido(pedidoId);
+    } catch(e) { showToast('Error eliminando', 'error'); console.error(e); }
+    hideLoading();
+  }
     const id = v('mat-id'); const nombre = v('mat-nombre'); const cat = v('mat-categoria'); const unidad = v('mat-unidad');
     if (!id || !nombre || !cat || !unidad) { showToast('ID, nombre, categoría y unidad son obligatorios', 'error'); return; }
 
@@ -4134,7 +4497,7 @@
         const idx = DATA.lineasPedido.findIndex(l => l.ID_Linea === lineaId);
         if (idx !== -1) {
           const l = DATA.lineasPedido[idx];
-          const mat = DATA.material.find(m => m.Nombre === l.Material);
+          const mat = DATA.material.find(m => m.Nombre === l.Material || l.Material.startsWith(m.Nombre));
           const cantPed = parseFloat(l.Cantidad_Pedida) || 0;
           if (mat) {
             showToast('Material catalogado. Registrando recepción...', 'success');
@@ -4143,6 +4506,14 @@
           }
         }
       } else {
+        // Limpiar filtros para que el nuevo item sea visible
+        _filtroMaterial = '';
+        _filtroMaterialCat = '';
+        _filtroMaterialStock = '';
+        const searchInput = document.getElementById('search-material');
+        if (searchInput) searchInput.value = '';
+        const filterCat = document.getElementById('filter-material-cat');
+        if (filterCat) filterCat.value = '';
         renderAll();
       }
     } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
@@ -4208,6 +4579,7 @@
     document.getElementById('btn-source-nuevo').classList.toggle('active', !esCatalogo);
     document.getElementById('sol-catalogo-group').style.display = esCatalogo ? '' : 'none';
     document.getElementById('sol-nuevo-group').style.display = esCatalogo ? 'none' : '';
+    document.getElementById('sol-unidad-group').style.display = esCatalogo ? 'none' : '';
   }
 
   function setSourceLinea(source) {
