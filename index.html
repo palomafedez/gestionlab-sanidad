@@ -1379,6 +1379,7 @@
                 <th>Zona</th>
                 <th>Subzona</th>
                 <th>Descripción</th>
+                <th>Material</th>
                 <th>Activa</th>
                 <th></th>
               </tr>
@@ -1808,8 +1809,21 @@
         </div>
         <div class="form-group">
           <label>Categoría *</label>
-          <input id="mat-categoria" placeholder="Ej: Consumibles, Reactivos..." list="categorias-list">
-          <datalist id="categorias-list"></datalist>
+          <select id="mat-categoria">
+            <option value="">Seleccionar...</option>
+            <option>Consumible</option>
+            <option>Reactivo</option>
+            <option>Vidrio</option>
+            <option>Plástico</option>
+            <option>Papel y filtración</option>
+            <option>Equipamiento menor</option>
+            <option>Seguridad y EPI</option>
+            <option>Colorante y tinción</option>
+            <option>Medio de cultivo</option>
+            <option>Tampón y solución</option>
+            <option>Kit diagnóstico</option>
+            <option>Otro</option>
+          </select>
         </div>
         <div class="form-group">
           <label>Unidad de medida *</label>
@@ -1817,7 +1831,16 @@
         </div>
         <div class="form-group">
           <label>Ubicación</label>
-          <input id="mat-ubicacion" placeholder="Ej: Almacén general, Lab. Micro...">
+          <div class="search-material-wrap">
+            <span class="search-icon">📍</span>
+            <input type="text" id="mat-ubicacion-search" placeholder="Buscar ubicación..." oninput="buscarUbicacionMat(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="mat-ubicacion-autocomplete"></div>
+          </div>
+          <input type="hidden" id="mat-ubicacion">
+          <div id="mat-ubicacion-selected" style="display:none;margin-top:6px;padding:6px 10px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:12px;color:var(--accent);display:flex;align-items:center;justify-content:space-between">
+            <span id="mat-ubicacion-selected-text"></span>
+            <span style="cursor:pointer;color:var(--text-muted)" onclick="clearUbicacionMat()">✕</span>
+          </div>
         </div>
         <div class="form-group">
           <label>Proveedor habitual</label>
@@ -2641,28 +2664,51 @@
 
   function renderUbicaciones() {
     const tbody = document.getElementById('tabla-ubicaciones');
+    if (!tbody) return;
     if (!DATA.ubicaciones.length) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📍</div><div class="empty-state-title">Sin ubicaciones registradas</div></div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">📍</div><div class="empty-state-title">Sin ubicaciones registradas</div></div></td></tr>`;
       return;
     }
     const rol = getUserRole();
     const puedeEditar = rol === 'Administrador' || rol === 'Gestor';
 
-    // Ocultar botón nueva ubicación si es Profesor
     const btnNuevaUbi = document.getElementById('btn-nueva-ubicacion');
     if (btnNuevaUbi) btnNuevaUbi.style.display = puedeEditar ? '' : 'none';
 
-    tbody.innerHTML = DATA.ubicaciones.map(u => `<tr>
-      <td><strong>${u.ID_Ubicacion || '—'}</strong></td>
-      <td>${u.Laboratorio_Aula || '—'}</td>
-      <td>${u.Zona || '—'}</td>
-      <td>${u.Subzona || '—'}</td>
-      <td>${u.Descripcion_Completa || '—'}</td>
-      <td>${u.Activa !== 'FALSE' ? '<span class="badge badge-green">Sí</span>' : '<span class="badge badge-gray">No</span>'}</td>
-      <td><div class="row-actions">
-        ${puedeEditar ? `<button class="icon-btn" onclick="editUbicacion(${DATA.ubicaciones.indexOf(u)})">✏️</button>` : ''}
-      </div></td>
-    </tr>`).join('');
+    tbody.innerHTML = DATA.ubicaciones.map(u => {
+      // Materiales en esta ubicación
+      const matsAqui = DATA.material.filter(m => m.Ubicacion === u.ID_Ubicacion);
+      const matCell = matsAqui.length
+        ? `<span class="badge badge-blue" style="cursor:pointer" title="${matsAqui.map(m=>m.Nombre).join(', ')}" onclick="verMaterialUbicacion('${u.ID_Ubicacion}')">${matsAqui.length} ítem(s)</span>`
+        : `<span class="text-muted">—</span>`;
+
+      return `<tr>
+        <td><strong>${u.ID_Ubicacion || '—'}</strong></td>
+        <td>${u.Laboratorio_Aula || '—'}</td>
+        <td>${u.Zona || '—'}</td>
+        <td>${u.Subzona || '—'}</td>
+        <td style="font-size:12px;color:var(--text-muted)">${u.Descripcion_Completa || '—'}</td>
+        <td>${matCell}</td>
+        <td>${u.Activa !== 'FALSE' ? '<span class="badge badge-green">Sí</span>' : '<span class="badge badge-gray">No</span>'}</td>
+        <td><div class="row-actions">
+          ${puedeEditar ? `<button class="icon-btn" onclick="editUbicacion(${DATA.ubicaciones.indexOf(u)})">✏️</button>` : ''}
+        </div></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function verMaterialUbicacion(ubicacionId) {
+    // Filtrar inventario de material por esa ubicación y navegar
+    _filtroMaterial = '';
+    _filtroMaterialCat = '';
+    _filtroMaterialStock = '';
+    showPage('material');
+    // Filtrar por ubicación usando el buscador
+    const searchInput = document.getElementById('search-material');
+    if (searchInput) {
+      searchInput.value = ubicacionId;
+      filtrarMaterial(ubicacionId);
+    }
   }
 
   function renderUsuarios() {
@@ -3461,6 +3507,49 @@
   function buscarMaterialConsumo(v) { buscarMaterialGenerico(v, 'consumo-autocomplete', 'consumo-material-id', 'consumo-material-selected'); }
   function buscarMaterialEntrada(v) { buscarMaterialGenerico(v, 'entrada-autocomplete', 'entrada-material-id', 'entrada-material-selected'); }
 
+  // ============================================================
+  // AUTOCOMPLETE UBICACIONES (para modal material)
+  // ============================================================
+  function buscarUbicacionMat(query) {
+    const list = document.getElementById('mat-ubicacion-autocomplete');
+    if (!list) return;
+    if (!query || query.length < 1) { list.classList.remove('open'); return; }
+    const q = query.toLowerCase();
+    const resultados = DATA.ubicaciones.filter(u =>
+      u.Activa !== 'FALSE' && (
+        u.ID_Ubicacion.toLowerCase().includes(q) ||
+        (u.Laboratorio_Aula || '').toLowerCase().includes(q) ||
+        (u.Zona || '').toLowerCase().includes(q)
+      )
+    ).slice(0, 8);
+
+    if (!resultados.length) { list.classList.remove('open'); return; }
+    list.innerHTML = resultados.map(u => `
+      <div class="autocomplete-item" onclick="seleccionarUbicacionMat('${u.ID_Ubicacion}', '${(u.Laboratorio_Aula + (u.Zona ? ' · ' + u.Zona : '')).replace(/'/g,"\\'")}')">
+        <div>
+          <div class="autocomplete-item-name">${u.ID_Ubicacion}</div>
+          <div class="autocomplete-item-meta">${u.Laboratorio_Aula || ''}${u.Zona ? ' · ' + u.Zona : ''}</div>
+        </div>
+      </div>`).join('');
+    list.classList.add('open');
+  }
+
+  function seleccionarUbicacionMat(id, label) {
+    document.getElementById('mat-ubicacion').value = id;
+    document.getElementById('mat-ubicacion-search').value = '';
+    document.getElementById('mat-ubicacion-autocomplete').classList.remove('open');
+    const sel = document.getElementById('mat-ubicacion-selected');
+    document.getElementById('mat-ubicacion-selected-text').textContent = id + ' — ' + label;
+    sel.style.display = 'flex';
+  }
+
+  function clearUbicacionMat() {
+    document.getElementById('mat-ubicacion').value = '';
+    document.getElementById('mat-ubicacion-search').value = '';
+    const sel = document.getElementById('mat-ubicacion-selected');
+    sel.style.display = 'none';
+  }
+
   // Cerrar autocomplete al hacer clic fuera
   document.addEventListener('click', (e) => {
     if (!e.target.closest('.search-material-wrap')) {
@@ -3471,32 +3560,6 @@
   // ============================================================
   // MATERIAL FUNGIBLE — GUARDAR
   // ============================================================
-  async function guardarMaterial() {
-    const id = v('mat-id'); const nombre = v('mat-nombre'); const cat = v('mat-categoria'); const unidad = v('mat-unidad');
-    if (!id || !nombre || !cat || !unidad) { showToast('ID, nombre, categoría y unidad son obligatorios', 'error'); return; }
-
-    const row = [id, nombre, cat, v('mat-referencia'), v('mat-proveedor'), unidad, v('mat-ubicacion'),
-      v('mat-stock') || '0', v('mat-minimo') || '0', v('mat-optimo') || '0', v('mat-observaciones')];
-
-    showLoading('Guardando...');
-    try {
-      if (editingRow && editingRow.sheet === 'Material') {
-        await sheetsUpdate(`Material!A${editingRow.rowIndex + 2}:K${editingRow.rowIndex + 2}`, row);
-        DATA.material[editingRow.rowIndex] = rowToObj(row, 'material');
-        showToast('Material actualizado', 'success');
-      } else {
-        // Verificar que el ID no existe ya
-        if (DATA.material.find(m => m.ID_Material === id)) { showToast('Ese ID ya existe', 'error'); hideLoading(); return; }
-        await sheetsAppend('Material', row);
-        DATA.material.push(rowToObj(row, 'material'));
-        showToast('Material guardado', 'success');
-      }
-      closeModal('modal-material');
-      renderAll();
-    } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
-    hideLoading(); editingRow = null;
-  }
-
   async function guardarConsumo() {
     const matId = document.getElementById('consumo-material-id').value;
     const cantStr = v('consumo-cantidad');
@@ -3570,9 +3633,9 @@
   function openModalMaterial() {
     editingRow = null;
     document.getElementById('modal-material-title').textContent = 'Nuevo material';
-    ['mat-id','mat-nombre','mat-categoria','mat-unidad','mat-ubicacion','mat-referencia','mat-observaciones'].forEach(id => sv(id,''));
-    sv('mat-stock','0'); sv('mat-minimo','0'); sv('mat-optimo','0'); sv('mat-proveedor','');
-    // Poblar proveedor en modal material
+    ['mat-id','mat-nombre','mat-unidad','mat-ubicacion','mat-referencia','mat-observaciones','mat-ubicacion-search'].forEach(id => sv(id,''));
+    sv('mat-categoria',''); sv('mat-stock','0'); sv('mat-minimo','0'); sv('mat-optimo','0'); sv('mat-proveedor','');
+    clearUbicacionMat();
     const sel = document.getElementById('mat-proveedor');
     if (sel) {
       sel.innerHTML = '<option value="">Seleccionar...</option>' +
@@ -3587,9 +3650,20 @@
     document.getElementById('modal-material-title').textContent = 'Editar material';
     sv('mat-id', m.ID_Material); sv('mat-nombre', m.Nombre); sv('mat-categoria', m.Categoria);
     sv('mat-referencia', m.Referencia_Proveedor); sv('mat-unidad', m.Unidad);
-    sv('mat-ubicacion', m.Ubicacion); sv('mat-stock', m.Stock_Actual);
+    sv('mat-ubicacion', m.Ubicacion);
+    sv('mat-stock', m.Stock_Actual);
     sv('mat-minimo', m.Stock_Minimo); sv('mat-optimo', m.Stock_Optimo);
     sv('mat-observaciones', m.Observaciones);
+    // Mostrar ubicación seleccionada si existe
+    if (m.Ubicacion) {
+      const ubi = DATA.ubicaciones.find(u => u.ID_Ubicacion === m.Ubicacion);
+      const label = ubi ? m.Ubicacion + ' — ' + (ubi.Laboratorio_Aula || '') + (ubi.Zona ? ' · ' + ubi.Zona : '') : m.Ubicacion;
+      document.getElementById('mat-ubicacion-selected-text').textContent = label;
+      document.getElementById('mat-ubicacion-selected').style.display = 'flex';
+    } else {
+      clearUbicacionMat();
+    }
+    sv('mat-ubicacion-search', '');
     const sel = document.getElementById('mat-proveedor');
     if (sel) {
       sel.innerHTML = '<option value="">Seleccionar...</option>' +
@@ -3998,9 +4072,87 @@
     const l = DATA.lineasPedido[idx];
     const cantPed = parseFloat(l.Cantidad_Pedida) || 0;
 
+    // Comprobar si el material está en el catálogo
+    const mat = DATA.material.find(m => m.Nombre === l.Material);
+    if (!mat && cantRec > 0) {
+      // Opción B: material no catalogado — guardar contexto y abrir formulario
+      closeModal('modal-recepcion-linea');
+      _pendingRecepcion = { lineaId, pedidoId, cantRec, obs: v('rec-obs') };
+      openModalMaterial();
+      sv('mat-nombre', l.Material);
+      // Aviso dentro del modal
+      setTimeout(() => {
+        const footer = document.querySelector('#modal-material .form-footer');
+        if (footer && !document.getElementById('aviso-recepcion-pendiente')) {
+          const aviso = document.createElement('div');
+          aviso.id = 'aviso-recepcion-pendiente';
+          aviso.style.cssText = 'grid-column:1/-1;padding:10px 12px;background:var(--warning-light);border-radius:var(--radius-sm);font-size:12px;color:var(--warning);border:1px solid #e8c98a;margin-bottom:4px';
+          aviso.innerHTML = '⚠️ Al guardar, se registrará automáticamente la recepción de <strong>' + cantRec + ' uds de ' + l.Material + '</strong> del pedido ' + pedidoId + '.';
+          footer.before(aviso);
+        }
+      }, 100);
+      showToast('Este material no está catalogado. Completa su ficha para continuar.', 'error');
+      return;
+    }
+
+    await _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, v('rec-obs'));
+  }
+
+  // Estado para recepción pendiente tras catalogar material nuevo
+  let _pendingRecepcion = null;
+
+  async function guardarMaterial() {
+    const id = v('mat-id'); const nombre = v('mat-nombre'); const cat = v('mat-categoria'); const unidad = v('mat-unidad');
+    if (!id || !nombre || !cat || !unidad) { showToast('ID, nombre, categoría y unidad son obligatorios', 'error'); return; }
+
+    const row = [id, nombre, cat, v('mat-referencia'), v('mat-proveedor'), unidad, v('mat-ubicacion'),
+      v('mat-stock') || '0', v('mat-minimo') || '0', v('mat-optimo') || '0', v('mat-observaciones')];
+
+    showLoading('Guardando...');
+    try {
+      if (editingRow && editingRow.sheet === 'Material') {
+        await sheetsUpdate(`Material!A${editingRow.rowIndex + 2}:K${editingRow.rowIndex + 2}`, row);
+        DATA.material[editingRow.rowIndex] = rowToObj(row, 'material');
+        showToast('Material actualizado', 'success');
+      } else {
+        if (DATA.material.find(m => m.ID_Material === id)) { showToast('Ese ID ya existe', 'error'); hideLoading(); return; }
+        await sheetsAppend('Material', row);
+        DATA.material.push(rowToObj(row, 'material'));
+        showToast('Material guardado', 'success');
+      }
+
+      // Limpiar aviso pendiente
+      const aviso = document.getElementById('aviso-recepcion-pendiente');
+      if (aviso) aviso.remove();
+      closeModal('modal-material');
+      editingRow = null;
+
+      // Si había una recepción pendiente, completarla ahora
+      if (_pendingRecepcion) {
+        const { lineaId, pedidoId, cantRec, obs } = _pendingRecepcion;
+        _pendingRecepcion = null;
+        const idx = DATA.lineasPedido.findIndex(l => l.ID_Linea === lineaId);
+        if (idx !== -1) {
+          const l = DATA.lineasPedido[idx];
+          const mat = DATA.material.find(m => m.Nombre === l.Material);
+          const cantPed = parseFloat(l.Cantidad_Pedida) || 0;
+          if (mat) {
+            showToast('Material catalogado. Registrando recepción...', 'success');
+            await _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, obs);
+            verDetallePedido(pedidoId);
+          }
+        }
+      } else {
+        renderAll();
+      }
+    } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+    hideLoading();
+  }
+
+  async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, obs) {
     l.Cantidad_Recibida = String(cantRec);
     l.Estado_Linea = cantRec >= cantPed ? 'Recibido' : (cantRec > 0 ? 'Recibido parcialmente' : 'Pendiente');
-    if (v('rec-obs')) l.Observaciones = v('rec-obs');
+    if (obs) l.Observaciones = obs;
 
     const row = [l.ID_Linea, l.Pedido, l.Material, l.Cantidad_Pedida, l.Cantidad_Recibida, l.Estado_Linea, l.Observaciones];
 
@@ -4008,8 +4160,6 @@
     try {
       await sheetsUpdate(`Lineas_Pedido!A${idx + 2}:G${idx + 2}`, row);
 
-      // Si el material está en catálogo, actualizar stock con una entrada
-      const mat = DATA.material.find(m => m.Nombre === l.Material);
       if (mat && cantRec > 0) {
         const nuevoStock = (parseFloat(mat.Stock_Actual) || 0) + cantRec;
         const idxMat = DATA.material.indexOf(mat);
@@ -4034,7 +4184,6 @@
           showToast('¡Pedido completo! Estado actualizado automáticamente', 'success');
         }
       } else {
-        // Recepción parcial
         const pedIdx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
         if (pedIdx !== -1 && DATA.pedidos[pedIdx].Estado === 'Presupuesto aprobado') {
           DATA.pedidos[pedIdx].Estado = 'Recepción parcial';
@@ -4046,7 +4195,6 @@
 
       showToast('Recepción registrada', 'success');
       closeModal('modal-recepcion-linea');
-      verDetallePedido(pedidoId);
     } catch(e) { showToast('Error', 'error'); console.error(e); }
     hideLoading();
   }
