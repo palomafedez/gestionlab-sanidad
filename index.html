@@ -4465,6 +4465,8 @@
     } catch(e) { showToast('Error eliminando', 'error'); console.error(e); }
     hideLoading();
   }
+
+  async function guardarMaterial() {
     const id = v('mat-id'); const nombre = v('mat-nombre'); const cat = v('mat-categoria'); const unidad = v('mat-unidad');
     if (!id || !nombre || !cat || !unidad) { showToast('ID, nombre, categoría y unidad son obligatorios', 'error'); return; }
 
