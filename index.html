@@ -840,6 +840,16 @@
     .toggle-source button { flex: 1; padding: 7px 12px; font-size: 12px; font-weight: 500; border: none; background: var(--surface2); color: var(--text-soft); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
     .toggle-source button.active { background: var(--accent); color: white; }
 
+    /* SELECCIONAR PEDIDO — opciones */
+    .pedido-opcion {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 14px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+      cursor: pointer; transition: all 0.15s; background: var(--surface);
+    }
+    .pedido-opcion:hover { border-color: var(--accent); background: var(--accent-light); }
+    .pedido-opcion-nombre { font-weight: 500; font-size: 13px; }
+    .pedido-opcion-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
     /* MULTI-SELECT CHECKBOXES para tipos de proveedor */
     .checkbox-group {
       display: flex;
@@ -2109,6 +2119,26 @@
       <div class="form-footer">
         <button class="btn btn-secondary" onclick="closeModal('modal-estado-pedido')">Cancelar</button>
         <button class="btn btn-primary" onclick="guardarEstadoPedido()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Seleccionar Pedido -->
+<div class="modal-overlay" id="modal-seleccionar-pedido">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Añadir a lista de pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-seleccionar-pedido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sel-ped-sol-id">
+      <p style="font-size:13px;color:var(--text-soft);margin-bottom:14px">Elige la lista a la que quieres añadir esta solicitud:</p>
+      <div id="sel-ped-lista" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-secondary" style="width:100%" onclick="closeModal('modal-seleccionar-pedido');openModalNuevoPedido()">
+          + Crear nueva lista de pedido
+        </button>
       </div>
     </div>
   </div>
@@ -3831,24 +3861,39 @@
   }
 
   async function solicitudAPedido(solId) {
-    // Abre modal de selección de pedido abierto
     const pedidosAbiertos = DATA.pedidos.filter(p => p.Estado === 'Abierto');
     if (!pedidosAbiertos.length) {
       if (confirm('No hay listas abiertas. ¿Crear una nueva?')) openModalNuevoPedido();
       return;
     }
-    const opciones = pedidosAbiertos.map(p => `${p.ID_Pedido}: ${p.Nombre_Lista}`).join('\n');
-    const seleccion = prompt(`Elige el ID del pedido al que añadir:\n${opciones}`);
-    if (!seleccion) return;
-    const pedidoId = seleccion.split(':')[0].trim();
-    const pedido = DATA.pedidos.find(p => p.ID_Pedido === pedidoId);
-    if (!pedido) { showToast('Pedido no encontrado', 'error'); return; }
+    // Guardar la solicitud seleccionada y abrir modal de selección
+    document.getElementById('sel-ped-sol-id').value = solId;
+    const lista = document.getElementById('sel-ped-lista');
+    lista.innerHTML = pedidosAbiertos.map(p => {
+      const nLineas = DATA.lineasPedido.filter(l => l.Pedido === p.ID_Pedido).length;
+      return `<div class="pedido-opcion" onclick="confirmarSolicitudAPedido('${p.ID_Pedido}')">
+        <div>
+          <div class="pedido-opcion-nombre">${p.Nombre_Lista}</div>
+          <div class="pedido-opcion-meta">${p.Proveedor || 'Sin proveedor asignado'} · ${nLineas} línea(s)</div>
+        </div>
+        <span style="color:var(--accent);font-size:18px">→</span>
+      </div>`;
+    }).join('');
+    openModal('modal-seleccionar-pedido');
+  }
 
+  async function confirmarSolicitudAPedido(pedidoId) {
+    const solId = document.getElementById('sel-ped-sol-id').value;
+    closeModal('modal-seleccionar-pedido');
+
+    const pedido = DATA.pedidos.find(p => p.ID_Pedido === pedidoId);
     const sol = DATA.solicitudes.find(s => s.ID_Solicitud === solId);
+    if (!pedido || !sol) { showToast('Error al añadir al pedido', 'error'); return; }
+
     const idLinea = genId('LIN-');
     const rowLinea = [idLinea, pedidoId, sol.Material, sol.Cantidad_Solicitada, '0', 'Pendiente', 'Desde solicitud ' + solId];
 
-    showLoading('Añadiendo...');
+    showLoading('Añadiendo al pedido...');
     try {
       await sheetsAppend('Lineas_Pedido', rowLinea);
       DATA.lineasPedido.push(rowToObj(rowLinea, 'lineasPedido'));
@@ -3858,7 +3903,7 @@
       const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En pedido', pedidoId, sol.Observaciones];
       await sheetsUpdate(`Solicitudes!A${solIdx + 2}:J${solIdx + 2}`, rowSol);
 
-      showToast('Añadido al pedido', 'success');
+      showToast(`Añadido a "${pedido.Nombre_Lista}"`, 'success');
       renderAll();
     } catch(e) { showToast('Error', 'error'); console.error(e); }
     hideLoading();
