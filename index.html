@@ -809,6 +809,37 @@
     }
     .quick-register-btn:hover { background: #a86c2f; }
 
+    /* PEDIDOS — estados */
+    .estado-pedido { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .estado-abierto     { background: #e8f0eb; color: #2d5a3d; }
+    .estado-presupuesto { background: #e8f0fd; color: #2d5093; }
+    .estado-aprobado    { background: #fdf3e7; color: #c17f3a; }
+    .estado-recepcion   { background: #f3e8fd; color: #7a2d93; }
+    .estado-completo    { background: #e8f0eb; color: #2d5a3d; border: 1.5px solid #2d5a3d; }
+    .estado-factura     { background: #1a1714; color: white; }
+
+    /* PEDIDOS — card */
+    .pedido-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; margin-bottom: 12px; cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; }
+    .pedido-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+    .pedido-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; gap: 12px; flex-wrap: wrap; }
+    .pedido-card-title { font-weight: 600; font-size: 14px; }
+    .pedido-card-meta { font-size: 12px; color: var(--text-muted); }
+    .pedido-card-stats { display: flex; gap: 16px; margin-top: 10px; flex-wrap: wrap; }
+    .pedido-stat { font-size: 12px; color: var(--text-soft); }
+    .pedido-stat strong { color: var(--text); }
+
+    /* LÍNEAS */
+    .linea-row { display: grid; grid-template-columns: 1fr 70px 70px 110px 28px; gap: 8px; align-items: center; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); margin-bottom: 6px; font-size: 13px; background: var(--surface); }
+    .linea-row:hover { background: var(--surface2); }
+
+    /* SOLICITUDES */
+    .badge-solicitud-nueva { background: #f3e8fd; color: #7a2d93; }
+
+    /* TOGGLE catálogo/nuevo */
+    .toggle-source { display: flex; gap: 0; border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin-bottom: 12px; }
+    .toggle-source button { flex: 1; padding: 7px 12px; font-size: 12px; font-weight: 500; border: none; background: var(--surface2); color: var(--text-soft); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.15s; }
+    .toggle-source button.active { background: var(--accent); color: white; }
+
     /* MULTI-SELECT CHECKBOXES para tipos de proveedor */
     .checkbox-group {
       display: flex;
@@ -948,6 +979,13 @@
       <div class="nav-item" onclick="showPage('movimientos')">
         <span class="nav-icon">📦</span> Movimientos
       </div>
+      <div class="nav-item" onclick="showPage('solicitudes')">
+        <span class="nav-icon">📋</span> Solicitudes
+        <span class="nav-badge" id="badge-solicitudes" style="display:none">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('pedidos')" id="nav-pedidos">
+        <span class="nav-icon">🛒</span> Pedidos
+      </div>
       <div class="nav-section-label" style="margin-top:12px" id="label-catalogo">Catálogo</div>
       <div class="nav-item" onclick="showPage('proveedores')" id="nav-proveedores">
         <span class="nav-icon">🏢</span> Proveedores
@@ -1042,6 +1080,68 @@
             <tbody id="tabla-proximos"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- SOLICITUDES -->
+      <div class="page" id="page-solicitudes">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Solicitudes de material</div>
+            <div class="card-actions">
+              <select class="filter" onchange="filtrarSolicitudesEstado(this.value)">
+                <option value="">Todos los estados</option>
+                <option>Pendiente</option>
+                <option>En pedido</option>
+                <option>Recibido</option>
+                <option>Rechazado</option>
+              </select>
+              <button class="btn btn-primary" onclick="openModalSolicitud()">+ Nueva solicitud</button>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Material</th>
+                <th>Cantidad</th>
+                <th>Solicitante</th>
+                <th>Fecha</th>
+                <th>Urgencia</th>
+                <th>Proveedor requerido</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-solicitudes"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- PEDIDOS -->
+      <div class="page" id="page-pedidos">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <select class="filter" onchange="filtrarPedidosEstado(this.value)">
+              <option value="">Todos los estados</option>
+              <option>Abierto</option>
+              <option>Presupuesto solicitado</option>
+              <option>Presupuesto aprobado</option>
+              <option>Recepción parcial</option>
+              <option>Recepción completa</option>
+              <option>Factura recibida</option>
+            </select>
+          </div>
+          <button class="btn btn-primary" onclick="openModalNuevoPedido()">+ Nueva lista de pedido</button>
+        </div>
+        <div id="pedidos-lista"></div>
+      </div>
+
+      <!-- DETALLE PEDIDO (panel lateral simulado como página) -->
+      <div class="page" id="page-pedido-detalle">
+        <div style="margin-bottom:16px">
+          <button class="btn btn-secondary" onclick="showPage('pedidos')">← Volver a pedidos</button>
+        </div>
+        <div id="pedido-detalle-contenido"></div>
       </div>
 
       <!-- MATERIAL FUNGIBLE -->
@@ -1830,6 +1930,226 @@
   </div>
 </div>
 
+<!-- Modal Solicitud -->
+<div class="modal-overlay" id="modal-solicitud">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title">Nueva solicitud de material</div>
+      <button class="modal-close" onclick="closeModal('modal-solicitud')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="toggle-source">
+        <button id="btn-source-catalogo" class="active" onclick="setSourceSolicitud('catalogo')">Buscar en catálogo</button>
+        <button id="btn-source-nuevo" onclick="setSourceSolicitud('nuevo')">Material no catalogado</button>
+      </div>
+      <div class="form-grid" style="gap:14px">
+        <!-- Búsqueda catálogo -->
+        <div class="form-group" id="sol-catalogo-group">
+          <label>Material *</label>
+          <div class="search-material-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="sol-search" placeholder="Escribe para buscar..." oninput="buscarMaterialSolicitud(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="sol-autocomplete"></div>
+          </div>
+          <input type="hidden" id="sol-material-id">
+          <div id="sol-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
+        </div>
+        <!-- Material libre -->
+        <div class="form-group" id="sol-nuevo-group" style="display:none">
+          <label>Nombre del material *</label>
+          <input id="sol-material-libre" placeholder="Describe el material que necesitas...">
+        </div>
+        <div class="form-grid form-grid-2" style="width:100%">
+          <div class="form-group">
+            <label>Cantidad *</label>
+            <input id="sol-cantidad" type="number" min="0.01" step="0.01" placeholder="">
+          </div>
+          <div class="form-group">
+            <label>Urgencia</label>
+            <select id="sol-urgencia">
+              <option>Normal</option>
+              <option>Urgente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Fecha en que se necesita</label>
+            <input id="sol-fecha-necesidad" type="date">
+          </div>
+          <div class="form-group">
+            <label>Proveedor requerido</label>
+            <select id="sol-proveedor"><option value="">Sin preferencia</option></select>
+          </div>
+          <div class="form-group full">
+            <label>Motivo / para qué práctica</label>
+            <input id="sol-motivo" placeholder="Ej: Práctica de PCR, control de calidad...">
+          </div>
+          <div class="form-group full">
+            <label>Observaciones</label>
+            <textarea id="sol-obs" style="min-height:60px" placeholder=""></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-solicitud')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarSolicitud()">Enviar solicitud</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nueva Lista de Pedido -->
+<div class="modal-overlay" id="modal-nuevo-pedido">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Nueva lista de pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-nuevo-pedido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Nombre de la lista *</label>
+          <input id="ped-nombre" placeholder="Ej: Consumibles mayo, Sigma junio...">
+        </div>
+        <div class="form-group">
+          <label>Proveedor (opcional)</label>
+          <select id="ped-proveedor"><option value="">Sin asignar todavía</option></select>
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <textarea id="ped-obs" style="min-height:60px" placeholder=""></textarea>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-nuevo-pedido')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarNuevoPedido()">Crear lista</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Añadir Línea a Pedido -->
+<div class="modal-overlay" id="modal-nueva-linea">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Añadir línea al pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-nueva-linea')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="linea-pedido-id">
+      <div class="toggle-source">
+        <button id="btn-lsource-catalogo" class="active" onclick="setSourceLinea('catalogo')">Buscar en catálogo</button>
+        <button id="btn-lsource-libre" onclick="setSourceLinea('libre')">Material libre</button>
+      </div>
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group" id="linea-catalogo-group">
+          <label>Material *</label>
+          <div class="search-material-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="linea-search" placeholder="Escribe para buscar..." oninput="buscarMaterialLinea(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="linea-autocomplete"></div>
+          </div>
+          <input type="hidden" id="linea-material-id">
+          <div id="linea-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
+        </div>
+        <div class="form-group" id="linea-libre-group" style="display:none">
+          <label>Descripción del material *</label>
+          <input id="linea-material-libre" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Cantidad *</label>
+          <input id="linea-cantidad" type="number" min="0.01" step="0.01" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <input id="linea-obs" placeholder="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-nueva-linea')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarLineaPedido()">Añadir línea</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cambiar Estado Pedido -->
+<div class="modal-overlay" id="modal-estado-pedido">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">Actualizar estado del pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-estado-pedido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="estado-pedido-id">
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Nuevo estado *</label>
+          <select id="estado-pedido-nuevo">
+            <option>Abierto</option>
+            <option>Presupuesto solicitado</option>
+            <option>Presupuesto aprobado</option>
+            <option>Recepción parcial</option>
+            <option>Recepción completa</option>
+            <option>Factura recibida</option>
+          </select>
+        </div>
+        <div class="form-group" id="grupo-num-presupuesto" style="display:none">
+          <label>Nº presupuesto</label>
+          <input id="estado-num-presupuesto" placeholder="">
+        </div>
+        <div class="form-group" id="grupo-num-factura" style="display:none">
+          <label>Nº factura</label>
+          <input id="estado-num-factura" placeholder="">
+        </div>
+        <div class="form-group" id="grupo-proveedor-estado" style="display:none">
+          <label>Proveedor (si aún no asignado)</label>
+          <select id="estado-proveedor"><option value="">Sin cambios</option></select>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-estado-pedido')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarEstadoPedido()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Recepción Línea -->
+<div class="modal-overlay" id="modal-recepcion-linea">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Registrar recepción</div>
+      <button class="modal-close" onclick="closeModal('modal-recepcion-linea')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rec-linea-id">
+      <input type="hidden" id="rec-pedido-id">
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Material</label>
+          <div id="rec-material-nombre" style="font-weight:500;font-size:13px;padding:8px 0"></div>
+        </div>
+        <div class="form-group">
+          <label>Cantidad pedida</label>
+          <div id="rec-cantidad-pedida" style="font-size:13px;color:var(--text-soft);padding:4px 0"></div>
+        </div>
+        <div class="form-group">
+          <label>Cantidad recibida *</label>
+          <input id="rec-cantidad" type="number" min="0" step="0.01" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <input id="rec-obs" placeholder="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-recepcion-linea')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarRecepcionLinea()">Confirmar recepción</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   // ============================================================
   // CONFIGURACIÓN
@@ -1843,7 +2163,7 @@
   // ============================================================
   let tokenClient, accessToken;
   let currentUser = null;
-  let DATA = { equipos: [], intervenciones: [], incidencias: [], proveedores: [], ubicaciones: [], usuarios: [], material: [], movimientos: [] };
+  let DATA = { equipos: [], intervenciones: [], incidencias: [], proveedores: [], ubicaciones: [], usuarios: [], material: [], movimientos: [], solicitudes: [], pedidos: [], lineasPedido: [], ciclosModulos: [] };
   let editingRow = null;
   let pendingFileBase64 = null;
 
@@ -1947,7 +2267,7 @@
   async function loadAllData() {
     showLoading('Cargando datos...');
     try {
-      const [equipos, intervenciones, incidencias, proveedores, ubicaciones, usuarios, material, movimientos] = await Promise.all([
+      const [equipos, intervenciones, incidencias, proveedores, ubicaciones, usuarios, material, movimientos, solicitudes, pedidos, lineasPedido, ciclosModulos] = await Promise.all([
         sheetsGet('Equipos!A2:R'),
         sheetsGet('Intervenciones!A2:Q'),
         sheetsGet('Incidencias!A2:I'),
@@ -1955,7 +2275,11 @@
         sheetsGet('Ubicaciones!A2:F'),
         sheetsGet('Usuarios!A2:E'),
         sheetsGet('Material!A2:K'),
-        sheetsGet('Movimientos!A2:H')
+        sheetsGet('Movimientos!A2:H'),
+        sheetsGet('Solicitudes!A2:J'),
+        sheetsGet('Pedidos!A2:M'),
+        sheetsGet('Lineas_Pedido!A2:G'),
+        sheetsGet('Ciclos_Modulos!A2:B')
       ]);
 
       const cols = {
@@ -1966,7 +2290,11 @@
         ubicaciones: ['ID_Ubicacion','Laboratorio_Aula','Zona','Subzona','Descripcion_Completa','Activa'],
         usuarios: ['ID_Usuario','Nombre','Email','Rol','Activo'],
         material: ['ID_Material','Nombre','Categoria','Referencia_Proveedor','Proveedor','Unidad','Ubicacion','Stock_Actual','Stock_Minimo','Stock_Optimo','Observaciones'],
-        movimientos: ['ID_Movimiento','Material','Tipo','Cantidad','Usuario','Fecha','Motivo','Observaciones']
+        movimientos: ['ID_Movimiento','Material','Tipo','Cantidad','Usuario','Fecha','Motivo','Observaciones'],
+        solicitudes: ['ID_Solicitud','Material','Cantidad_Solicitada','Solicitante','Fecha','Motivo','Proveedor_Requerido','Estado','Lista_Pedido','Observaciones'],
+        pedidos: ['ID_Pedido','Nombre_Lista','Proveedor','Fecha_Creacion','Fecha_Presupuesto','Fecha_Aprobacion','Fecha_Pedido_Enviado','Fecha_Recepcion_Completa','Fecha_Factura','Estado','Numero_Presupuesto','Numero_Factura','Observaciones'],
+        lineasPedido: ['ID_Linea','Pedido','Material','Cantidad_Pedida','Cantidad_Recibida','Estado_Linea','Observaciones'],
+        ciclosModulos: ['Ciclo','Modulo']
       };
 
       const toObj = (rows, keys) => rows.filter(r => r.length && r[0]).map(r => {
@@ -1981,6 +2309,10 @@
       DATA.usuarios = toObj(usuarios, cols.usuarios);
       DATA.material = toObj(material, cols.material);
       DATA.movimientos = toObj(movimientos, cols.movimientos);
+      DATA.solicitudes = toObj(solicitudes, cols.solicitudes);
+      DATA.pedidos = toObj(pedidos, cols.pedidos);
+      DATA.lineasPedido = toObj(lineasPedido, cols.lineasPedido);
+      DATA.ciclosModulos = toObj(ciclosModulos, cols.ciclosModulos);
 
       renderAll();
     } catch(e) {
@@ -2003,13 +2335,15 @@
     renderUsuarios();
     renderMaterial();
     renderMovimientos();
+    renderSolicitudes();
+    renderPedidos();
     poblarSelects();
     updateBadges();
     aplicarPermisosUI();
   }
 
   function renderDashboard() {
-    document.getElementById('stat-equipos').textContent = DATA.equipos.length;
+    setText('stat-equipos', DATA.equipos.length);
 
     const hoy = new Date();
     const en30 = new Date(); en30.setDate(hoy.getDate() + 30);
@@ -2017,10 +2351,10 @@
       if (!e.Fecha_Proximo_Preventivo) return false;
       return new Date(e.Fecha_Proximo_Preventivo) <= en30;
     });
-    document.getElementById('stat-preventivos').textContent = preventivos.length;
+    setText('stat-preventivos', preventivos.length);
 
     const incAbiertas = DATA.incidencias.filter(i => i.Estado === 'Abierta' || i.Estado === 'En gestión');
-    document.getElementById('stat-incidencias').textContent = incAbiertas.length;
+    setText('stat-incidencias', incAbiertas.length);
 
     const mesActual = hoy.getMonth(); const anioActual = hoy.getFullYear();
     const intMes = DATA.intervenciones.filter(i => {
@@ -2028,10 +2362,11 @@
       const f = new Date(i.Fecha_Realizacion);
       return f.getMonth() === mesActual && f.getFullYear() === anioActual;
     });
-    document.getElementById('stat-intervenciones').textContent = intMes.length;
+    // stat-intervenciones fue reemplazado por stat-stock-bajo; se actualiza más abajo
 
     // Alertas
     const alertas = document.getElementById('alertas-container');
+    if (!alertas) return;
     alertas.innerHTML = '';
 
     const vencidos = DATA.equipos.filter(e => {
@@ -2077,9 +2412,10 @@
       const min = parseFloat(m.Stock_Minimo) || 0;
       return min > 0 && stock <= min;
     });
-    document.getElementById('stat-stock-bajo').textContent = bajominimo.length;
+    setText('stat-stock-bajo', bajominimo.length);
 
     const alertasStock = document.getElementById('alertas-stock-container');
+    if (!alertasStock) return;
     alertasStock.innerHTML = '';
     if (bajominimo.length) {
       const criticos = bajominimo.filter(m => (parseFloat(m.Stock_Actual) || 0) === 0);
@@ -2782,32 +3118,36 @@
   // ============================================================
   const PERMISOS = {
     Alumno: {
-      nav: ['equipos', 'incidencias'],
+      nav: ['equipos', 'incidencias', 'solicitudes'],
       verIntervenciones: false, editarEquipos: false, crearIntervenciones: false,
       gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: false,
       verProveedores: false, verUbicaciones: false, crearProveedores: false,
       verMaterial: false, editarMaterial: false, registrarConsumo: false,
+      verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
     },
     Profesor: {
-      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'proveedores', 'ubicaciones'],
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'proveedores', 'ubicaciones'],
       verIntervenciones: true, editarEquipos: false, crearIntervenciones: false,
       gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
       verProveedores: true, verUbicaciones: true, crearProveedores: true,
       verMaterial: true, editarMaterial: false, registrarConsumo: true,
+      verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
     },
     Gestor: {
-      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'proveedores', 'ubicaciones'],
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'ubicaciones'],
       verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
       gestionarIncidencias: true, configuracion: true, usuarios: false, dashboard: true,
       verProveedores: true, verUbicaciones: true, crearProveedores: true,
       verMaterial: true, editarMaterial: true, registrarConsumo: true,
+      verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
     },
     Administrador: {
-      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'proveedores', 'ubicaciones', 'usuarios'],
+      nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'ubicaciones', 'usuarios'],
       verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
       gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
       verProveedores: true, verUbicaciones: true, crearProveedores: true,
       verMaterial: true, editarMaterial: true, registrarConsumo: true,
+      verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
     }
   };
 
@@ -2821,7 +3161,7 @@
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     document.getElementById('page-' + page).classList.add('active');
     document.querySelector(`[onclick="showPage('${page}')"]`)?.classList.add('active');
-    const titles = { dashboard: 'Panel principal', equipos: 'Inventario de equipos', intervenciones: 'Intervenciones', incidencias: 'Incidencias', material: 'Material fungible', movimientos: 'Movimientos de material', proveedores: 'Proveedores', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios' };
+    const titles = { dashboard: 'Panel principal', equipos: 'Inventario de equipos', intervenciones: 'Intervenciones', incidencias: 'Incidencias', material: 'Material fungible', movimientos: 'Movimientos de material', solicitudes: 'Solicitudes de material', pedidos: 'Pedidos', 'pedido-detalle': 'Detalle del pedido', proveedores: 'Proveedores', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios' };
     document.getElementById('page-title').textContent = titles[page] || page;
   }
 
@@ -2849,6 +3189,10 @@
     const btnNuevoProv = document.querySelector('#page-proveedores .btn-primary');
     if (btnNuevoProv) btnNuevoProv.style.display = p.crearProveedores ? '' : 'none';
 
+    // Nav pedidos: solo Gestor y Admin
+    const navPedidos = document.getElementById('nav-pedidos');
+    if (navPedidos) navPedidos.style.display = p.verPedidos ? '' : 'none';
+
     showPage(p.dashboard ? 'dashboard' : (p.nav[0] || 'equipos'));
   }
 
@@ -2866,15 +3210,16 @@
     if (btnNuevaInt) btnNuevaInt.style.display = p.crearIntervenciones ? '' : 'none';
     const btnNuevoProv = document.querySelector('#page-proveedores .btn-primary');
     if (btnNuevoProv) btnNuevoProv.style.display = p.crearProveedores ? '' : 'none';
-    // Material: solo Gestor y Admin pueden añadir/editar items del catálogo
     const btnNuevoMat = document.querySelector('#page-material .btn-primary');
     if (btnNuevoMat) btnNuevoMat.style.display = p.editarMaterial ? '' : 'none';
-    // El botón de consumo rápido lo ven todos los que tienen acceso a material
     const btnConsumoMov = document.querySelector('#page-movimientos .btn-secondary');
     if (btnConsumoMov) btnConsumoMov.style.display = p.registrarConsumo ? '' : 'none';
     const btnEntradaMov = document.querySelector('#page-movimientos .btn-primary');
     if (btnEntradaMov) btnEntradaMov.style.display = p.editarMaterial ? '' : 'none';
-    // Ubicaciones: profesores ven pero no editan
+    // Solicitudes: todos pueden crear, gestores/admins pueden gestionar (se controla en renderSolicitudes)
+    // Pedidos: botón nueva lista solo para gestores/admins
+    const btnNuevoPedido = document.querySelector('#page-pedidos .btn-primary');
+    if (btnNuevoPedido) btnNuevoPedido.style.display = p.gestionarPedidos ? '' : 'none';
     renderUbicaciones();
   }
 
@@ -2882,6 +3227,7 @@
   // UI HELPERS
   // ============================================================
   function v(id) { return document.getElementById(id)?.value?.trim() || ''; }
+  function setText(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
   function sv(id, val) { const el = document.getElementById(id); if (el) el.value = val; }
 
   function openModal(id) { document.getElementById(id).classList.add('open'); }
@@ -2917,16 +3263,23 @@
       ubicaciones: ['ID_Ubicacion','Laboratorio_Aula','Zona','Subzona','Descripcion_Completa','Activa'],
       usuarios: ['ID_Usuario','Nombre','Email','Rol','Activo'],
       material: ['ID_Material','Nombre','Categoria','Referencia_Proveedor','Proveedor','Unidad','Ubicacion','Stock_Actual','Stock_Minimo','Stock_Optimo','Observaciones'],
-      movimientos: ['ID_Movimiento','Material','Tipo','Cantidad','Usuario','Fecha','Motivo','Observaciones']
+      movimientos: ['ID_Movimiento','Material','Tipo','Cantidad','Usuario','Fecha','Motivo','Observaciones'],
+      solicitudes: ['ID_Solicitud','Material','Cantidad_Solicitada','Solicitante','Fecha','Motivo','Proveedor_Requerido','Estado','Lista_Pedido','Observaciones'],
+      pedidos: ['ID_Pedido','Nombre_Lista','Proveedor','Fecha_Creacion','Fecha_Presupuesto','Fecha_Aprobacion','Fecha_Pedido_Enviado','Fecha_Recepcion_Completa','Fecha_Factura','Estado','Numero_Presupuesto','Numero_Factura','Observaciones'],
+      lineasPedido: ['ID_Linea','Pedido','Material','Cantidad_Pedida','Cantidad_Recibida','Estado_Linea','Observaciones'],
+      ciclosModulos: ['Ciclo','Modulo']
     };
     const o = {}; keys[type].forEach((k, i) => o[k] = row[i] || ''); return o;
   }
 
   function updateBadges() {
     const abiertas = DATA.incidencias.filter(i => i.Estado === 'Abierta' || i.Estado === 'En gestión').length;
-    const badge = document.getElementById('badge-incidencias');
-    if (abiertas > 0) { badge.textContent = abiertas; badge.style.display = ''; }
-    else { badge.style.display = 'none'; }
+    const badgeInc = document.getElementById('badge-incidencias');
+    if (badgeInc) { badgeInc.textContent = abiertas; badgeInc.style.display = abiertas > 0 ? '' : 'none'; }
+
+    const pendientes = DATA.solicitudes.filter(s => s.Estado === 'Pendiente').length;
+    const badgeSol = document.getElementById('badge-solicitudes');
+    if (badgeSol) { badgeSol.textContent = pendientes; badgeSol.style.display = pendientes > 0 ? '' : 'none'; }
   }
 
   // ============================================================
@@ -3255,6 +3608,492 @@
       sel.style.display = 'block';
     }
   }
+
+  // ============================================================
+  // SOLICITUDES — RENDER Y LÓGICA
+  // ============================================================
+  function renderSolicitudes(filtroEstado = '') {
+    const tbody = document.getElementById('tabla-solicitudes');
+    if (!tbody) return;
+    const rol = getUserRole();
+    let items = DATA.solicitudes;
+
+    // Profesores y Alumnos solo ven las suyas
+    if (rol === 'Profesor' || rol === 'Alumno') {
+      const miNombre = currentUser?.name || '';
+      items = items.filter(s => s.Solicitante === miNombre);
+    }
+    if (filtroEstado) items = items.filter(s => s.Estado === filtroEstado);
+    items = [...items].sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha));
+
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin solicitudes</div></div></td></tr>`;
+      return;
+    }
+
+    const estadoBadge = { 'Pendiente': 'badge-orange', 'En pedido': 'badge-blue', 'Recibido': 'badge-green', 'Rechazado': 'badge-red' };
+    const urgenciaBadge = { 'Urgente': 'badge-red', 'Normal': 'badge-gray' };
+    const puedeGestionar = rol === 'Administrador' || rol === 'Gestor';
+
+    tbody.innerHTML = items.map(s => `<tr>
+      <td><strong>${s.ID_Solicitud}</strong></td>
+      <td>${s.Material}</td>
+      <td>${s.Cantidad_Solicitada}</td>
+      <td style="font-size:12px">${s.Solicitante}</td>
+      <td style="font-size:12px">${formatDate(s.Fecha)}</td>
+      <td><span class="badge ${urgenciaBadge[s.Urgencia]||'badge-gray'}">${s.Urgencia||'Normal'}</span></td>
+      <td style="font-size:12px">${s.Proveedor_Requerido||'—'}</td>
+      <td><span class="badge ${estadoBadge[s.Estado]||'badge-gray'}">${s.Estado||'Pendiente'}</span></td>
+      <td><div class="row-actions">
+        ${puedeGestionar ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
+        ${puedeGestionar ? `<button class="icon-btn" title="Rechazar" onclick="rechazarSolicitud('${s.ID_Solicitud}')">✕</button>` : ''}
+      </div></td>
+    </tr>`).join('');
+
+    // Badge en nav
+    const pendientes = DATA.solicitudes.filter(s => s.Estado === 'Pendiente').length;
+    const badge = document.getElementById('badge-solicitudes');
+    if (badge) { badge.textContent = pendientes; badge.style.display = pendientes > 0 ? '' : 'none'; }
+  }
+
+  function filtrarSolicitudesEstado(v) { renderSolicitudes(v); }
+
+  // ============================================================
+  // PEDIDOS — RENDER Y LÓGICA
+  // ============================================================
+  function estadoPedidoClass(estado) {
+    const map = { 'Abierto': 'estado-abierto', 'Presupuesto solicitado': 'estado-presupuesto', 'Presupuesto aprobado': 'estado-aprobado', 'Recepción parcial': 'estado-recepcion', 'Recepción completa': 'estado-completo', 'Factura recibida': 'estado-factura' };
+    return map[estado] || 'estado-abierto';
+  }
+
+  function renderPedidos(filtroEstado = '') {
+    const cont = document.getElementById('pedidos-lista');
+    if (!cont) return;
+    let items = [...DATA.pedidos];
+    if (filtroEstado) items = items.filter(p => p.Estado === filtroEstado);
+    items.sort((a, b) => new Date(b.Fecha_Creacion) - new Date(a.Fecha_Creacion));
+
+    if (!items.length) {
+      cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🛒</div><div class="empty-state-title">Sin listas de pedido</div><div class="empty-state-text">Crea la primera lista con el botón superior</div></div>`;
+      return;
+    }
+
+    cont.innerHTML = items.map(p => {
+      const lineas = DATA.lineasPedido.filter(l => l.Pedido === p.ID_Pedido);
+      const recibidas = lineas.filter(l => l.Estado_Linea === 'Recibido').length;
+      const puedeAddLinea = p.Estado === 'Abierto';
+      return `<div class="pedido-card" onclick="verDetallePedido('${p.ID_Pedido}')">
+        <div class="pedido-card-header">
+          <div>
+            <div class="pedido-card-title">${p.Nombre_Lista}</div>
+            <div class="pedido-card-meta">${p.Proveedor || 'Sin proveedor asignado'} · Creado ${formatDate(p.Fecha_Creacion)}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
+            <span class="estado-pedido ${estadoPedidoClass(p.Estado)}">${p.Estado}</span>
+            <button class="icon-btn" title="Cambiar estado" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄</button>
+          </div>
+        </div>
+        <div class="pedido-card-stats">
+          <div class="pedido-stat"><strong>${lineas.length}</strong> líneas</div>
+          <div class="pedido-stat"><strong>${recibidas}</strong> recibidas</div>
+          ${p.Numero_Presupuesto ? `<div class="pedido-stat">Presup. <strong>${p.Numero_Presupuesto}</strong></div>` : ''}
+          ${p.Numero_Factura ? `<div class="pedido-stat">Factura <strong>${p.Numero_Factura}</strong></div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  function filtrarPedidosEstado(v) { renderPedidos(v); }
+
+  function verDetallePedido(pedidoId) {
+    const p = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);
+    if (!p) return;
+    const lineas = DATA.lineasPedido.filter(l => l.Pedido === pedidoId);
+    const puedeEditar = getUserRole() === 'Administrador' || getUserRole() === 'Gestor';
+    const puedeAddLinea = p.Estado === 'Abierto' && puedeEditar;
+
+    const cont = document.getElementById('pedido-detalle-contenido');
+    cont.innerHTML = `
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${p.Nombre_Lista}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${p.ID_Pedido}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <span class="estado-pedido ${estadoPedidoClass(p.Estado)}">${p.Estado}</span>
+            ${puedeEditar ? `<button class="btn btn-secondary" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄 Estado</button>` : ''}
+          </div>
+        </div>
+        <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+          <div class="detail-item"><div class="detail-label">Proveedor</div><div class="detail-value">${p.Proveedor||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">Creado</div><div class="detail-value">${formatDate(p.Fecha_Creacion)||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">Presupuesto</div><div class="detail-value">${formatDate(p.Fecha_Presupuesto)||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">Aprobado</div><div class="detail-value">${formatDate(p.Fecha_Aprobacion)||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">Nº Presupuesto</div><div class="detail-value">${p.Numero_Presupuesto||'—'}</div></div>
+          <div class="detail-item"><div class="detail-label">Nº Factura</div><div class="detail-value">${p.Numero_Factura||'—'}</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Líneas del pedido (${lineas.length})</div>
+          <div style="display:flex;gap:8px">
+            ${puedeAddLinea ? `<button class="btn btn-secondary" onclick="openModalNuevaLinea('${pedidoId}')">+ Añadir línea</button>` : ''}
+          </div>
+        </div>
+        <div style="padding:12px 16px">
+          ${!lineas.length ? `<div class="empty-state" style="padding:24px"><div class="empty-state-icon">📝</div><div class="empty-state-title">Sin líneas todavía</div></div>` :
+            lineas.map(l => {
+              const estadoLinea = { 'Pendiente': 'badge-orange', 'Recibido parcialmente': 'badge-blue', 'Recibido': 'badge-green' }[l.Estado_Linea] || 'badge-gray';
+              return `<div class="linea-row">
+                <div style="font-weight:500;font-size:13px">${l.Material}</div>
+                <div style="text-align:center;font-size:12px;color:var(--text-soft)">Ped: ${l.Cantidad_Pedida}</div>
+                <div style="text-align:center;font-size:12px">Rec: ${l.Cantidad_Recibida||'0'}</div>
+                <div><span class="badge ${estadoLinea}" style="font-size:10px">${l.Estado_Linea||'Pendiente'}</span></div>
+                <div>${puedeEditar && l.Estado_Linea !== 'Recibido' ? `<button class="icon-btn" title="Registrar recepción" onclick="openModalRecepcion('${l.ID_Linea}','${pedidoId}')">📥</button>` : ''}</div>
+              </div>`;
+            }).join('')
+          }
+        </div>
+      </div>`;
+
+    showPage('pedido-detalle');
+  }
+
+  // ============================================================
+  // SOLICITUDES — GUARDAR
+  // ============================================================
+  async function guardarSolicitud() {
+    const esNuevo = document.getElementById('btn-source-nuevo').classList.contains('active');
+    let materialNombre = '';
+    let materialId = '';
+    if (esNuevo) {
+      materialNombre = v('sol-material-libre');
+    } else {
+      materialId = document.getElementById('sol-material-id').value;
+      const mat = DATA.material.find(m => m.ID_Material === materialId);
+      materialNombre = mat ? mat.Nombre : '';
+    }
+    if (!materialNombre) { showToast('Indica el material', 'error'); return; }
+    const cant = v('sol-cantidad');
+    if (!cant || parseFloat(cant) <= 0) { showToast('Indica la cantidad', 'error'); return; }
+
+    const id = genId('SOL-');
+    const fecha = new Date().toISOString().split('T')[0];
+    const usuario = currentUser?.name || 'Usuario';
+    const motivo = v('sol-motivo');
+    const urgencia = v('sol-urgencia');
+    const proveedor = v('sol-proveedor');
+    const fechaNecesidad = v('sol-fecha-necesidad');
+    const obs = v('sol-obs');
+
+    const row = [id, materialNombre, cant, usuario, fecha, motivo + (fechaNecesidad ? ' · Necesario: ' + fechaNecesidad : ''), proveedor, 'Pendiente', '', obs + (urgencia === 'Urgente' ? ' [URGENTE]' : '')];
+
+    // Guardamos urgencia como parte de Observaciones por compatibilidad con el Sheet
+    // Añadimos campo extra al final para urgencia legible
+    const rowFinal = [id, materialNombre, cant, usuario, fecha,
+      motivo + (fechaNecesidad ? ' · Necesario: ' + fechaNecesidad : ''),
+      proveedor, 'Pendiente', '', obs];
+
+    // Usamos col J para Urgencia — ajustamos el row
+    const rowSheet = [id, materialNombre, cant, usuario, fecha,
+      motivo + (fechaNecesidad ? ' · Necesario: ' + fechaNecesidad : ''),
+      proveedor, 'Pendiente', '', urgencia === 'Urgente' ? '⚠️ URGENTE — ' + obs : obs];
+
+    showLoading('Guardando...');
+    try {
+      await sheetsAppend('Solicitudes', rowSheet);
+      // Para DATA local guardamos con campo urgencia en Observaciones
+      const objLocal = { ID_Solicitud: id, Material: materialNombre, Cantidad_Solicitada: cant, Solicitante: usuario, Fecha: fecha, Motivo: motivo, Proveedor_Requerido: proveedor, Estado: 'Pendiente', Lista_Pedido: '', Observaciones: rowSheet[9], Urgencia: urgencia };
+      DATA.solicitudes.push(objLocal);
+      showToast('Solicitud enviada', 'success');
+      closeModal('modal-solicitud');
+      renderSolicitudes();
+      updateBadges();
+    } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+    hideLoading();
+  }
+
+  async function rechazarSolicitud(solId) {
+    if (!confirm('¿Rechazar esta solicitud?')) return;
+    const idx = DATA.solicitudes.findIndex(s => s.ID_Solicitud === solId);
+    if (idx === -1) return;
+    DATA.solicitudes[idx].Estado = 'Rechazado';
+    showLoading('Actualizando...');
+    try {
+      const row = Object.values(DATA.solicitudes[idx]);
+      await sheetsUpdate(`Solicitudes!A${idx + 2}:J${idx + 2}`, row);
+      showToast('Solicitud rechazada', 'success');
+      renderSolicitudes();
+    } catch(e) { showToast('Error', 'error'); }
+    hideLoading();
+  }
+
+  async function solicitudAPedido(solId) {
+    // Abre modal de selección de pedido abierto
+    const pedidosAbiertos = DATA.pedidos.filter(p => p.Estado === 'Abierto');
+    if (!pedidosAbiertos.length) {
+      if (confirm('No hay listas abiertas. ¿Crear una nueva?')) openModalNuevoPedido();
+      return;
+    }
+    const opciones = pedidosAbiertos.map(p => `${p.ID_Pedido}: ${p.Nombre_Lista}`).join('\n');
+    const seleccion = prompt(`Elige el ID del pedido al que añadir:\n${opciones}`);
+    if (!seleccion) return;
+    const pedidoId = seleccion.split(':')[0].trim();
+    const pedido = DATA.pedidos.find(p => p.ID_Pedido === pedidoId);
+    if (!pedido) { showToast('Pedido no encontrado', 'error'); return; }
+
+    const sol = DATA.solicitudes.find(s => s.ID_Solicitud === solId);
+    const idLinea = genId('LIN-');
+    const rowLinea = [idLinea, pedidoId, sol.Material, sol.Cantidad_Solicitada, '0', 'Pendiente', 'Desde solicitud ' + solId];
+
+    showLoading('Añadiendo...');
+    try {
+      await sheetsAppend('Lineas_Pedido', rowLinea);
+      DATA.lineasPedido.push(rowToObj(rowLinea, 'lineasPedido'));
+
+      const solIdx = DATA.solicitudes.indexOf(sol);
+      sol.Estado = 'En pedido'; sol.Lista_Pedido = pedidoId;
+      const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En pedido', pedidoId, sol.Observaciones];
+      await sheetsUpdate(`Solicitudes!A${solIdx + 2}:J${solIdx + 2}`, rowSol);
+
+      showToast('Añadido al pedido', 'success');
+      renderAll();
+    } catch(e) { showToast('Error', 'error'); console.error(e); }
+    hideLoading();
+  }
+
+  // ============================================================
+  // PEDIDOS — GUARDAR
+  // ============================================================
+  async function guardarNuevoPedido() {
+    const nombre = v('ped-nombre');
+    if (!nombre) { showToast('El nombre es obligatorio', 'error'); return; }
+    const id = genId('PED-');
+    const fecha = new Date().toISOString().split('T')[0];
+    const row = [id, nombre, v('ped-proveedor'), fecha, '', '', '', '', '', 'Abierto', '', '', v('ped-obs')];
+
+    showLoading('Creando lista...');
+    try {
+      await sheetsAppend('Pedidos', row);
+      DATA.pedidos.push(rowToObj(row, 'pedidos'));
+      showToast('Lista creada', 'success');
+      closeModal('modal-nuevo-pedido');
+      renderPedidos();
+    } catch(e) { showToast('Error', 'error'); }
+    hideLoading();
+  }
+
+  async function guardarLineaPedido() {
+    const pedidoId = v('linea-pedido-id');
+    const esLibre = document.getElementById('btn-lsource-libre').classList.contains('active');
+    let materialNombre = esLibre ? v('linea-material-libre') : (() => {
+      const id = document.getElementById('linea-material-id').value;
+      const mat = DATA.material.find(m => m.ID_Material === id);
+      return mat ? mat.Nombre : '';
+    })();
+    if (!materialNombre) { showToast('Indica el material', 'error'); return; }
+    const cant = v('linea-cantidad');
+    if (!cant || parseFloat(cant) <= 0) { showToast('Indica la cantidad', 'error'); return; }
+
+    const id = genId('LIN-');
+    const row = [id, pedidoId, materialNombre, cant, '0', 'Pendiente', v('linea-obs')];
+
+    showLoading('Guardando...');
+    try {
+      await sheetsAppend('Lineas_Pedido', row);
+      DATA.lineasPedido.push(rowToObj(row, 'lineasPedido'));
+      showToast('Línea añadida', 'success');
+      closeModal('modal-nueva-linea');
+      verDetallePedido(pedidoId);
+    } catch(e) { showToast('Error', 'error'); }
+    hideLoading();
+  }
+
+  async function guardarEstadoPedido() {
+    const pedidoId = v('estado-pedido-id');
+    const nuevoEstado = v('estado-pedido-nuevo');
+    const idx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
+    if (idx === -1) return;
+    const p = DATA.pedidos[idx];
+    const hoy = new Date().toISOString().split('T')[0];
+
+    p.Estado = nuevoEstado;
+    if (nuevoEstado === 'Presupuesto solicitado') p.Fecha_Presupuesto = hoy;
+    if (nuevoEstado === 'Presupuesto aprobado') p.Fecha_Aprobacion = hoy;
+    if (nuevoEstado === 'Recepción completa') p.Fecha_Recepcion_Completa = hoy;
+    if (nuevoEstado === 'Factura recibida') p.Fecha_Factura = hoy;
+    const numPres = v('estado-num-presupuesto'); if (numPres) p.Numero_Presupuesto = numPres;
+    const numFact = v('estado-num-factura'); if (numFact) p.Numero_Factura = numFact;
+    const provNew = v('estado-proveedor'); if (provNew) p.Proveedor = provNew;
+
+    const row = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, p.Estado, p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones];
+
+    showLoading('Actualizando...');
+    try {
+      await sheetsUpdate(`Pedidos!A${idx + 2}:M${idx + 2}`, row);
+      showToast('Estado actualizado', 'success');
+      closeModal('modal-estado-pedido');
+      renderPedidos();
+      // Si estamos en detalle, refresca
+      if (document.getElementById('page-pedido-detalle').classList.contains('active')) {
+        verDetallePedido(pedidoId);
+      }
+    } catch(e) { showToast('Error', 'error'); }
+    hideLoading();
+  }
+
+  async function guardarRecepcionLinea() {
+    const lineaId = v('rec-linea-id');
+    const pedidoId = v('rec-pedido-id');
+    const cantRec = parseFloat(v('rec-cantidad')) || 0;
+    const idx = DATA.lineasPedido.findIndex(l => l.ID_Linea === lineaId);
+    if (idx === -1) return;
+    const l = DATA.lineasPedido[idx];
+    const cantPed = parseFloat(l.Cantidad_Pedida) || 0;
+
+    l.Cantidad_Recibida = String(cantRec);
+    l.Estado_Linea = cantRec >= cantPed ? 'Recibido' : (cantRec > 0 ? 'Recibido parcialmente' : 'Pendiente');
+    if (v('rec-obs')) l.Observaciones = v('rec-obs');
+
+    const row = [l.ID_Linea, l.Pedido, l.Material, l.Cantidad_Pedida, l.Cantidad_Recibida, l.Estado_Linea, l.Observaciones];
+
+    showLoading('Registrando recepción...');
+    try {
+      await sheetsUpdate(`Lineas_Pedido!A${idx + 2}:G${idx + 2}`, row);
+
+      // Si el material está en catálogo, actualizar stock con una entrada
+      const mat = DATA.material.find(m => m.Nombre === l.Material);
+      if (mat && cantRec > 0) {
+        const nuevoStock = (parseFloat(mat.Stock_Actual) || 0) + cantRec;
+        const idxMat = DATA.material.indexOf(mat);
+        mat.Stock_Actual = String(nuevoStock);
+        await sheetsUpdate(`Material!H${idxMat + 2}`, [nuevoStock]);
+        const movRow = [genId('MOV-'), mat.Nombre, 'Entrada', cantRec, currentUser?.name || 'Usuario', new Date().toISOString().split('T')[0], 'Recepción pedido ' + pedidoId, ''];
+        await sheetsAppend('Movimientos', movRow);
+        DATA.movimientos.push(rowToObj(movRow, 'movimientos'));
+      }
+
+      // Comprobar si todo el pedido está recibido
+      const todasLineas = DATA.lineasPedido.filter(x => x.Pedido === pedidoId);
+      const todasRecibidas = todasLineas.every(x => x.Estado_Linea === 'Recibido');
+      if (todasRecibidas) {
+        const pedIdx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
+        if (pedIdx !== -1 && DATA.pedidos[pedIdx].Estado !== 'Recepción completa' && DATA.pedidos[pedIdx].Estado !== 'Factura recibida') {
+          DATA.pedidos[pedIdx].Estado = 'Recepción completa';
+          DATA.pedidos[pedIdx].Fecha_Recepcion_Completa = new Date().toISOString().split('T')[0];
+          const p = DATA.pedidos[pedIdx];
+          const rowP = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, p.Estado, p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones];
+          await sheetsUpdate(`Pedidos!A${pedIdx + 2}:M${pedIdx + 2}`, rowP);
+          showToast('¡Pedido completo! Estado actualizado automáticamente', 'success');
+        }
+      } else {
+        // Recepción parcial
+        const pedIdx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
+        if (pedIdx !== -1 && DATA.pedidos[pedIdx].Estado === 'Presupuesto aprobado') {
+          DATA.pedidos[pedIdx].Estado = 'Recepción parcial';
+          const p = DATA.pedidos[pedIdx];
+          const rowP = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, 'Recepción parcial', p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones];
+          await sheetsUpdate(`Pedidos!A${pedIdx + 2}:M${pedIdx + 2}`, rowP);
+        }
+      }
+
+      showToast('Recepción registrada', 'success');
+      closeModal('modal-recepcion-linea');
+      verDetallePedido(pedidoId);
+    } catch(e) { showToast('Error', 'error'); console.error(e); }
+    hideLoading();
+  }
+
+  // ============================================================
+  // PEDIDOS — MODALES
+  // ============================================================
+  function setSourceSolicitud(source) {
+    const esCatalogo = source === 'catalogo';
+    document.getElementById('btn-source-catalogo').classList.toggle('active', esCatalogo);
+    document.getElementById('btn-source-nuevo').classList.toggle('active', !esCatalogo);
+    document.getElementById('sol-catalogo-group').style.display = esCatalogo ? '' : 'none';
+    document.getElementById('sol-nuevo-group').style.display = esCatalogo ? 'none' : '';
+  }
+
+  function setSourceLinea(source) {
+    const esCatalogo = source === 'catalogo';
+    document.getElementById('btn-lsource-catalogo').classList.toggle('active', esCatalogo);
+    document.getElementById('btn-lsource-libre').classList.toggle('active', !esCatalogo);
+    document.getElementById('linea-catalogo-group').style.display = esCatalogo ? '' : 'none';
+    document.getElementById('linea-libre-group').style.display = esCatalogo ? 'none' : '';
+  }
+
+  function openModalSolicitud() {
+    setSourceSolicitud('catalogo');
+    document.getElementById('sol-material-id').value = '';
+    document.getElementById('sol-material-selected').style.display = 'none';
+    document.getElementById('sol-search').value = '';
+    sv('sol-cantidad',''); sv('sol-urgencia','Normal'); sv('sol-fecha-necesidad','');
+    sv('sol-motivo',''); sv('sol-obs','');
+    // Poblar proveedores
+    const sel = document.getElementById('sol-proveedor');
+    sel.innerHTML = '<option value="">Sin preferencia</option>' +
+      DATA.proveedores.filter(p => p.Activo !== 'FALSE').map(p => `<option value="${p.Nombre_Proveedor}">${p.Nombre_Proveedor}</option>`).join('');
+    openModal('modal-solicitud');
+  }
+
+  function openModalNuevoPedido() {
+    sv('ped-nombre',''); sv('ped-obs','');
+    const sel = document.getElementById('ped-proveedor');
+    sel.innerHTML = '<option value="">Sin asignar todavía</option>' +
+      DATA.proveedores.filter(p => p.Activo !== 'FALSE').map(p => `<option value="${p.Nombre_Proveedor}">${p.Nombre_Proveedor}</option>`).join('');
+    openModal('modal-nuevo-pedido');
+  }
+
+  function openModalNuevaLinea(pedidoId) {
+    sv('linea-pedido-id', pedidoId);
+    setSourceLinea('catalogo');
+    document.getElementById('linea-material-id').value = '';
+    document.getElementById('linea-material-selected').style.display = 'none';
+    document.getElementById('linea-search').value = '';
+    sv('linea-cantidad',''); sv('linea-obs',''); sv('linea-material-libre','');
+    openModal('modal-nueva-linea');
+  }
+
+  function openModalEstadoPedido(pedidoId) {
+    sv('estado-pedido-id', pedidoId);
+    const p = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);
+    if (p) sv('estado-pedido-nuevo', p.Estado);
+    sv('estado-num-presupuesto',''); sv('estado-num-factura','');
+    // Mostrar/ocultar campos según estado seleccionado
+    const selEstado = document.getElementById('estado-pedido-nuevo');
+    const actualizarCampos = () => {
+      const est = selEstado.value;
+      document.getElementById('grupo-num-presupuesto').style.display = est === 'Presupuesto solicitado' || est === 'Presupuesto aprobado' ? '' : 'none';
+      document.getElementById('grupo-num-factura').style.display = est === 'Factura recibida' ? '' : 'none';
+      document.getElementById('grupo-proveedor-estado').style.display = !p?.Proveedor ? '' : 'none';
+    };
+    selEstado.onchange = actualizarCampos;
+    actualizarCampos();
+    const selProv = document.getElementById('estado-proveedor');
+    selProv.innerHTML = '<option value="">Sin cambios</option>' +
+      DATA.proveedores.filter(x => x.Activo !== 'FALSE').map(x => `<option value="${x.Nombre_Proveedor}">${x.Nombre_Proveedor}</option>`).join('');
+    openModal('modal-estado-pedido');
+  }
+
+  function openModalRecepcion(lineaId, pedidoId) {
+    sv('rec-linea-id', lineaId);
+    sv('rec-pedido-id', pedidoId);
+    sv('rec-obs','');
+    const l = DATA.lineasPedido.find(x => x.ID_Linea === lineaId);
+    if (l) {
+      document.getElementById('rec-material-nombre').textContent = l.Material;
+      document.getElementById('rec-cantidad-pedida').textContent = l.Cantidad_Pedida;
+      sv('rec-cantidad', l.Cantidad_Pedida);
+    }
+    openModal('modal-recepcion-linea');
+  }
+
+  // Autocomplete para solicitudes y líneas
+  function buscarMaterialSolicitud(val) { buscarMaterialGenerico(val, 'sol-autocomplete', 'sol-material-id', 'sol-material-selected'); }
+  function buscarMaterialLinea(val) { buscarMaterialGenerico(val, 'linea-autocomplete', 'linea-material-id', 'linea-material-selected'); }
 
   // ============================================================
   // INIT
