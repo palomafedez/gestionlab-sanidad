@@ -2299,8 +2299,44 @@
   let pendingFileBase64 = null;
 
   // ============================================================
-  // GOOGLE AUTH
+  // GOOGLE AUTH — con sesión persistente
   // ============================================================
+  const TOKEN_STORAGE_KEY = 'gestionlab_token';
+  const USER_STORAGE_KEY  = 'gestionlab_user';
+
+  function saveSession(token, user) {
+    try {
+      // Guardamos token con timestamp de expiración (55 min para margen)
+      const expires = Date.now() + 55 * 60 * 1000;
+      localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({ token, expires }));
+      localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    } catch(e) { /* localStorage no disponible */ }
+  }
+
+  function loadSession() {
+    try {
+      const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+      if (!raw) return null;
+      const { token, expires } = JSON.parse(raw);
+      if (Date.now() > expires) { clearSession(); return null; }
+      return token;
+    } catch(e) { return null; }
+  }
+
+  function loadSavedUser() {
+    try {
+      const raw = localStorage.getItem(USER_STORAGE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+  }
+
+  function clearSession() {
+    try {
+      localStorage.removeItem(TOKEN_STORAGE_KEY);
+      localStorage.removeItem(USER_STORAGE_KEY);
+    } catch(e) { /* ok */ }
+  }
+
   function loadGoogleScripts() {
     return new Promise((resolve, reject) => {
       if (typeof google !== 'undefined' && google.accounts) { resolve(); return; }
@@ -2324,26 +2360,70 @@
   async function initAuth() {
     try {
       await loadGoogleScripts();
+
       tokenClient = google.accounts.oauth2.initTokenClient({
         client_id: CLIENT_ID,
         scope: SCOPES,
         callback: async (resp) => {
-          if (resp.error) { showToast('Error de autenticación: ' + resp.error, 'error'); return; }
+          if (resp.error) {
+            // Si falla el intento silencioso, mostrar pantalla de login
+            if (resp.error === 'interaction_required' || resp.error === 'user_cancelled') {
+              document.getElementById('auth-screen').style.display = 'flex';
+              return;
+            }
+            showToast('Error de autenticación: ' + resp.error, 'error'); return;
+          }
           accessToken = resp.access_token;
           await getUserInfo();
+          saveSession(accessToken, currentUser);
           await loadAllData();
           showApp();
         }
       });
+
+      // Intentar sesión guardada primero
+      const savedToken = loadSession();
+      if (savedToken) {
+        const savedUser = loadSavedUser();
+        if (savedUser) {
+          // Token en caché válido — usarlo directamente
+          accessToken = savedToken;
+          currentUser = savedUser;
+          await loadAllData();
+          showApp();
+          // Renovar en segundo plano antes de que expire
+          scheduleTokenRenewal();
+          return;
+        }
+      }
+
+      // Sin sesión guardada: intentar renovación silenciosa
+      tokenClient.requestAccessToken({ prompt: '' });
+
     } catch(e) {
       console.error('Error iniciando auth:', e);
-      showToast('Error cargando Google. Recarga la página.', 'error');
+      // Si falla todo, mostrar login normal
+      document.getElementById('auth-screen').style.display = 'flex';
+    }
+  }
+
+  // Renovar token automáticamente 5 minutos antes de que expire
+  function scheduleTokenRenewal() {
+    const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+    if (!raw) return;
+    const { expires } = JSON.parse(raw);
+    const msUntilRenewal = expires - Date.now() - 5 * 60 * 1000;
+    if (msUntilRenewal > 0) {
+      setTimeout(() => {
+        tokenClient.requestAccessToken({ prompt: '' });
+      }, msUntilRenewal);
     }
   }
 
   function signIn() { tokenClient.requestAccessToken({ prompt: 'select_account consent' }); }
 
   function signOut() {
+    clearSession();
     google.accounts.oauth2.revoke(accessToken, () => {
       accessToken = null; currentUser = null;
       document.getElementById('app').style.display = 'none';
@@ -2356,6 +2436,7 @@
       headers: { Authorization: `Bearer ${accessToken}` }
     });
     currentUser = await r.json();
+    saveSession(accessToken, currentUser);
   }
 
   // ============================================================
@@ -3524,6 +3605,7 @@
     if (navPedidos) navPedidos.style.display = p.verPedidos ? '' : 'none';
 
     showPage(p.dashboard ? 'dashboard' : (p.nav[0] || 'equipos'));
+    scheduleTokenRenewal();
   }
 
   function getUserRole() {
@@ -4598,7 +4680,7 @@
     document.getElementById('sol-material-selected').style.display = 'none';
     document.getElementById('sol-search').value = '';
     sv('sol-cantidad',''); sv('sol-urgencia','Normal'); sv('sol-fecha-necesidad','');
-    sv('sol-motivo',''); sv('sol-obs','');
+    sv('sol-motivo',''); sv('sol-obs',''); sv('sol-unidad','');
     // Poblar proveedores
     const sel = document.getElementById('sol-proveedor');
     sel.innerHTML = '<option value="">Sin preferencia</option>' +
