@@ -2297,6 +2297,9 @@
   let DATA = { equipos: [], intervenciones: [], incidencias: [], proveedores: [], ubicaciones: [], usuarios: [], material: [], movimientos: [], solicitudes: [], pedidos: [], lineasPedido: [], ciclosModulos: [] };
   let editingRow = null;
   let pendingFileBase64 = null;
+  let pendingEqFileBase64 = null;
+  let _pendingSolicitudParaPedido = null;  // item pendiente de añadir al crear un pedido nuevo
+  let _pendingRecepcion = null;            // recepción pendiente al catalogar material nuevo
 
   // ============================================================
   // GOOGLE AUTH — con sesión persistente
@@ -3041,9 +3044,6 @@
     document.getElementById('int-pdf-input').value = '';
     document.getElementById('int-pdf-url').value = '';
   }
-
-  // PDF para equipos (manual/ficha técnica)
-  let pendingEqFileBase64 = null;
 
   function handleEqFileSelect(input) {
     const file = input.files[0];
@@ -4014,16 +4014,6 @@
     document.getElementById('consumo-material-selected').style.display = 'none';
     document.getElementById('consumo-material-selected').textContent = '';
     document.getElementById('consumo-search').value = '';
-    sv('consumo-cantidad',''); sv('consumo-motivo',''); sv('consumo-obs','');
-    openModal('modal-consumo');
-  }
-
-  function openModalConsumo() {
-    document.getElementById('consumo-material-id').value = '';
-    document.getElementById('consumo-material-selected').style.display = 'none';
-    document.getElementById('consumo-material-selected').textContent = '';
-    document.getElementById('consumo-search').value = '';
-    // Mostrar búsqueda cuando se abre sin item pre-seleccionado
     const grp = document.getElementById('consumo-search-group');
     if (grp) grp.style.display = '';
     sv('consumo-cantidad',''); sv('consumo-motivo',''); sv('consumo-obs','');
@@ -4041,8 +4031,6 @@
       // Ocultar el buscador — ya sabemos qué item es
       const grp = document.getElementById('consumo-search-group');
       if (grp) grp.style.display = 'none';
-      // Mostrar el item seleccionado fuera del grupo de búsqueda
-      sel.style.display = 'block';
     }
   }
 
@@ -4349,8 +4337,6 @@
   // ============================================================
   // PEDIDOS — GUARDAR
   // ============================================================
-  // Solicitud o material pendiente de añadir al próximo pedido que se cree
-  let _pendingSolicitudParaPedido = null;
 
   async function guardarNuevoPedido() {
     const nombre = v('ped-nombre');
@@ -4529,9 +4515,6 @@
 
     await _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, v('rec-obs'));
   }
-
-  // Estado para recepción pendiente tras catalogar material nuevo
-  let _pendingRecepcion = null;
 
   async function eliminarLineaPedido(lineaId, pedidoId) {
     if (!confirm('¿Eliminar esta línea del pedido?')) return;
