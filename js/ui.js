@@ -23,6 +23,16 @@ function showToast(msg, type = '') {
   setTimeout(() => t.remove(), 3000);
 }
 
+function mostrarToastConAccion(msg, labelBtn, callback) {
+  const c = document.getElementById('toasts');
+  const t = document.createElement('div');
+  t.className = 'toast success';
+  t.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px';
+  t.innerHTML = `<span>${msg}</span><button onclick="this.closest('.toast').remove();(${callback})()" style="background:rgba(255,255,255,0.25);border:1px solid rgba(255,255,255,0.4);color:inherit;padding:3px 10px;border-radius:4px;cursor:pointer;font-size:12px;white-space:nowrap">${labelBtn}</button>`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
 function formatDate(d) {
   if (!d) return '';
   try { return new Date(d).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
@@ -52,7 +62,7 @@ const PERMISOS = {
     verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
   },
   Profesor: {
-    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'proveedores', 'ubicaciones'],
+    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'proveedores', 'proveedor-detalle', 'ubicaciones'],
     verIntervenciones: true, editarEquipos: false, crearIntervenciones: false,
     gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -60,7 +70,7 @@ const PERMISOS = {
     verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
   },
   Gestor: {
-    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'ubicaciones', 'usuarios'],
+    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
     verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -68,7 +78,7 @@ const PERMISOS = {
     verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
   },
   Administrador: {
-    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'ubicaciones', 'usuarios'],
+    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
     verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -97,7 +107,7 @@ function showPage(page) {
     dashboard: 'Panel principal', equipos: 'Inventario de equipos', intervenciones: 'Intervenciones',
     incidencias: 'Incidencias', material: 'Material fungible', movimientos: 'Movimientos de material',
     solicitudes: 'Solicitudes de material', pedidos: 'Pedidos', 'pedido-detalle': 'Detalle del pedido',
-    proveedores: 'Proveedores', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios'
+    proveedores: 'Proveedores', 'proveedor-detalle': 'Ficha de proveedor', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
 }

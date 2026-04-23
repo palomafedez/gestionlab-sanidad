@@ -36,8 +36,10 @@ function filtrarSolicitudesEstado(v) { renderSolicitudes(v); }
 // ============================================================
 // PEDIDOS — RENDER
 // ============================================================
+const SECUENCIA_ESTADOS = ['Abierto','Presupuesto solicitado','Presupuesto aprobado','Recepción parcial','Recepción completa'];
+
 function estadoPedidoClass(estado) {
-  return {'Abierto':'estado-abierto','Presupuesto solicitado':'estado-presupuesto','Presupuesto aprobado':'estado-aprobado','Recepción parcial':'estado-recepcion','Recepción completa':'estado-completo','Factura recibida':'estado-factura'}[estado] || 'estado-abierto';
+  return {'Abierto':'estado-abierto','Presupuesto solicitado':'estado-presupuesto','Presupuesto aprobado':'estado-aprobado','Recepción parcial':'estado-recepcion','Recepción completa':'estado-completo'}[estado] || 'estado-abierto';
 }
 
 function renderPedidos(filtroEstado = '') {
@@ -61,8 +63,8 @@ function renderPedidos(filtroEstado = '') {
       <div class="pedido-card-stats">
         <div class="pedido-stat"><strong>${lineas.length}</strong> líneas</div>
         <div class="pedido-stat"><strong>${recibidas}</strong> recibidas</div>
-        ${p.Numero_Presupuesto ? `<div class="pedido-stat">Presup. <strong>${p.Numero_Presupuesto}</strong></div>` : ''}
         ${p.Numero_Factura ? `<div class="pedido-stat">Factura <strong>${p.Numero_Factura}</strong></div>` : ''}
+        ${(() => { const coste = DATA.lineasPedido.filter(l => l.Pedido === p.ID_Pedido).reduce((sum,l) => sum + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0); return coste > 0 ? `<div class="pedido-stat">Total <strong>${coste.toFixed(2)} €</strong></div>` : ''; })()}
       </div>
     </div>`;
   }).join('');
@@ -91,8 +93,8 @@ function verDetallePedido(pedidoId) {
         <div class="detail-item"><div class="detail-label">Creado</div><div class="detail-value">${formatDate(p.Fecha_Creacion)||'—'}</div></div>
         <div class="detail-item"><div class="detail-label">Presupuesto</div><div class="detail-value">${formatDate(p.Fecha_Presupuesto)||'—'}</div></div>
         <div class="detail-item"><div class="detail-label">Aprobado</div><div class="detail-value">${formatDate(p.Fecha_Aprobacion)||'—'}</div></div>
-        <div class="detail-item"><div class="detail-label">Nº Presupuesto</div><div class="detail-value">${p.Numero_Presupuesto||'—'}</div></div>
         <div class="detail-item"><div class="detail-label">Nº Factura</div><div class="detail-value">${p.Numero_Factura||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Coste total</div><div class="detail-value">${(() => { const coste = DATA.lineasPedido.filter(l => l.Pedido === pedidoId).reduce((sum,l) => sum + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0); return coste > 0 ? coste.toFixed(2) + ' €' : '—'; })()}</div></div>
       </div>
     </div>
     <div class="card">
@@ -138,6 +140,7 @@ function setSourceLinea(source) {
   document.getElementById('btn-lsource-libre').classList.toggle('active', !esCatalogo);
   document.getElementById('linea-catalogo-group').style.display = esCatalogo ? '' : 'none';
   document.getElementById('linea-libre-group').style.display = esCatalogo ? 'none' : '';
+  document.getElementById('linea-libre-unidad-group').style.display = esCatalogo ? 'none' : '';
 }
 
 function openModalSolicitud() {
@@ -178,7 +181,7 @@ function openModalEstadoPedido(pedidoId) {
   const actualizarCampos = () => {
     const est = selEstado.value;
     document.getElementById('grupo-num-presupuesto').style.display = est === 'Presupuesto solicitado' || est === 'Presupuesto aprobado' ? '' : 'none';
-    document.getElementById('grupo-num-factura').style.display = est === 'Factura recibida' ? '' : 'none';
+    document.getElementById('grupo-num-factura').style.display = 'none'; // El nº factura se rellena desde el generador de hoja
     document.getElementById('grupo-proveedor-estado').style.display = !p?.Proveedor ? '' : 'none';
   };
   selEstado.onchange = actualizarCampos; actualizarCampos();
@@ -278,7 +281,12 @@ async function confirmarSolicitudAPedido(pedidoId) {
     sol.Estado = 'En pedido'; sol.Lista_Pedido = pedidoId;
     const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En pedido', pedidoId, sol.Observaciones];
     await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
-    showToast(`Añadido a "${pedido.Nombre_Lista}"`, 'success'); renderAll();
+    showToast(`Añadido a "${pedido.Nombre_Lista}"`, 'success');
+    renderAll();
+    // Ofrecer navegación directa al pedido
+    if (typeof mostrarToastConAccion === 'function') {
+      mostrarToastConAccion(`✓ Añadido a "${pedido.Nombre_Lista}"`, 'Ver pedido', () => verDetallePedido(pedidoId));
+    }
   } catch(e) { showToast('Error', 'error'); console.error(e); }
   hideLoading();
 }
@@ -371,7 +379,7 @@ async function guardarEstadoPedido() {
   if (nuevoEstado === 'Presupuesto solicitado') p.Fecha_Presupuesto = hoy;
   if (nuevoEstado === 'Presupuesto aprobado')   p.Fecha_Aprobacion = hoy;
   if (nuevoEstado === 'Recepción completa')     p.Fecha_Recepcion_Completa = hoy;
-  if (nuevoEstado === 'Factura recibida')       p.Fecha_Factura = hoy;
+  // Nota: Fecha_Factura se gestiona desde el generador de hoja, no desde este modal
   const numPres = v('estado-num-presupuesto'); if (numPres) p.Numero_Presupuesto = numPres;
   const numFact = v('estado-num-factura');     if (numFact) p.Numero_Factura = numFact;
   const provNew = v('estado-proveedor');       if (provNew) p.Proveedor = provNew;
@@ -452,6 +460,16 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
         await sheetsUpdate(`Pedidos!A${pedIdx+2}:M${pedIdx+2}`, rowP);
       }
     }
+    // Actualizar estado de la solicitud de origen si la línea queda como Recibido
+    if (l.Estado_Linea === 'Recibido') {
+      const solOrigen = DATA.solicitudes.find(s => s.Lista_Pedido === pedidoId && (s.Material === l.Material || l.Material.startsWith(s.Material)) && s.Estado !== 'Recibido');
+      if (solOrigen) {
+        const solIdx = DATA.solicitudes.indexOf(solOrigen);
+        solOrigen.Estado = 'Recibido';
+        const rowSol = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Recibido', solOrigen.Lista_Pedido, solOrigen.Observaciones];
+        await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
+      }
+    }
     showToast('Recepción registrada', 'success');
     closeModal('modal-recepcion-linea');
   } catch(e) { showToast('Error', 'error'); console.error(e); }
@@ -463,7 +481,43 @@ async function eliminarLineaPedido(lineaId, pedidoId) {
   const idx = DATA.lineasPedido.findIndex(l => l.ID_Linea === lineaId);
   if (idx === -1) return;
   showLoading('Eliminando...');
-  try { await sheetsClear(`Lineas_Pedido!A${idx+2}:G${idx+2}`); DATA.lineasPedido.splice(idx, 1); showToast('Línea eliminada', 'success'); verDetallePedido(pedidoId); }
+  try {
+    // Vaciamos la fila en Sheets y la eliminamos del array local
+    await sheetsClear(`Lineas_Pedido!A${idx+2}:G${idx+2}`);
+    DATA.lineasPedido.splice(idx, 1);
+    // Filtrar posibles entradas vacías que puedan quedar en el array
+    DATA.lineasPedido = DATA.lineasPedido.filter(l => l.ID_Linea);
+    showToast('Línea eliminada', 'success');
+    verDetallePedido(pedidoId);
+  }
   catch(e) { showToast('Error eliminando', 'error'); console.error(e); }
+  hideLoading();
+}
+
+// ============================================================
+// AVANCE SECUENCIAL DE ESTADO DE PEDIDO
+// ============================================================
+async function avanceEstadoPedido(pedidoId) {
+  const idx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
+  if (idx === -1) return;
+  const p = DATA.pedidos[idx];
+  const posActual = SECUENCIA_ESTADOS.indexOf(p.Estado);
+  if (posActual === -1 || posActual >= SECUENCIA_ESTADOS.length - 1) {
+    showToast('El pedido ya está en el estado final', 'info'); return;
+  }
+  const nuevoEstado = SECUENCIA_ESTADOS[posActual + 1];
+  const hoy = new Date().toISOString().split('T')[0];
+  p.Estado = nuevoEstado;
+  if (nuevoEstado === 'Presupuesto solicitado') p.Fecha_Presupuesto = hoy;
+  if (nuevoEstado === 'Presupuesto aprobado')   p.Fecha_Aprobacion = hoy;
+  if (nuevoEstado === 'Recepción completa')      p.Fecha_Recepcion_Completa = hoy;
+  const row = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, p.Estado, p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones];
+  showLoading('Actualizando estado...');
+  try {
+    await sheetsUpdate(`Pedidos!A${idx+2}:M${idx+2}`, row);
+    showToast(`Estado: ${nuevoEstado}`, 'success');
+    renderPedidos();
+    if (document.getElementById('page-pedido-detalle').classList.contains('active')) verDetallePedido(pedidoId);
+  } catch(e) { showToast('Error', 'error'); console.error(e); }
   hideLoading();
 }

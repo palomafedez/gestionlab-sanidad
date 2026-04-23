@@ -1,12 +1,13 @@
 // ============================================================
 // MATERIAL FUNGIBLE — RENDER
 // ============================================================
-let _filtroMaterial = '', _filtroMaterialCat = '', _filtroMaterialStock = '';
+let _filtroMaterial = '', _filtroMaterialCat = '', _filtroMaterialStock = '', _filtroMaterialUbicacion = '';
 
-function renderMaterial(filtro, cat, stockFiltro) {
+function renderMaterial(filtro, cat, stockFiltro, ubicacion) {
   if (filtro !== undefined) _filtroMaterial = filtro;
   if (cat !== undefined) _filtroMaterialCat = cat;
   if (stockFiltro !== undefined) _filtroMaterialStock = stockFiltro;
+  if (ubicacion !== undefined) _filtroMaterialUbicacion = ubicacion;
 
   const cats = [...new Set(DATA.material.map(m => m.Categoria).filter(Boolean))].sort();
   const dl = document.getElementById('categorias-list');
@@ -23,6 +24,7 @@ function renderMaterial(filtro, cat, stockFiltro) {
   if (_filtroMaterialCat) items = items.filter(m => m.Categoria === _filtroMaterialCat);
   if (_filtroMaterialStock === 'bajo') items = items.filter(m => { const s = parseFloat(m.Stock_Actual)||0; const mn = parseFloat(m.Stock_Minimo)||0; return mn > 0 && s <= mn; });
   if (_filtroMaterialStock === 'ok')   items = items.filter(m => { const s = parseFloat(m.Stock_Actual)||0; const mn = parseFloat(m.Stock_Minimo)||0; return s > mn; });
+  if (_filtroMaterialUbicacion) items = items.filter(m => (m.Ubicacion||'').toLowerCase().includes(_filtroMaterialUbicacion.toLowerCase()));
 
   const tbody = document.getElementById('tabla-material');
   if (!tbody) return;
@@ -53,6 +55,7 @@ function renderMaterial(filtro, cat, stockFiltro) {
 function filtrarMaterial(val)          { renderMaterial(val, undefined, undefined); }
 function filtrarMaterialCategoria(val) { renderMaterial(undefined, val, undefined); }
 function filtrarMaterialStock(val)     { renderMaterial(undefined, undefined, val); }
+function filtrarMaterialUbicacion(val) { renderMaterial(undefined, undefined, undefined, val); }
 
 function renderMovimientos(filtroTipo = '') {
   const tbody = document.getElementById('tabla-movimientos');
@@ -96,12 +99,17 @@ function buscarMaterialGenerico(query, listId, hiddenId, selectedId) {
 
 function seleccionarMaterial(id, nombre, listId, hiddenId, selectedId) {
   document.getElementById(hiddenId).value = id;
+  const mat = DATA.material.find(m => m.ID_Material === id);
   const sel = document.getElementById(selectedId);
-  sel.textContent = nombre; sel.style.display = 'block';
+  sel.textContent = mat ? nombre + ' · ' + (mat.Unidad||'') + ' · Stock: ' + (mat.Stock_Actual||'0') + ' ' + (mat.Unidad||'') : nombre;
+  sel.style.display = 'block';
   const list = document.getElementById(listId);
   list.classList.remove('open');
   const wrap = list.closest('.search-material-wrap');
   if (wrap) wrap.querySelector('input[type="text"]').value = '';
+  // Rellenar campo unidades si existe en el contexto (líneas libres)
+  const unidadesField = document.getElementById(selectedId.replace('selected','unidades'));
+  if (unidadesField && mat) unidadesField.value = mat.Unidad || '';
 }
 
 function buscarMaterialSolicitud(val) { buscarMaterialGenerico(val, 'sol-autocomplete', 'sol-material-id', 'sol-material-selected'); }
@@ -150,6 +158,7 @@ document.addEventListener('click', e => {
 function openModalMaterial() {
   editingRow = null;
   document.getElementById('modal-material-title').textContent = 'Nuevo material';
+  const matIdField = document.getElementById('mat-id'); if (matIdField) matIdField.readOnly = false;
   ['mat-id','mat-nombre','mat-unidad','mat-ubicacion','mat-referencia','mat-observaciones','mat-ubicacion-search'].forEach(id => sv(id,''));
   sv('mat-categoria',''); sv('mat-stock','0'); sv('mat-minimo','0'); sv('mat-optimo','0'); sv('mat-proveedor','');
   clearUbicacionMat();
@@ -158,11 +167,24 @@ function openModalMaterial() {
   openModal('modal-material');
 }
 
+// Abre el modal de catalogación prellenando nombre y unidad desde una recepción pendiente
+function openModalMaterialCatalogacion(nombreSugerido, unidadSugerida) {
+  openModalMaterial();
+  if (nombreSugerido) {
+    // Limpiar posibles sufijos como [unidad] del nombre
+    const nombreLimpio = nombreSugerido.replace(/\s*\[.*?\]\s*$/, '').trim();
+    sv('mat-nombre', nombreLimpio);
+    autoIdMaterial(nombreLimpio);
+  }
+  if (unidadSugerida) sv('mat-unidad', unidadSugerida);
+}
+
 function editMaterial(idx) {
   const m = DATA.material[idx];
   editingRow = { sheet: 'Material', rowIndex: idx };
   document.getElementById('modal-material-title').textContent = 'Editar material';
   sv('mat-id',m.ID_Material); sv('mat-nombre',m.Nombre); sv('mat-categoria',m.Categoria);
+  const matIdField = document.getElementById('mat-id'); if (matIdField) matIdField.readOnly = true;
   sv('mat-referencia',m.Referencia_Proveedor); sv('mat-unidad',m.Unidad); sv('mat-ubicacion',m.Ubicacion);
   sv('mat-stock',m.Stock_Actual); sv('mat-minimo',m.Stock_Minimo); sv('mat-optimo',m.Stock_Optimo); sv('mat-observaciones',m.Observaciones);
   if (m.Ubicacion) {
@@ -174,6 +196,12 @@ function editMaterial(idx) {
   sv('mat-ubicacion-search','');
   const sel = document.getElementById('mat-proveedor');
   if (sel) { sel.innerHTML = '<option value="">Seleccionar...</option>' + DATA.proveedores.filter(p => p.Activo !== 'FALSE').map(p => `<option value="${p.Nombre_Proveedor}">${p.Nombre_Proveedor}</option>`).join(''); sel.value = m.Proveedor; }
+  const gestionAutoChk = document.getElementById('mat-gestion-auto');
+  if (gestionAutoChk) {
+    const esAuto = m.Gestion_Automatica !== 'FALSE';
+    gestionAutoChk.checked = esAuto;
+    toggleGestionAutoStock(esAuto);
+  }
   openModal('modal-material');
 }
 
@@ -192,11 +220,11 @@ function openModalConsumoMaterial(matId) {
   const mat = DATA.material.find(m => m.ID_Material === matId);
   if (mat) {
     document.getElementById('consumo-material-id').value = matId;
+    const grp = document.getElementById('consumo-search-group');
+    if (grp) grp.style.display = 'none';
     const sel = document.getElementById('consumo-material-selected');
     sel.textContent = mat.Nombre + ' · Stock actual: ' + mat.Stock_Actual + ' ' + (mat.Unidad||'');
     sel.style.display = 'block';
-    const grp = document.getElementById('consumo-search-group');
-    if (grp) grp.style.display = 'none';
   }
 }
 function openModalEntrada() {
@@ -239,7 +267,10 @@ function generarIdMaterial(nombre) {
 async function guardarMaterial() {
   const id = v('mat-id'), nombre = v('mat-nombre'), cat = v('mat-categoria'), unidad = v('mat-unidad');
   if (!id || !nombre || !cat || !unidad) { showToast('ID, nombre, categoría y unidad son obligatorios', 'error'); return; }
-  const row = [id, nombre, cat, v('mat-referencia'), v('mat-proveedor'), unidad, v('mat-ubicacion'), v('mat-stock')||'0', v('mat-minimo')||'0', v('mat-optimo')||'0', v('mat-observaciones')];
+  const gestionAuto = document.getElementById('mat-gestion-auto') ? document.getElementById('mat-gestion-auto').checked : true;
+  const minStock = gestionAuto ? (v('mat-minimo')||'0') : '0';
+  const optStock = gestionAuto ? (v('mat-optimo')||'0') : '0';
+  const row = [id, nombre, cat, v('mat-referencia'), v('mat-proveedor'), unidad, v('mat-ubicacion'), v('mat-stock')||'0', minStock, optStock, v('mat-observaciones'), gestionAuto ? 'TRUE' : 'FALSE'];
 
   showLoading('Guardando...');
   try {
@@ -268,9 +299,6 @@ async function guardarMaterial() {
         if (mat) { showToast('Material catalogado. Registrando recepción...', 'success'); await _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, obs); verDetallePedido(pedidoId); }
       }
     } else {
-      _filtroMaterial = ''; _filtroMaterialCat = ''; _filtroMaterialStock = '';
-      const searchInput = document.getElementById('search-material'); if (searchInput) searchInput.value = '';
-      const filterCat = document.getElementById('filter-material-cat'); if (filterCat) filterCat.value = '';
       renderAll();
     }
   } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
@@ -325,4 +353,12 @@ async function guardarEntrada() {
     closeModal('modal-entrada'); renderAll();
   } catch(e) { showToast('Error registrando entrada', 'error'); console.error(e); }
   hideLoading();
+}
+
+// ============================================================
+// GESTIÓN AUTOMÁTICA DE STOCK (toggle campos min/opt)
+// ============================================================
+function toggleGestionAutoStock(checked) {
+  const wrap = document.getElementById('mat-stock-auto-fields');
+  if (wrap) wrap.style.display = checked ? 'contents' : 'none';
 }

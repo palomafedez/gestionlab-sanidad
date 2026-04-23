@@ -53,11 +53,11 @@ async function loadAllData() {
       sheetsGet('Proveedores!A2:I'),
       sheetsGet('Ubicaciones!A2:F'),
       sheetsGet('Usuarios!A2:E'),
-      sheetsGet('Material!A2:K'),
+      sheetsGet('Material!A2:L'),
       sheetsGet('Movimientos!A2:H'),
       sheetsGet('Solicitudes!A2:J'),
       sheetsGet('Pedidos!A2:M'),
-      sheetsGet('Lineas_Pedido!A2:G'),
+      sheetsGet('Lineas_Pedido!A2:H'),
       sheetsGet('Ciclos_Modulos!A2:B')
     ]);
 

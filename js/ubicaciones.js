@@ -9,14 +9,18 @@ function renderProveedores() {
   tbody.innerHTML = DATA.proveedores.map(p => {
     const tipos = (p.Tipo_Proveedor||'').split(',').map(t => t.trim()).filter(Boolean);
     const tiposBadges = tipos.map(t => `<span class="badge badge-gray" style="margin-right:3px">${t}</span>`).join('');
-    return `<tr>
+    const nPedidos = DATA.pedidos.filter(x => x.Proveedor === p.Nombre_Proveedor).length;
+    return `<tr style="cursor:pointer" onclick="verDetalleProveedor('${p.Nombre_Proveedor.replace(/'/g,"\\'")}')">
       <td><strong>${p.Nombre_Proveedor||'—'}</strong></td>
       <td>${tiposBadges||'—'}</td>
       <td>${p.Persona_Contacto||'—'}</td>
-      <td>${p.Email_Contacto ? `<a href="mailto:${p.Email_Contacto}" style="color:var(--accent)">${p.Email_Contacto}</a>` : '—'}</td>
+      <td onclick="event.stopPropagation()">${p.Email_Contacto ? `<a href="mailto:${p.Email_Contacto}" style="color:var(--accent)">${p.Email_Contacto}</a>` : '—'}</td>
       <td>${p.Telefono||'—'}</td>
       <td>${p.Activo !== 'FALSE' ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-gray">Inactivo</span>'}</td>
-      <td><div class="row-actions">${puedeEditar ? `<button class="icon-btn" onclick="editProveedor(${DATA.proveedores.indexOf(p)})">✏️</button>` : ''}</div></td>
+      <td><div class="row-actions" onclick="event.stopPropagation()">
+        ${nPedidos > 0 ? `<span class="badge badge-blue" style="margin-right:4px" title="${nPedidos} pedido(s)">${nPedidos} 🛒</span>` : ''}
+        ${puedeEditar ? `<button class="icon-btn" onclick="editProveedor(${DATA.proveedores.indexOf(p)})">✏️</button>` : ''}
+      </div></td>
     </tr>`;
   }).join('');
 }
@@ -76,10 +80,91 @@ function toggleUbiGrupo(id) {
 }
 
 function verMaterialUbicacion(ubicacionId) {
-  _filtroMaterial = ''; _filtroMaterialCat = ''; _filtroMaterialStock = '';
+  _filtroMaterial = ''; _filtroMaterialCat = ''; _filtroMaterialStock = ''; _filtroMaterialUbicacion = '';
   showPage('material');
-  const searchInput = document.getElementById('search-material');
-  if (searchInput) { searchInput.value = ubicacionId; filtrarMaterial(ubicacionId); }
+  const ubiInput = document.querySelector('#page-material input[oninput*="filtrarMaterialUbicacion"]');
+  if (ubiInput) { ubiInput.value = ubicacionId; filtrarMaterialUbicacion(ubicacionId); }
+  else { const searchInput = document.getElementById('search-material'); if (searchInput) { searchInput.value = ubicacionId; filtrarMaterial(ubicacionId); } }
+}
+
+// ============================================================
+// DETALLE PROVEEDOR
+// ============================================================
+function verDetalleProveedor(nombreProveedor) {
+  const p = DATA.proveedores.find(x => x.Nombre_Proveedor === nombreProveedor);
+  if (!p) return;
+  renderDetalleProveedor(p);
+  showPage('proveedor-detalle');
+}
+
+function renderDetalleProveedor(p) {
+  const cont = document.getElementById('proveedor-detalle-contenido');
+  if (!cont) return;
+  const tipos = (p.Tipo_Proveedor||'').split(',').map(t => t.trim()).filter(Boolean);
+  const tiposBadges = tipos.map(t => `<span class="badge badge-gray" style="margin-right:4px">${t}</span>`).join('') || '—';
+
+  const pedidosProv = DATA.pedidos
+    .filter(x => x.Proveedor === p.Nombre_Proveedor)
+    .sort((a,b) => new Date(b.Fecha_Creacion) - new Date(a.Fecha_Creacion));
+
+  const totalGastado = pedidosProv.reduce((sum, ped) => {
+    return sum + DATA.lineasPedido
+      .filter(l => l.Pedido === ped.ID_Pedido)
+      .reduce((s,l) => s + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0);
+  }, 0);
+
+  const pedidosHTML = !pedidosProv.length
+    ? `<div class="empty-state" style="padding:24px"><div class="empty-state-icon">🛒</div><div class="empty-state-title">Sin pedidos registrados con este proveedor</div></div>`
+    : pedidosProv.map(ped => {
+        const lineas    = DATA.lineasPedido.filter(l => l.Pedido === ped.ID_Pedido);
+        const recibidas = lineas.filter(l => l.Estado_Linea === 'Recibido').length;
+        const coste     = lineas.reduce((s,l) => s + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0);
+        return `<div class="pedido-card" onclick="verDetallePedido('${ped.ID_Pedido}')">
+          <div class="pedido-card-header">
+            <div>
+              <div class="pedido-card-title">${ped.Nombre_Lista}</div>
+              <div class="pedido-card-meta">${ped.ID_Pedido} · Creado ${formatDate(ped.Fecha_Creacion)}</div>
+            </div>
+            <span class="estado-pedido ${estadoPedidoClass(ped.Estado)}">${ped.Estado}</span>
+          </div>
+          <div class="pedido-card-stats">
+            <div class="pedido-stat"><strong>${lineas.length}</strong> líneas</div>
+            <div class="pedido-stat"><strong>${recibidas}</strong> recibidas</div>
+            ${ped.Numero_Factura ? `<div class="pedido-stat">Factura <strong>${ped.Numero_Factura}</strong></div>` : ''}
+            ${coste > 0 ? `<div class="pedido-stat">Total <strong>${coste.toFixed(2)} €</strong></div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+  cont.innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">
+        <div>
+          <div class="card-title">🏢 ${p.Nombre_Proveedor}</div>
+          <div style="margin-top:4px">${tiposBadges}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          ${p.Email_Contacto ? `<a href="mailto:${p.Email_Contacto}" class="btn btn-secondary" style="text-decoration:none">✉️ Email</a>` : ''}
+          ${p.Web ? `<a href="${p.Web}" target="_blank" rel="noopener" class="btn btn-secondary" style="text-decoration:none">🌐 Web</a>` : ''}
+        </div>
+      </div>
+      <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px">
+        <div class="detail-item"><div class="detail-label">Contacto</div><div class="detail-value">${p.Persona_Contacto||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Email</div><div class="detail-value">${p.Email_Contacto||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Teléfono</div><div class="detail-value">${p.Telefono||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Pedidos totales</div><div class="detail-value">${pedidosProv.length}</div></div>
+        ${totalGastado > 0 ? `<div class="detail-item"><div class="detail-label">Importe total</div><div class="detail-value"><strong>${totalGastado.toFixed(2)} €</strong></div></div>` : ''}
+        ${p.Observaciones ? `<div class="detail-item" style="grid-column:1/-1"><div class="detail-label">Observaciones</div><div class="detail-value">${p.Observaciones}</div></div>` : ''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Historial de pedidos (${pedidosProv.length})</div>
+      </div>
+      <div style="padding:12px 16px">
+        ${pedidosHTML}
+      </div>
+    </div>`;
 }
 
 // ============================================================
