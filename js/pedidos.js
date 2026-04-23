@@ -23,8 +23,9 @@ function renderSolicitudes(filtroEstado = '') {
     <td style="font-size:12px">${s.Proveedor_Requerido||'—'}</td>
     <td><span class="badge ${estadoBadge[s.Estado]||'badge-gray'}">${s.Estado||'Pendiente'}</span></td>
     <td><div class="row-actions">
-      ${puedeGestionar ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
-      ${puedeGestionar ? `<button class="icon-btn" title="Rechazar" onclick="rechazarSolicitud('${s.ID_Solicitud}')">✕</button>` : ''}
+      ${puedeGestionar && s.Estado !== 'En pedido' && s.Estado !== 'Recibido' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
+      ${s.Estado === 'En pedido' && s.Lista_Pedido ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
+      ${puedeGestionar && s.Estado === 'Pendiente' ? `<button class="icon-btn" title="Rechazar" onclick="rechazarSolicitud('${s.ID_Solicitud}')">✕</button>` : ''}
     </div></td>
   </tr>`).join('');
   const pendientes = DATA.solicitudes.filter(s => s.Estado === 'Pendiente').length;
@@ -42,29 +43,39 @@ function estadoPedidoClass(estado) {
   return {'Abierto':'estado-abierto','Presupuesto solicitado':'estado-presupuesto','Presupuesto aprobado':'estado-aprobado','Recepción parcial':'estado-recepcion','Recepción completa':'estado-completo'}[estado] || 'estado-abierto';
 }
 
+let _mostrarArchivados = false;
+
 function renderPedidos(filtroEstado = '') {
   const cont = document.getElementById('pedidos-lista');
   if (!cont) return;
-  let items = [...DATA.pedidos];
-  if (filtroEstado) items = items.filter(p => p.Estado === filtroEstado);
-  items.sort((a,b) => new Date(b.Fecha_Creacion) - new Date(a.Fecha_Creacion));
-  if (!items.length) { cont.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🛒</div><div class="empty-state-title">Sin listas de pedido</div><div class="empty-state-text">Crea la primera lista con el botón superior</div></div>`; return; }
-  cont.innerHTML = items.map(p => {
-    const lineas   = DATA.lineasPedido.filter(l => l.Pedido === p.ID_Pedido);
+  const archivados = DATA.pedidos.filter(p => p.Estado === 'Archivado');
+  const activos    = DATA.pedidos.filter(p => p.Estado !== 'Archivado');
+  const base = _mostrarArchivados ? archivados : activos;
+  let filtrados = filtroEstado ? base.filter(p => p.Estado === filtroEstado) : base;
+  filtrados = [...filtrados].sort((a,b) => new Date(b.Fecha_Creacion) - new Date(a.Fecha_Creacion));
+  const toggleHtml = archivados.length > 0 ? `<div style="margin-bottom:12px"><button class="btn btn-secondary" onclick="_mostrarArchivados=!_mostrarArchivados;renderPedidos()">${_mostrarArchivados ? '← Ver pedidos activos' : '📦 Ver archivo (' + archivados.length + ')'}</button></div>` : '';
+  if (!filtrados.length) {
+    cont.innerHTML = toggleHtml + `<div class="empty-state"><div class="empty-state-icon">🛒</div><div class="empty-state-title">${_mostrarArchivados ? 'Sin pedidos archivados' : 'Sin listas de pedido'}</div><div class="empty-state-text">${_mostrarArchivados ? '' : 'Crea la primera lista con el botón superior'}</div></div>`;
+    return;
+  }
+  cont.innerHTML = toggleHtml + filtrados.map(p => {
+    const lineas    = DATA.lineasPedido.filter(l => l.Pedido === p.ID_Pedido);
     const recibidas = lineas.filter(l => l.Estado_Linea === 'Recibido').length;
+    const docBadges = [p.Doc_Hoja_Generada==='TRUE'?'📄':'', p.Doc_Hoja_Completada==='TRUE'?'✅':'', p.Doc_Enviada_Jefatura==='TRUE'?'📬':''].filter(Boolean).join(' ');
     return `<div class="pedido-card" onclick="verDetallePedido('${p.ID_Pedido}')">
       <div class="pedido-card-header">
         <div><div class="pedido-card-title">${p.Nombre_Lista}</div><div class="pedido-card-meta">${p.Proveedor||'Sin proveedor asignado'} · Creado ${formatDate(p.Fecha_Creacion)}</div></div>
         <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
+          ${docBadges ? `<span style="font-size:14px" title="Documentación">${docBadges}</span>` : ''}
           <span class="estado-pedido ${estadoPedidoClass(p.Estado)}">${p.Estado}</span>
-          <button class="icon-btn" title="Cambiar estado" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄</button>
+          ${p.Estado !== 'Archivado' ? `<button class="icon-btn" title="Cambiar estado" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄</button>` : ''}
         </div>
       </div>
       <div class="pedido-card-stats">
         <div class="pedido-stat"><strong>${lineas.length}</strong> líneas</div>
         <div class="pedido-stat"><strong>${recibidas}</strong> recibidas</div>
         ${p.Numero_Factura ? `<div class="pedido-stat">Factura <strong>${p.Numero_Factura}</strong></div>` : ''}
-        ${(() => { const coste = DATA.lineasPedido.filter(l => l.Pedido === p.ID_Pedido).reduce((sum,l) => sum + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0); return coste > 0 ? `<div class="pedido-stat">Total <strong>${coste.toFixed(2)} €</strong></div>` : ''; })()}
+        ${(() => { const coste = lineas.reduce((sum,l) => sum + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0); return coste > 0 ? `<div class="pedido-stat">Total <strong>${coste.toFixed(2)} €</strong></div>` : ''; })()}
       </div>
     </div>`;
   }).join('');
@@ -96,6 +107,24 @@ function verDetallePedido(pedidoId) {
         <div class="detail-item"><div class="detail-label">Nº Factura</div><div class="detail-value">${p.Numero_Factura||'—'}</div></div>
         <div class="detail-item"><div class="detail-label">Coste total</div><div class="detail-value">${(() => { const coste = DATA.lineasPedido.filter(l => l.Pedido === pedidoId).reduce((sum,l) => sum + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0); return coste > 0 ? coste.toFixed(2) + ' €' : '—'; })()}</div></div>
       </div>
+      ${puedeEditar ? `<div style="padding:0 20px 16px 20px;border-top:1px solid var(--border);margin-top:4px">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;padding-top:14px">Documentación</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="chk-hoja-generada" ${p.Doc_Hoja_Generada==='TRUE'?'checked':''} disabled style="width:16px;height:16px">
+            <span style="${p.Doc_Hoja_Generada==='TRUE'?'color:var(--success);font-weight:500':'color:var(--text-soft)'}">📄 Hoja de pedido generada</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:${p.Doc_Hoja_Generada==='TRUE' ? 'pointer' : 'not-allowed'}">
+            <input type="checkbox" id="chk-hoja-completada" ${p.Doc_Hoja_Completada==='TRUE'?'checked':''} ${p.Doc_Hoja_Generada!=='TRUE'?'disabled':''} onchange="toggleDocPedido('${p.ID_Pedido}','Doc_Hoja_Completada',this.checked)" style="width:16px;height:16px">
+            <span style="${p.Doc_Hoja_Completada==='TRUE'?'color:var(--success);font-weight:500':(p.Doc_Hoja_Generada!=='TRUE'?'color:var(--text-muted)':'color:var(--text-soft)')}">✅ Hoja completada con factura</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:${p.Doc_Hoja_Completada==='TRUE' ? 'pointer' : 'not-allowed'}">
+            <input type="checkbox" id="chk-enviada-jefatura" ${p.Doc_Enviada_Jefatura==='TRUE'?'checked':''} ${p.Doc_Hoja_Completada!=='TRUE'?'disabled':''} onchange="toggleDocPedido('${p.ID_Pedido}','Doc_Enviada_Jefatura',this.checked)" style="width:16px;height:16px">
+            <span style="${p.Doc_Enviada_Jefatura==='TRUE'?'color:var(--success);font-weight:500':(p.Doc_Hoja_Completada!=='TRUE'?'color:var(--text-muted)':'color:var(--text-soft)')}">📬 Documentación enviada a jefatura</span>
+          </label>
+        </div>
+        ${p.Estado==='Recepción completa'&&p.Doc_Hoja_Generada==='TRUE'&&p.Doc_Hoja_Completada==='TRUE'&&p.Doc_Enviada_Jefatura==='TRUE' ? `<div style="margin-top:14px"><button class="btn btn-secondary" onclick="archivarPedido('${p.ID_Pedido}')">📦 Archivar pedido</button></div>` : ''}
+      </div>` : ''}
     </div>
     <div class="card">
       <div class="card-header">
@@ -324,7 +353,7 @@ async function guardarNuevoPedido() {
   if (!nombre) { showToast('El nombre es obligatorio', 'error'); return; }
   const id = genId('PED-');
   const fecha = new Date().toISOString().split('T')[0];
-  const row = [id, nombre, v('ped-proveedor'), fecha, '', '', '', '', '', 'Abierto', '', '', v('ped-obs')];
+  const row = [id, nombre, v('ped-proveedor'), fecha, '', '', '', '', '', 'Abierto', '', '', v('ped-obs'), '', '', ''];
   showLoading('Creando lista...');
   try {
     await sheetsAppend('Pedidos', row);
@@ -447,8 +476,8 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
         DATA.pedidos[pedIdx].Estado = 'Recepción completa';
         DATA.pedidos[pedIdx].Fecha_Recepcion_Completa = new Date().toISOString().split('T')[0];
         const p = DATA.pedidos[pedIdx];
-        const rowP = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, p.Estado, p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones];
-        await sheetsUpdate(`Pedidos!A${pedIdx+2}:M${pedIdx+2}`, rowP);
+        const rowP = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, p.Estado, p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones, p.Doc_Hoja_Generada||'', p.Doc_Hoja_Completada||'', p.Doc_Enviada_Jefatura||''];
+        await sheetsUpdate(`Pedidos!A${pedIdx+2}:P${pedIdx+2}`, rowP);
         showToast('¡Pedido completo! Estado actualizado automáticamente', 'success');
       }
     } else {
@@ -472,6 +501,8 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
     }
     showToast('Recepción registrada', 'success');
     closeModal('modal-recepcion-linea');
+    renderMaterial();
+    verDetallePedido(pedidoId);
   } catch(e) { showToast('Error', 'error'); console.error(e); }
   hideLoading();
 }
@@ -511,13 +542,49 @@ async function avanceEstadoPedido(pedidoId) {
   if (nuevoEstado === 'Presupuesto solicitado') p.Fecha_Presupuesto = hoy;
   if (nuevoEstado === 'Presupuesto aprobado')   p.Fecha_Aprobacion = hoy;
   if (nuevoEstado === 'Recepción completa')      p.Fecha_Recepcion_Completa = hoy;
-  const row = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, p.Estado, p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones];
+  const row = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, p.Estado, p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones, p.Doc_Hoja_Generada||'', p.Doc_Hoja_Completada||'', p.Doc_Enviada_Jefatura||''];
   showLoading('Actualizando estado...');
   try {
-    await sheetsUpdate(`Pedidos!A${idx+2}:M${idx+2}`, row);
+    await sheetsUpdate(`Pedidos!A${idx+2}:P${idx+2}`, row);
     showToast(`Estado: ${nuevoEstado}`, 'success');
     renderPedidos();
     if (document.getElementById('page-pedido-detalle').classList.contains('active')) verDetallePedido(pedidoId);
   } catch(e) { showToast('Error', 'error'); console.error(e); }
+  hideLoading();
+}
+
+// ============================================================
+// DOCUMENTACIÓN Y ARCHIVO DE PEDIDOS
+// ============================================================
+async function toggleDocPedido(pedidoId, campo, valor) {
+  const idx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
+  if (idx === -1) return;
+  const p = DATA.pedidos[idx];
+  p[campo] = valor ? 'TRUE' : '';
+  const colMap = { Doc_Hoja_Generada: 'N', Doc_Hoja_Completada: 'O', Doc_Enviada_Jefatura: 'P' };
+  const col = colMap[campo];
+  showLoading('Guardando...');
+  try {
+    await sheetsUpdate(`Pedidos!${col}${idx+2}`, [p[campo]]);
+    showToast('Documentación actualizada', 'success');
+    verDetallePedido(pedidoId);
+  } catch(e) { showToast('Error guardando', 'error'); p[campo] = valor ? '' : 'TRUE'; }
+  hideLoading();
+}
+
+async function archivarPedido(pedidoId) {
+  if (!confirm('¿Archivar este pedido? Dejará de aparecer en la vista principal.')) return;
+  const idx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
+  if (idx === -1) return;
+  const p = DATA.pedidos[idx];
+  p.Estado = 'Archivado';
+  const row = [p.ID_Pedido, p.Nombre_Lista, p.Proveedor, p.Fecha_Creacion, p.Fecha_Presupuesto, p.Fecha_Aprobacion, p.Fecha_Pedido_Enviado, p.Fecha_Recepcion_Completa, p.Fecha_Factura, 'Archivado', p.Numero_Presupuesto, p.Numero_Factura, p.Observaciones, p.Doc_Hoja_Generada, p.Doc_Hoja_Completada, p.Doc_Enviada_Jefatura];
+  showLoading('Archivando...');
+  try {
+    await sheetsUpdate(`Pedidos!A${idx+2}:P${idx+2}`, row);
+    showToast('Pedido archivado', 'success');
+    showPage('pedidos');
+    renderPedidos();
+  } catch(e) { showToast('Error archivando', 'error'); p.Estado = 'Recepción completa'; }
   hideLoading();
 }

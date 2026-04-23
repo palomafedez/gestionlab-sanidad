@@ -1,26 +1,9 @@
 // ============================================================
 // GENERACIÓN FOLLA DE PEDIDO (Word + IA)
 // ============================================================
-const TEMPLATE_B64 = 'UEsDBBQAAAAIAAAAIQBkXGpQkQEAALsGAAATAAAAW0NvbnRlbnRfVHlwZXNdLnhtbK2Uy27CMBBF9/2KyNuqNixoVYUs2i4rqBT6Aa49SSwc2/IjlL/vOCFQqBQeXUWKPJl77vUkztvFqpSJBee1NTlJBylJwHBbaNPk5H3+MhydJD4IU4jSGsjJGjxZTC8n87UDn8Q047GpSRuCe6TU8xaU8APrwMRKZZ0SEY+uoU7wrWiAZml6T7k1AUygLEIvedYL8Jq9MsLTMkBtgWFJIZJEFxF+i2aKcnrE2dMkiScBvPY9TAdJSNxHhaqBhC1bCeJfCr3X2bnAl1JWXNifaBXqRKzlNhDQYGGt2YNGSHjhFBOLFhLyBp6CjDlmD2XQzxCGc4OBoHMmZ9/XYPMA5jNqHBORbW4RNKpNmxkqSgpMtbbMeO0F7eFQjHlGTsY5I7F1VsNUQCYP9cL7vv5HJW7jGf5h7IbvPfxU+UX2jlH1VzmRTqNKF4ikWnhVDqKRSm1ADDVLLbhF8Ods6F2g+r3idkh3XL+h0s9NMiE/jGjMrEoFUwHCYGLnGQoJt0zhnH6IYV2AqsLT9C7lBvJCmD5/rSmCU8Oy3dNGpRajX8Mxz1OD0F/qx7VQIAA';
 
-let _genPdfBase64 = null;
 
-function handleGenPdfSelect(input) {
-  const file = input.files[0]; if (!file) return;
-  document.getElementById('gen-pdf-name').textContent = file.name;
-  document.getElementById('gen-pdf-preview').style.display = 'flex';
-  document.getElementById('gen-upload-area').style.display = 'none';
-  const reader = new FileReader();
-  reader.onload = e => { _genPdfBase64 = { name: file.name, data: e.target.result.split(',')[1] }; };
-  reader.readAsDataURL(file);
-}
 
-function removeGenPdf() {
-  _genPdfBase64 = null;
-  document.getElementById('gen-pdf-preview').style.display = 'none';
-  document.getElementById('gen-upload-area').style.display = '';
-  document.getElementById('gen-pdf-input').value = '';
-}
 
 function abrirGeneradorHoja(pedidoId) {
   sv('gen-pedido-id', pedidoId);
@@ -50,29 +33,6 @@ function setGenEstado(msg, tipo = 'info') {
   txt.innerHTML = msg;
 }
 
-async function extraerDatosFactura(pdfBase64, lineas) {
-  setGenEstado('🤖 Extrayendo datos de la factura con IA...', 'info');
-  try {
-    const lineaTexto = lineas.map((l,i) => `${i+1}. ${l.Material} (cant: ${l.Cantidad_Pedida})`).join('\n');
-    const prompt = `Aquí tienes una factura en PDF y una lista de ítems pedidos.\nExtrae para cada ítem el concepto exacto tal como aparece en la factura, cantidad, precio unitario y total.\nIncluye el IVA como una línea separada si aparece desglosado.\nExtrae también el número de factura, la fecha y el importe total.\n\nÍtems del pedido (para referencia):\n${lineaTexto}\n\nResponde ÚNICAMENTE con JSON válido sin markdown:\n{"num_factura":"","fecha":"DD/MM/YYYY","lineas":[{"concepto":"","cantidad":"","precio":"","total":""}],"importe_total":""}`;
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
-        messages: [{ role: 'user', content: [
-          { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 } },
-          { type: 'text', text: prompt }
-        ]}]
-      })
-    });
-    const data  = await response.json();
-    const text  = data.content?.map(c => c.text||'').join('') || '';
-    const clean = text.replace(/```json|```/g, '').trim();
-    return JSON.parse(clean);
-  } catch(e) { console.error('Error extrayendo datos factura:', e); return null; }
-}
 
 function injectTextIntoRow(rowXml, texts) {
   if (!texts || !texts.some(t => t)) return rowXml;
@@ -101,22 +61,10 @@ async function generarHojaPedido() {
   btn.disabled = true; btn.textContent = '⏳ Generando...';
 
   try {
-    let lineasConPrecios = lineas.map(l => ({ concepto: l.Material, cantidad: l.Cantidad_Pedida, precio: '', total: '' }));
-    let importeTotal = '', numFactura = p.Numero_Factura || '';
-    let fechaDoc = p.Fecha_Factura || p.Fecha_Recepcion_Completa || new Date().toLocaleDateString('es-ES');
-
-    if (_genPdfBase64) {
-      const extraido = await extraerDatosFactura(_genPdfBase64.data, lineas);
-      if (extraido) {
-        if (extraido.lineas?.length) lineasConPrecios = extraido.lineas;
-        if (extraido.importe_total) importeTotal = extraido.importe_total;
-        if (extraido.num_factura)   numFactura   = extraido.num_factura;
-        if (extraido.fecha)         fechaDoc     = extraido.fecha;
-        setGenEstado('✅ Datos extraídos de la factura correctamente', 'ok');
-      } else {
-        setGenEstado('⚠️ No se pudieron extraer datos. Se generará con los datos disponibles.', 'error');
-      }
-    }
+    const lineasConPrecios = lineas.map(l => ({ concepto: l.Material, cantidad: l.Cantidad_Pedida, precio: '', total: '' }));
+    const importeTotal = '';
+    const numFactura = p.Numero_Factura || '';
+    const fechaDoc = p.Fecha_Factura || p.Fecha_Recepcion_Completa || new Date().toLocaleDateString('es-ES');
 
     setGenEstado('📝 Generando documento...', 'info');
     let templateBuffer;
@@ -158,6 +106,13 @@ async function generarHojaPedido() {
         const base64data = e.target.result.split(',')[1];
         const url = await uploadFileToDrive(base64data, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         setGenEstado(`✅ Listo. <a href="${url}" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:underline">📥 Abrir documento en Drive</a>`, 'ok');
+        // Marcar Doc_Hoja_Generada automáticamente
+        const pedIdx = DATA.pedidos.findIndex(x => x.ID_Pedido === pedidoId);
+        if (pedIdx !== -1 && DATA.pedidos[pedIdx].Doc_Hoja_Generada !== 'TRUE') {
+          DATA.pedidos[pedIdx].Doc_Hoja_Generada = 'TRUE';
+          try { await sheetsUpdate('Pedidos!N' + (pedIdx+2), ['TRUE']); } catch(e) { console.warn('No se pudo marcar Doc_Hoja_Generada', e); }
+          if (document.getElementById('page-pedido-detalle').classList.contains('active')) verDetallePedido(pedidoId);
+        }
       } catch(err) { setGenEstado('Error subiendo a Drive: ' + err.message, 'error'); }
       btn.disabled = false; btn.textContent = 'Generar Word';
     };

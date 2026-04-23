@@ -12,6 +12,14 @@ function renderMaterial(filtro, cat, stockFiltro, ubicacion) {
   const cats = [...new Set(DATA.material.map(m => m.Categoria).filter(Boolean))].sort();
   const dl = document.getElementById('categorias-list');
   if (dl) dl.innerHTML = cats.map(c => `<option value="${c}">`).join('');
+  const dlUbi = document.getElementById('ubicaciones-datalist');
+  if (dlUbi) {
+    const opts = DATA.ubicaciones.filter(u => u.Activa !== 'FALSE').map(u => {
+      const label = [u.ID_Ubicacion, u.Zona, u.Subzona].filter(Boolean).join(' · ');
+      return `<option value="${u.ID_Ubicacion}">${label}</option>`;
+    });
+    dlUbi.innerHTML = opts.join('');
+  }
   const filterCat = document.getElementById('filter-material-cat');
   if (filterCat) {
     const current = filterCat.value;
@@ -24,7 +32,18 @@ function renderMaterial(filtro, cat, stockFiltro, ubicacion) {
   if (_filtroMaterialCat) items = items.filter(m => m.Categoria === _filtroMaterialCat);
   if (_filtroMaterialStock === 'bajo') items = items.filter(m => { const s = parseFloat(m.Stock_Actual)||0; const mn = parseFloat(m.Stock_Minimo)||0; return mn > 0 && s <= mn; });
   if (_filtroMaterialStock === 'ok')   items = items.filter(m => { const s = parseFloat(m.Stock_Actual)||0; const mn = parseFloat(m.Stock_Minimo)||0; return s > mn; });
-  if (_filtroMaterialUbicacion) items = items.filter(m => (m.Ubicacion||'').toLowerCase().includes(_filtroMaterialUbicacion.toLowerCase()));
+  if (_filtroMaterialUbicacion) {
+    const q = _filtroMaterialUbicacion.toLowerCase();
+    items = items.filter(m => {
+      if ((m.Ubicacion||'').toLowerCase().includes(q)) return true;
+      const ubi = DATA.ubicaciones.find(u => u.ID_Ubicacion === m.Ubicacion);
+      if (!ubi) return false;
+      return (ubi.Zona||'').toLowerCase().includes(q) ||
+             (ubi.Subzona||'').toLowerCase().includes(q) ||
+             (ubi.Laboratorio_Aula||'').toLowerCase().includes(q) ||
+             (ubi.Descripcion_Completa||'').toLowerCase().includes(q);
+    });
+  }
 
   const tbody = document.getElementById('tabla-material');
   if (!tbody) return;
@@ -265,8 +284,9 @@ function generarIdMaterial(nombre) {
 }
 
 async function guardarMaterial() {
-  const id = v('mat-id'), nombre = v('mat-nombre'), cat = v('mat-categoria'), unidad = v('mat-unidad');
-  if (!id || !nombre || !cat || !unidad) { showToast('ID, nombre, categoría y unidad son obligatorios', 'error'); return; }
+  const nombre = v('mat-nombre'), cat = v('mat-categoria'), unidad = v('mat-unidad');
+  if (!nombre || !cat || !unidad) { showToast('Nombre, categoría y unidad son obligatorios', 'error'); return; }
+  const id = (editingRow && editingRow.sheet === 'Material') ? v('mat-id') : generarIdMaterial(nombre);
   const gestionAuto = document.getElementById('mat-gestion-auto') ? document.getElementById('mat-gestion-auto').checked : true;
   const minStock = gestionAuto ? (v('mat-minimo')||'0') : '0';
   const optStock = gestionAuto ? (v('mat-optimo')||'0') : '0';
