@@ -251,7 +251,7 @@
               </select>
               <div class="search-input">
                 <span>📍</span>
-                <input type="text" placeholder="Filtrar por ubicación..." oninput="filtrarMaterialUbicacion(this.value)" list="ubicaciones-datalist" id="filter-material-ubicacion">
+                <input type="text" placeholder="Filtrar por ubicación..." oninput="filtrarMaterialUbicacion(this.value);this.setAttribute('list',this.value.length>0?'ubicaciones-datalist':'')" id="filter-material-ubicacion">
               </div>
               <datalist id="ubicaciones-datalist"></datalist>
               <button class="btn btn-primary" onclick="openModalMaterial()">+ Nuevo material</button>
@@ -911,7 +911,7 @@
     </div>
     <div class="modal-body">
       <div class="form-grid form-grid-2">
-        <div class="form-group">
+        <div class="form-group" style="display:none">
           <label>ID Material *</label>
           <input id="mat-id" placeholder="Ej: MAT-001">
         </div>
