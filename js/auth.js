@@ -4,6 +4,9 @@
 const TOKEN_STORAGE_KEY = 'gestionlab_token';
 const USER_STORAGE_KEY  = 'gestionlab_user';
 
+// Flag para distinguir login inicial de renovación silenciosa
+let _tokenRenewal = false;
+
 function saveSession(token, user) {
   try {
     const expires = Date.now() + 55 * 60 * 1000;
@@ -71,6 +74,16 @@ async function initAuth() {
           showToast('Error de autenticación: ' + resp.error, 'error'); return;
         }
         accessToken = resp.access_token;
+
+        if (_tokenRenewal) {
+          // Renovación silenciosa: solo actualizar el token y reprogramar, sin recargar datos ni UI
+          _tokenRenewal = false;
+          saveSession(accessToken, currentUser);
+          scheduleTokenRenewal();
+          return;
+        }
+
+        // Login inicial: cargar datos y mostrar app
         await getUserInfo();
         saveSession(accessToken, currentUser);
         await loadAllData();
@@ -103,7 +116,10 @@ function scheduleTokenRenewal() {
   const { expires } = JSON.parse(raw);
   const msUntilRenewal = expires - Date.now() - 5 * 60 * 1000;
   if (msUntilRenewal > 0) {
-    setTimeout(() => { tokenClient.requestAccessToken({ prompt: '' }); }, msUntilRenewal);
+    setTimeout(() => {
+      _tokenRenewal = true;
+      tokenClient.requestAccessToken({ prompt: '' });
+    }, msUntilRenewal);
   }
 }
 

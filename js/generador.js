@@ -2,13 +2,9 @@
 // GENERACIÓN FOLLA DE PEDIDO (Word + IA)
 // ============================================================
 
-
-
-
 function abrirGeneradorHoja(pedidoId) {
   sv('gen-pedido-id', pedidoId);
   sv('gen-ciclo',''); sv('gen-modulo','');
-  removeGenPdf();
   document.getElementById('gen-estado-container').style.display = 'none';
   actualizarModulos();
   openModal('modal-generar-hoja');
