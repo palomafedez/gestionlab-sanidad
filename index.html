@@ -216,7 +216,6 @@
               <option>Presupuesto aprobado</option>
               <option>Recepción parcial</option>
               <option>Recepción completa</option>
-              <option>Factura recibida</option>
             </select>
           </div>
           <button class="btn btn-primary" onclick="openModalNuevoPedido()">+ Nueva lista de pedido</button>
@@ -250,6 +249,10 @@
                 <option value="bajo">Bajo mínimo</option>
                 <option value="ok">Stock OK</option>
               </select>
+              <div class="search-input">
+                <span>📍</span>
+                <input type="text" placeholder="Filtrar por ubicación..." oninput="filtrarMaterialUbicacion(this.value)">
+              </div>
               <button class="btn btn-primary" onclick="openModalMaterial()">+ Nuevo material</button>
             </div>
           </div>
@@ -438,6 +441,14 @@
             <tbody id="tabla-proveedores"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- DETALLE PROVEEDOR -->
+      <div class="page" id="page-proveedor-detalle">
+        <div style="margin-bottom:16px">
+          <button class="btn btn-secondary" onclick="showPage('proveedores')">← Volver a proveedores</button>
+        </div>
+        <div id="proveedor-detalle-contenido"></div>
       </div>
 
       <!-- UBICACIONES -->
@@ -954,13 +965,19 @@
           <label>Stock actual</label>
           <input id="mat-stock" type="number" min="0" placeholder="0">
         </div>
-        <div class="form-group">
-          <label>Stock mínimo (alerta)</label>
-          <input id="mat-minimo" type="number" min="0" placeholder="0">
+        <div class="form-group full" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <input type="checkbox" id="mat-gestion-auto" checked onchange="toggleGestionAutoStock(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+          <label for="mat-gestion-auto" style="margin:0;cursor:pointer;font-weight:500">Gestión automática de stock (alertas por mínimo/óptimo)</label>
         </div>
-        <div class="form-group">
-          <label>Stock óptimo (objetivo)</label>
-          <input id="mat-optimo" type="number" min="0" placeholder="0">
+        <div id="mat-stock-auto-fields" style="display:contents;grid-column:1/-1">
+          <div class="form-group">
+            <label>Stock mínimo (alerta)</label>
+            <input id="mat-minimo" type="number" min="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Stock óptimo (objetivo)</label>
+            <input id="mat-optimo" type="number" min="0" placeholder="0">
+          </div>
         </div>
         <div class="form-group full">
           <label>Observaciones</label>
@@ -1192,6 +1209,10 @@
           <label>Descripción del material *</label>
           <input id="linea-material-libre" placeholder="">
         </div>
+        <div class="form-group" id="linea-libre-unidad-group" style="display:none">
+          <label>Unidad</label>
+          <input id="linea-material-unidades" placeholder="uds, ml, g…">
+        </div>
         <div class="form-group">
           <label>Cantidad *</label>
           <input id="linea-cantidad" type="number" min="0.01" step="0.01" placeholder="">
@@ -1227,7 +1248,6 @@
             <option>Presupuesto aprobado</option>
             <option>Recepción parcial</option>
             <option>Recepción completa</option>
-            <option>Factura recibida</option>
           </select>
         </div>
         <div class="form-group" id="grupo-num-presupuesto" style="display:none">
