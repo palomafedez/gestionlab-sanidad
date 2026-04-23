@@ -941,18 +941,19 @@
           <label>Unidad de medida *</label>
           <input id="mat-unidad" placeholder="Ej: caja, botella, kg, L, unidad...">
         </div>
-        <div class="form-group">
-          <label>Ubicación</label>
+        <div class="form-group full">
+          <label>Ubicaciones y stock por ubicación</label>
+          <div id="mat-lotes-container" style="margin-bottom:8px"></div>
           <div class="search-material-wrap">
             <span class="search-icon">📍</span>
-            <input type="text" id="mat-ubicacion-search" placeholder="Buscar ubicación..." oninput="buscarUbicacionMat(this.value)" autocomplete="off">
+            <input type="text" id="mat-ubicacion-search" placeholder="Añadir ubicación..." oninput="buscarUbicacionMat(this.value)" autocomplete="off">
             <div class="autocomplete-list" id="mat-ubicacion-autocomplete"></div>
           </div>
           <input type="hidden" id="mat-ubicacion">
-          <div id="mat-ubicacion-selected" style="display:none;margin-top:6px;padding:6px 10px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:12px;color:var(--accent);display:flex;align-items:center;justify-content:space-between">
+          <div style="display:none" id="mat-ubicacion-selected">
             <span id="mat-ubicacion-selected-text"></span>
-            <span style="cursor:pointer;color:var(--text-muted)" onclick="clearUbicacionMat()">✕</span>
           </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Escribe para buscar y añadir una ubicación. Puedes añadir varias.</div>
         </div>
         <div class="form-group">
           <label>Proveedor habitual</label>
@@ -963,7 +964,7 @@
           <input id="mat-referencia" placeholder="">
         </div>
         <div class="form-group">
-          <label>Stock actual</label>
+          <label>Stock actual <span style="font-size:11px;color:var(--text-muted)">(si no hay lotes)</span></label>
           <input id="mat-stock" type="number" min="0" placeholder="0">
         </div>
         <div class="form-group full" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
@@ -1023,6 +1024,10 @@
         </div>
         <div class="form-group">
           <label>Observaciones</label>
+          <div class="form-group" id="consumo-ubicacion-group" style="display:none">
+          <label>Ubicación del consumo</label>
+          <select id="consumo-ubicacion-sel"></select>
+        </div>
           <input id="consumo-obs" placeholder="">
         </div>
       </div>
@@ -1067,6 +1072,10 @@
             <option>Ajuste de inventario</option>
             <option>Otro</option>
           </select>
+        </div>
+        <div class="form-group" id="entrada-ubicacion-group" style="display:none">
+          <label>Ubicación de la entrada</label>
+          <select id="entrada-ubicacion-sel"></select>
         </div>
         <div class="form-group">
           <label>Observaciones</label>
