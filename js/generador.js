@@ -118,15 +118,11 @@ async function generarHojaPedido() {
     setGenEstado('📝 Generando documento...', 'info');
     let templateBuffer;
     try {
-      const exportResp = await fetch(`https://www.googleapis.com/drive/v3/files/19VmzPVtWP6vtRvNeqvWjwcXe9w7JW09j/export?mimeType=application/vnd.openxmlformats-officedocument.wordprocessingml.document`, { headers: { Authorization: `Bearer ${accessToken}` } });
-      if (exportResp.ok) templateBuffer = await exportResp.arrayBuffer();
-      else throw new Error('export failed');
+      const tplResp = await fetch('./assets/templates/Folla%20de%20Pedido%20_%20modelo.docx');
+      if (!tplResp.ok) throw new Error('HTTP ' + tplResp.status);
+      templateBuffer = await tplResp.arrayBuffer();
     } catch(e) {
-      try {
-        const mediaResp = await fetch(`https://www.googleapis.com/drive/v3/files/19VmzPVtWP6vtRvNeqvWjwcXe9w7JW09j?alt=media`, { headers: { Authorization: `Bearer ${accessToken}` } });
-        if (mediaResp.ok) templateBuffer = await mediaResp.arrayBuffer();
-        else throw new Error('media failed');
-      } catch(e2) { throw new Error('No se pudo descargar la plantilla. Comprueba que el archivo está compartido como "Cualquiera con el enlace".'); }
+      throw new Error('No se pudo cargar la plantilla (' + e.message + '). Comprueba que el archivo existe en assets/templates/.');
     }
 
     const zip    = await JSZip.loadAsync(templateBuffer);
