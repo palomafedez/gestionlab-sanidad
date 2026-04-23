@@ -76,16 +76,19 @@ async function extraerDatosFactura(pdfBase64, lineas) {
 
 function injectTextIntoRow(rowXml, texts) {
   if (!texts || !texts.some(t => t)) return rowXml;
-  let idx = 0;
-  return rowXml.replace(/<w:p\b.*?<\/w:p>/gs, para => {
-    if (idx >= texts.length) return para;
-    if (/<w:r[ >]/.test(para)) return para;
-    const text = texts[idx++] || '';
-    if (!text) return para;
+  const cells = rowXml.match(/<w:tc[ >][\s\S]*?<\/w:tc>/g) || [];
+  if (!cells.length) return rowXml;
+  let result = rowXml;
+  cells.forEach((cell, idx) => {
+    if (idx >= texts.length) return;
+    const text = texts[idx];
+    if (!text) return;
     const safe = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const run  = `<w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">${safe}</w:t></w:r>`;
-    return para.slice(0, -'</w:p>'.length) + run + '</w:p>';
+    const run = `<w:r><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/><w:sz w:val="16"/><w:szCs w:val="16"/></w:rPr><w:t xml:space="preserve">${safe}</w:t></w:r>`;
+    const newCell = cell.replace(/<\/w:p>/, run + '</w:p>');
+    result = result.replace(cell, newCell);
   });
+  return result;
 }
 
 async function generarHojaPedido() {
