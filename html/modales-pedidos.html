@@ -254,7 +254,7 @@
     </div>
     <div class="modal-body">
       <input type="hidden" id="gen-pedido-id">
-      <div class="form-grid" style="gap:14px">
+      <div class="form-grid form-grid-2" style="gap:14px">
         <div class="form-group">
           <label>Ciclo *</label>
           <select id="gen-ciclo" onchange="actualizarModulos()">
@@ -273,14 +273,24 @@
             <option value="">— (dejar vacío si es para varios) —</option>
           </select>
         </div>
-        <div class="form-group" id="gen-pdf-group" style="display:none">
+        <!-- Número de factura -->
+        <div class="form-group">
+          <label>Número de factura</label>
+          <input id="gen-num-factura" placeholder="Ej: FAC-2024-0312">
+        </div>
+        <!-- Fecha de factura -->
+        <div class="form-group">
+          <label>Fecha de factura</label>
+          <input id="gen-fecha-factura" type="date">
+        </div>
+        <div class="form-group full" id="gen-pdf-group" style="display:none">
           <label>PDF de la factura</label>
           <input type="file" id="gen-pdf-input" accept=".pdf" style="display:none">
           <div id="gen-pdf-preview" style="display:none" class="upload-preview">
             <span>📄</span><span id="gen-pdf-name"></span>
           </div>
         </div>
-        <div id="gen-estado-container" style="display:none">
+        <div class="form-group full" id="gen-estado-container" style="display:none">
           <div style="padding:10px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent)" id="gen-estado-text"></div>
         </div>
       </div>
@@ -291,4 +301,3 @@
     </div>
   </div>
 </div>
-

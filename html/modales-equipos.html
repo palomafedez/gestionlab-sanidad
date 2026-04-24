@@ -50,7 +50,6 @@
           <label>Especifica el tipo *</label>
           <input id="eq-tipo-libre" placeholder="Describe el tipo de equipo...">
         </div>
-        <!-- MARCA AHORA OBLIGATORIA -->
         <div class="form-group">
           <label>Marca *</label>
           <input id="eq-marca" placeholder="Ej: Eppendorf" required>
@@ -84,7 +83,6 @@
           <label>Fecha adquisición</label>
           <input id="eq-fecha-adq" type="date">
         </div>
-        <!-- ORIGEN FINANCIACIÓN CON NUEVAS OPCIONES -->
         <div class="form-group">
           <label>Origen financiación</label>
           <select id="eq-financiacion">
@@ -113,7 +111,6 @@
             <option>Averiado</option><option>Fuera de servicio</option>
           </select>
         </div>
-        <!-- PERIODICIDAD CON CAMPO PERSONALIZADA -->
         <div class="form-group">
           <label>Periodicidad mantenimiento</label>
           <select id="eq-periodicidad" onchange="togglePeriodicidadCustom(this.value)">
@@ -156,11 +153,176 @@
   </div>
 </div>
 
-<!-- Modal Intervención -->
+<!-- ============================================================ -->
+<!-- PASO 1 — Modal Planificar Intervención (desde incidencia)    -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="modal-planificar-intervencion">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">🗓 Planificar intervención</div>
+      <button class="modal-close" onclick="closeModal('modal-planificar-intervencion')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="plan-inc-id">
+      <input type="hidden" id="plan-equipo">
+      <div style="padding:10px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);margin-bottom:14px">
+        Creando intervención en respuesta a la incidencia <strong id="plan-inc-label"></strong>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label>Tipo de intervención *</label>
+          <select id="plan-tipo">
+            <option>Correctivo</option>
+            <option>Preventivo</option>
+            <option>Calibración</option>
+            <option>Verificación funcional</option>
+            <option>Limpieza</option>
+            <option>Sustitución de pieza</option>
+            <option>Control de temperatura</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha planificada *</label>
+          <input id="plan-fecha" type="date">
+        </div>
+        <div class="form-group full">
+          <label>Descripción planificada</label>
+          <textarea id="plan-descripcion" placeholder="Qué se prevé hacer..." style="min-height:80px"></textarea>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-planificar-intervencion')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarPlanificacion()">Crear intervención planificada</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PASO 2 — Modal Registrar Actuación                          -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="modal-registrar-actuacion">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">🔧 Registrar actuación</div>
+      <button class="modal-close" onclick="closeModal('modal-registrar-actuacion')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="act-int-id">
+      <input type="hidden" id="act-int-idx">
+      <div style="padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);font-size:13px;margin-bottom:14px">
+        Intervención <strong id="act-int-label"></strong> · Equipo: <strong id="act-equipo-label"></strong>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label>Fecha de realización *</label>
+          <input id="act-fecha-real" type="date">
+        </div>
+        <!-- Radio: Interna / Externa -->
+        <div class="form-group">
+          <label>Tipo de ejecución *</label>
+          <div style="display:flex;gap:16px;margin-top:6px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+              <input type="radio" name="act-tipo-ejec" id="act-ejec-interna" value="Interna" onchange="toggleActEjecucion('Interna')" checked>
+              Interna
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+              <input type="radio" name="act-tipo-ejec" id="act-ejec-externa" value="Externa" onchange="toggleActEjecucion('Externa')">
+              Externa (SAT)
+            </label>
+          </div>
+        </div>
+        <div class="form-group" id="act-interna-group">
+          <label>Realizado por *</label>
+          <select id="act-realizado-por"><option value="">Seleccionar usuario...</option></select>
+        </div>
+        <div class="form-group" id="act-externa-group" style="display:none">
+          <label>Empresa / proveedor *</label>
+          <select id="act-proveedor-ext"><option value="">Seleccionar proveedor...</option></select>
+        </div>
+        <div class="form-group full">
+          <label>Descripción de la actuación *</label>
+          <textarea id="act-descripcion" placeholder="Describe qué se hizo exactamente..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Resultado *</label>
+          <select id="act-resultado" onchange="toggleActResultado(this.value)">
+            <option>Resuelto</option>
+            <option>Resuelto parcialmente</option>
+            <option>Pendiente</option>
+            <option>No resuelto</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>¿Equipo operativo tras intervención?</label>
+          <select id="act-operativo">
+            <option value="Sí">Sí</option>
+            <option value="No">No</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <textarea id="act-observaciones" placeholder="Notas adicionales..." style="min-height:60px"></textarea>
+        </div>
+        <!-- Adjunto (factura / informe) -->
+        <div class="form-group full">
+          <label>Documento adjunto (factura, informe técnico...)</label>
+          <div class="upload-area" onclick="document.getElementById('act-pdf-input').click()">
+            <div>📎 Haz clic para adjuntar un PDF</div>
+            <div class="upload-area-text">Facturas, informes de servicio técnico, certificados de calibración...</div>
+            <input type="file" id="act-pdf-input" accept=".pdf,image/*" onchange="handleActFileSelect(this)">
+          </div>
+          <div id="act-pdf-preview" style="display:none" class="upload-preview">
+            <span>📄</span>
+            <span id="act-pdf-name"></span>
+            <span class="remove-file" onclick="removeActFile()">✕</span>
+          </div>
+          <input type="hidden" id="act-pdf-url" value="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-registrar-actuacion')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarActuacion()">Guardar actuación</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PASO 3b — Modal Resolución Parcial                          -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="modal-resolucion-parcial">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">⚠️ Resuelto parcialmente</div>
+      <button class="modal-close" onclick="closeModal('modal-resolucion-parcial')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rp-int-idx">
+      <p style="font-size:13px;color:var(--text-soft);margin-bottom:16px">
+        La intervención está resuelta parcialmente. ¿Se realizarán actuaciones futuras sobre este equipo?
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn btn-secondary" style="text-align:left;padding:12px 16px" onclick="resolverParcialSeguir()">
+          <strong>Sí, habrá más actuaciones</strong>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">La intervención sigue En gestión</div>
+        </button>
+        <button class="btn btn-secondary" style="text-align:left;padding:12px 16px" onclick="resolverParcialCerrar()">
+          <strong>No, no hay más actuaciones previstas</strong>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:2px">La intervención se cierra y la incidencia queda Resuelta</div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- Modal Intervención (modo manual / edición directa)          -->
+<!-- ============================================================ -->
 <div class="modal-overlay" id="modal-intervencion">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Nueva intervención</div>
+      <div class="modal-title" id="modal-intervencion-title">Nueva intervención</div>
       <button class="modal-close" onclick="closeModal('modal-intervencion')">✕</button>
     </div>
     <div class="modal-body">
@@ -185,6 +347,15 @@
           <div id="int-origen-nota" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px">Origen fijado automáticamente desde la incidencia.</div>
         </div>
         <div class="form-group">
+          <label>Estado</label>
+          <select id="int-estado-manual">
+            <option>Planificada</option>
+            <option>En gestión</option>
+            <option>Cerrada</option>
+            <option>Pendiente factura</option>
+          </select>
+        </div>
+        <div class="form-group">
           <label>Fecha planificada</label>
           <input id="int-fecha-plan" type="date">
         </div>
@@ -192,7 +363,6 @@
           <label>Fecha realización</label>
           <input id="int-fecha-real" type="date">
         </div>
-        <!-- REALIZADO POR: DROPDOWN DE USUARIOS REGISTRADOS -->
         <div class="form-group">
           <label>Realizado por (interno)</label>
           <select id="int-realizado-por"><option value="">Seleccionar...</option></select>
@@ -232,7 +402,6 @@
           <label>Observaciones</label>
           <textarea id="int-observaciones" placeholder="Notas adicionales..."></textarea>
         </div>
-        <!-- ADJUNTO PDF -->
         <div class="form-group full">
           <label>Documento adjunto (factura, informe técnico...)</label>
           <div class="upload-area" onclick="document.getElementById('int-pdf-input').click()">
@@ -293,4 +462,3 @@
     </div>
   </div>
 </div>
-
