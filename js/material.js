@@ -72,10 +72,15 @@ function renderFilaMaterial(m) {
 
   const rowId = `mat-row-${safeId}`;
 
-  // Fila principal — añade botón Solicitar (📋) y botón Movimientos (📊)
-  let html = `<tr class="equipo-row${multiUbi ? ' expandable' : ''}" id="${rowId}" ${multiUbi ? `onclick="toggleMatUbics('${m.ID_Material}')" style="cursor:pointer"` : ''}>
+  // Fila principal:
+  //   - si multiUbi: clic en fila = toggle ubicaciones; clic en nombre = toggle movimientos
+  //   - si !multiUbi: clic en fila = toggle movimientos
+  //   - botones Consumo y Entrada sólo en fila principal si !multiUbi (en lotes si multiUbi)
+  let html = `<tr class="equipo-row${multiUbi ? ' expandable' : ''}" id="${rowId}" style="cursor:pointer" onclick="${multiUbi ? `toggleMatUbics('${m.ID_Material}')` : `toggleMatMovimientos('${m.ID_Material}')`}">
     <td><strong>${m.ID_Material}</strong></td>
-    <td>${multiUbi ? `<span class="expand-icon" id="expand-mat-${safeId}">▶</span> ` : ''}${m.Nombre}</td>
+    <td onclick="${multiUbi ? `event.stopPropagation();toggleMatMovimientos('${m.ID_Material}')` : 'event.preventDefault()'}">
+      ${multiUbi ? `<span class="expand-icon" id="expand-mat-${safeId}">▶</span> ` : ''}${m.Nombre}
+    </td>
     <td><span class="badge badge-gray">${m.Categoria || '—'}</span></td>
     <td>${ubiLabel}</td>
     <td style="font-size:12px">${m.Unidad || '—'}</td>
@@ -87,10 +92,8 @@ function renderFilaMaterial(m) {
     </td>
     <td style="font-size:12px;color:var(--text-muted)">${minTot || '—'} / ${opt || '—'}</td>
     <td onclick="event.stopPropagation()"><div class="row-actions">
-      <button class="icon-btn" onclick="openModalConsumoMaterial('${m.ID_Material}')" title="Registrar consumo">📦</button>
-      <button class="icon-btn" onclick="openModalEntradaMaterial('${m.ID_Material}')" title="Registrar entrada">📥</button>
+      ${!multiUbi ? `<button class="icon-btn" onclick="openModalConsumoMaterial('${m.ID_Material}')" title="Registrar consumo">📦</button>` : ''}
       ${puedeHacer('crearSolicitudes') ? `<button class="icon-btn" onclick="openModalSolicitudMaterial('${m.ID_Material}')" title="Solicitar">📋</button>` : ''}
-      <button class="icon-btn" onclick="toggleMatMovimientos('${m.ID_Material}')" title="Ver movimientos">📊</button>
       <button class="icon-btn" onclick="editMaterial(${idx})" title="Editar">✏️</button>
     </div></td>
   </tr>`;
@@ -116,10 +119,9 @@ function renderFilaMaterial(m) {
           </div>
         </td>
         <td style="font-size:12px;color:var(--text-muted)">${mnLocal || '—'} / ${opLocal || '—'}</td>
-        <td><div class="row-actions">
+        <td onclick="event.stopPropagation()"><div class="row-actions">
           <button class="icon-btn" onclick="openModalConsumoLote('${m.ID_Material}','${l.ID_Ubicacion}')" title="Consumo en esta ubicación">📦</button>
           <button class="icon-btn" onclick="openModalEntradaLote('${m.ID_Material}','${l.ID_Ubicacion}')" title="Entrada en esta ubicación">📥</button>
-          ${puedeHacer('crearSolicitudes') ? `<button class="icon-btn" onclick="openModalSolicitudMaterial('${m.ID_Material}')" title="Solicitar">📋</button>` : ''}
         </div></td>
       </tr>`;
     }).join('');
@@ -413,24 +415,31 @@ function editMaterial(idx) {
 // ABRIR MODAL SOLICITUD CON MATERIAL PRE-CARGADO
 // ============================================================
 function openModalSolicitudMaterial(matId) {
-  openModalSolicitud();  // definida en pedidos.js
+  // Abrir modal de solicitud con el material ya fijado, sin mostrar el buscador
   const mat = DATA.material.find(m => m.ID_Material === matId);
-  if (!mat) return;
+  if (!mat) { openModalSolicitud(); return; }
+
+  openModalSolicitud();
   setTimeout(() => {
-    // Ocultar buscador, mostrar material seleccionado
-    const grp = document.getElementById('sol-catalogo-group');
-    if (grp) {
-      const searchWrap = grp.querySelector('.search-material-wrap');
-      if (searchWrap) searchWrap.style.display = 'none';
-    }
+    // Ocultar completamente ambas pestañas de fuente — el material ya está fijado
+    const toggleSrc = document.querySelector('#modal-solicitud .toggle-source');
+    if (toggleSrc) toggleSrc.style.display = 'none';
+    const catGrp = document.getElementById('sol-catalogo-group');
+    if (catGrp) catGrp.style.display = 'none';
+    const nuevoGrp = document.getElementById('sol-nuevo-group');
+    if (nuevoGrp) nuevoGrp.style.display = 'none';
+    const unidadGrp = document.getElementById('sol-unidad-group');
+    if (unidadGrp) unidadGrp.style.display = 'none';
+
+    // Mostrar el material como seleccionado
     const hidden = document.getElementById('sol-material-id');
     if (hidden) hidden.value = matId;
     const sel = document.getElementById('sol-material-selected');
     if (sel) {
-      sel.textContent = mat.Nombre + ' · Stock actual: ' + getStockTotal(mat) + ' ' + (mat.Unidad || '');
+      sel.innerHTML = '<strong>' + mat.Nombre + '</strong> · Stock actual: ' + getStockTotal(mat) + ' ' + (mat.Unidad || '');
       sel.style.display = 'block';
     }
-  }, 60);
+  }, 50);
 }
 
 // ============================================================

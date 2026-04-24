@@ -96,7 +96,7 @@ function verDetallePedido(pedidoId) {
         <div style="display:flex;gap:8px;align-items:center">
           <span class="estado-pedido ${estadoPedidoClass(p.Estado)}">${p.Estado}</span>
           ${puedeEditar ? `<button class="btn btn-secondary" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄 Estado</button>` : ''}
-          ${puedeEditar ? `<button class="btn btn-primary" onclick="abrirGeneradorHoja('${p.ID_Pedido}')">📄 Generar hoja</button>` : ''}
+
         </div>
       </div>
       <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
@@ -108,7 +108,10 @@ function verDetallePedido(pedidoId) {
         <div class="detail-item"><div class="detail-label">Coste total</div><div class="detail-value">${(() => { const coste = DATA.lineasPedido.filter(l => l.Pedido === pedidoId).reduce((sum,l) => sum + (parseFloat(l.Precio_Unitario)||0)*(parseFloat(l.Cantidad_Pedida)||0), 0); return coste > 0 ? coste.toFixed(2) + ' €' : '—'; })()}</div></div>
       </div>
       ${puedeEditar ? `<div style="padding:0 20px 16px 20px;border-top:1px solid var(--border);margin-top:4px">
-        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:10px;padding-top:14px">Documentación</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding-top:14px">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em">Documentación</div>
+          ${puedeEditar ? `<button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="abrirGeneradorHoja('${p.ID_Pedido}')">📄 Generar hoja</button>` : ''}
+        </div>
         <div style="display:flex;flex-direction:column;gap:8px">
           <label style="display:flex;align-items:center;gap:10px;font-size:13px;cursor:pointer">
             <input type="checkbox" id="chk-hoja-generada" ${p.Doc_Hoja_Generada==='TRUE'?'checked':''} disabled style="width:16px;height:16px">
@@ -142,7 +145,7 @@ function verDetallePedido(pedidoId) {
               <div style="text-align:center;font-size:12px">Rec: ${l.Cantidad_Recibida||'0'}</div>
               <div><span class="badge ${estadoLinea}" style="font-size:10px">${l.Estado_Linea||'Pendiente'}</span></div>
               <div style="display:flex;gap:4px">
-                ${puedeEditar && l.Estado_Linea !== 'Recibido' ? `<button class="icon-btn" title="Registrar recepción" onclick="openModalRecepcion('${l.ID_Linea}','${pedidoId}')">📥</button>` : ''}
+                ${puedeEditar && l.Estado_Linea !== 'Recibido' && ['Presupuesto aprobado','Recepción parcial','Recepción completa'].includes(p.Estado) ? `<button class="icon-btn" title="Registrar recepción" onclick="openModalRecepcion('${l.ID_Linea}','${pedidoId}')">📥</button>` : ''}
                 ${puedeEliminar ? `<button class="icon-btn danger" title="Eliminar línea" onclick="eliminarLineaPedido('${l.ID_Linea}','${pedidoId}')">🗑️</button>` : ''}
               </div>
             </div>`;
@@ -451,7 +454,7 @@ async function guardarRecepcionLinea() {
   await _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, v('rec-obs'));
 }
 
-async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, obs) {
+async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat, obs, idUbicacion = null) {
   l.Cantidad_Recibida = String(cantRec);
   l.Estado_Linea = cantRec >= cantPed ? 'Recibido' : (cantRec > 0 ? 'Recibido parcialmente' : 'Pendiente');
   if (obs) l.Observaciones = obs;
@@ -460,7 +463,23 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
   try {
     await sheetsUpdate(`Lineas_Pedido!A${idx+2}:G${idx+2}`, row);
     if (mat && cantRec > 0) {
-      const nuevoStock = (parseFloat(mat.Stock_Actual)||0) + cantRec;
+      // Actualizar lote si el material tiene multi-ubicación
+      const lotesDelMat = DATA.materialUbicaciones.filter(lu => lu.ID_Material === mat.ID_Material);
+      if (lotesDelMat.length > 0) {
+        const loteTarget = idUbicacion
+          ? DATA.materialUbicaciones.find(lu => lu.ID_Material === mat.ID_Material && lu.ID_Ubicacion === idUbicacion)
+          : lotesDelMat[0]; // primer lote por defecto
+        if (loteTarget) {
+          const loteIdx = DATA.materialUbicaciones.indexOf(loteTarget);
+          const nuevoLocal = (parseFloat(loteTarget.Stock_Local) || 0) + cantRec;
+          loteTarget.Stock_Local = String(nuevoLocal);
+          await sheetsUpdate(`Material_Ubicaciones!D${loteIdx+2}`, [nuevoLocal]);
+        }
+      }
+      // Actualizar stock global (suma de lotes o directo)
+      const nuevoStock = lotesDelMat.length > 0
+        ? DATA.materialUbicaciones.filter(lu => lu.ID_Material === mat.ID_Material).reduce((s, lu) => s + (parseFloat(lu.Stock_Local)||0), 0)
+        : (parseFloat(mat.Stock_Actual)||0) + cantRec;
       const idxMat = DATA.material.indexOf(mat);
       mat.Stock_Actual = String(nuevoStock);
       await sheetsUpdate(`Material!H${idxMat+2}`, [nuevoStock]);
@@ -497,6 +516,12 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
         solOrigen.Estado = 'Recibido';
         const rowSol = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Recibido', solOrigen.Lista_Pedido, solOrigen.Observaciones];
         await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
+        // Archivar la solicitud automáticamente
+        try {
+          solOrigen.Estado = 'Archivado';
+          const rowArch = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Archivado', solOrigen.Lista_Pedido, solOrigen.Observaciones];
+          await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowArch);
+        } catch(e) { console.warn('No se pudo archivar solicitud', e); }
       }
     }
     showToast('Recepción registrada', 'success');
@@ -573,7 +598,7 @@ async function toggleDocPedido(pedidoId, campo, valor) {
 }
 
 async function archivarPedido(pedidoId) {
-  if (!confirm('¿Archivar este pedido? Dejará de aparecer en la vista principal.')) return;
+  // Archivado directo sin confirmación
   const idx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
   if (idx === -1) return;
   const p = DATA.pedidos[idx];

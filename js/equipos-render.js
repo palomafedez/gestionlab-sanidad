@@ -38,9 +38,18 @@ function renderDashboard() {
     const criticos = bajominimo.filter(m => getStockTotal(m) === 0);
     const bajos    = bajominimo.filter(m => getStockTotal(m) > 0);
     const puedeGestionar = puedeHacer('gestionarPedidos');
-    const renderItemsStock = items => items.slice(0,5).map(m =>
-      `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px">${m.Nombre} (${getStockTotal(m)} ${m.Unidad||''})${puedeGestionar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();solicitudStockAPedido('${m.ID_Material}')">+ Pedido</button>` : ''}</span>`
-    ).join('');
+    const renderItemsStock = items => items.slice(0,5).map(m => {
+      const stock = getStockTotal(m);
+      const opt   = parseFloat(m.Stock_Optimo) || 0;
+      const falta = opt > 0 ? Math.max(0, opt - stock) : 0;
+      const solPedido = DATA.solicitudes.find(s => s.Material === m.Nombre && (s.Estado === 'En pedido' || s.Estado === 'En camino'));
+      const btnPedido = puedeGestionar
+        ? (solPedido && solPedido.Lista_Pedido
+            ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();verDetallePedido('${solPedido.Lista_Pedido}')">Ver pedido</button>`
+            : `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();solicitudStockAPedido('${m.ID_Material}',${falta||''})">+ Pedido${falta ? ' (' + falta + ')' : ''}</button>`)
+        : '';
+      return `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px">${m.Nombre} (${stock} ${m.Unidad||''}) ${btnPedido}</span>`;
+    }).join('');
     if (criticos.length) alertasStock.innerHTML += `<div class="alert-banner danger"><div class="alert-icon">🔴</div><div class="alert-content"><div class="alert-title">${criticos.length} material(es) sin stock</div><div class="alert-text" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px">${renderItemsStock(criticos)}${criticos.length > 5 ? ' y ' + (criticos.length-5) + ' más...' : ''}</div></div></div>`;
     if (bajos.length)    alertasStock.innerHTML += `<div class="alert-banner"><div class="alert-icon">🟡</div><div class="alert-content"><div class="alert-title">${bajos.length} material(es) por debajo del mínimo</div><div class="alert-text" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px">${renderItemsStock(bajos)}${bajos.length > 5 ? ' y ' + (bajos.length-5) + ' más...' : ''}</div></div></div>`;
   }
@@ -124,7 +133,7 @@ function buildIntervencionesEquipo(equipoId) {
         <span>${formatDate(i.Fecha_Realizacion)||formatDate(i.Fecha_Planificada)||'—'}</span>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.Descripcion_Actuacion||''}">${i.Descripcion_Actuacion||i.Descripcion_Planificada||'—'}</span>
         <span>${i.Resultado||'—'}${i.Observaciones ? ' · <em>' + i.Observaciones + '</em>' : ''}</span>
-        <span>${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();openModalRegistrarActuacion(${intIdx})">Registrar actuación</button>` : ''}</span>
+        <span>${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();openModalActuacionDerivada(${intIdx})">Registrar actuación derivada</button>` : ''}</span>
       </div>`;
     }).join('')}`;
 }
@@ -158,7 +167,7 @@ function renderIntervenciones(filtroTipo = '') {
       <td>${i.Equipo_Operativo_Tras_Intervencion==='Sí'?'<span class="badge badge-green">Sí</span>':i.Equipo_Operativo_Tras_Intervencion==='No'?'<span class="badge badge-red">No</span>':'—'}</td>
       <td>${pdfLink}</td>
       <td><div class="row-actions">
-        ${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openModalRegistrarActuacion(${intIdx})">Registrar actuación</button>` : ''}
+        ${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openModalActuacionDerivada(${intIdx})">Registrar actuación derivada</button>` : ''}
         ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="editIntervencion(${intIdx})" title="Editar directamente">✏️</button>` : ''}
       </div></td>
     </tr>`;
@@ -175,6 +184,8 @@ function renderIncidencias(filtroEstado = '') {
   let items = DATA.incidencias;
   if (rol === 'Profesor') { const miNombre = currentUser?.name || ''; items = items.filter(i => i.Reportado_Por === miNombre); }
   if (filtroEstado) items = items.filter(i => i.Estado === filtroEstado);
+  // Ocultar incidencias archivadas a menos que se filtre explícitamente
+  if (filtroEstado !== 'Archivada') items = items.filter(i => i.Estado !== 'Archivada');
   items = [...items].sort((a,b) => new Date(b.Fecha_Hora) - new Date(a.Fecha_Hora));
   if (!items.length) { tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-title">Sin incidencias pendientes</div></div></td></tr>`; return; }
   const estadoBadge  = {'Abierta':'badge-red','En gestión':'badge-orange','Resuelta':'badge-green','Cerrada':'badge-gray'};
@@ -190,7 +201,7 @@ function renderIncidencias(filtroEstado = '') {
         const intEnl = DATA.intervenciones.find(x => x.ID_Intervencion === i.Intervencion_Generada);
         const intIdx = intEnl ? DATA.intervenciones.indexOf(intEnl) : -1;
         btnAccion = intIdx >= 0
-          ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openModalRegistrarActuacion(${intIdx})">Ver / Actuar</button>`
+          ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openModalActuacionDerivada(${intIdx})">Ver / Actuar</button>`
           : `<span class="text-muted" style="font-size:11px">${i.Intervencion_Generada}</span>`;
       }
     }

@@ -149,14 +149,18 @@ async function guardarPlanificacion() {
     const newInt = DATA.intervenciones[DATA.intervenciones.length - 1];
     newInt.Descripcion_Planificada = v('plan-descripcion'); // campo virtual para UI
 
-    // Actualizar incidencia: Estado → En gestión, Intervencion_Generada → id
+    // Actualizar incidencia: Estado → En gestión
+    // Solo actualizar Intervencion_Generada si aún no tiene ninguna (no sobreescribir en derivadas)
     const incIdx = DATA.incidencias.findIndex(x => x.ID_Incidencia === incId);
     if (incIdx !== -1) {
       const inc = DATA.incidencias[incIdx];
+      const yaEnGestion = inc.Estado === 'En gestión';
       inc.Estado = 'En gestión';
-      inc.Intervencion_Generada = id;
-      const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
-      await sheetsUpdate(`Incidencias!A${incIdx + 2}:I${incIdx + 2}`, incRow);
+      if (!inc.Intervencion_Generada) inc.Intervencion_Generada = id;
+      if (!yaEnGestion) {
+        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
+        await sheetsUpdate(`Incidencias!A${incIdx + 2}:I${incIdx + 2}`, incRow);
+      }
     }
 
     showToast('Intervención planificada. Incidencia → En gestión', 'success');
