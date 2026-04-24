@@ -1,4 +1,26 @@
 // ============================================================
+// CARGA DINÁMICA DE MODALES
+// ============================================================
+async function loadModales() {
+  const archivos = [
+    'html/modales-equipos.html',
+    'html/modales-catalogo.html',
+    'html/modales-material.html',
+    'html/modales-pedidos.html'
+  ];
+  try {
+    const htmls = await Promise.all(archivos.map(f => fetch(f).then(r => {
+      if (!r.ok) throw new Error(`No se pudo cargar ${f}: ${r.status}`);
+      return r.text();
+    })));
+    document.getElementById('modales-container').innerHTML = htmls.join('\n');
+  } catch(e) {
+    console.error('Error cargando modales:', e);
+    throw e;  // Relanzar para que initAuth no arranque con DOM incompleto
+  }
+}
+
+// ============================================================
 // UI HELPERS
 // ============================================================
 function v(id)        { return document.getElementById(id)?.value?.trim() || ''; }
