@@ -972,3 +972,149 @@
       color: var(--danger);
       font-size: 14px;
     }
+
+/* ============================================================
+   RESPONSIVE — TABLET Y MÓVIL
+   ============================================================ */
+
+/* Botón hamburguesa — oculto en desktop */
+.sidebar-toggle {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.sidebar-toggle:hover { background: var(--surface2); }
+
+/* Overlay oscuro detrás del sidebar en móvil */
+.sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(26,23,20,0.45);
+  z-index: 99;
+}
+.sidebar-backdrop.open { display: block; }
+
+/* ── TABLET: 769px – 1024px ── */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .sidebar {
+    width: 64px;
+    overflow: visible;
+  }
+  .sidebar-header { padding: 16px 10px; }
+  .sidebar-logo-text, .sidebar-subtitle,
+  .nav-section-label, .user-info, .btn-signout { display: none; }
+  .sidebar-logo { justify-content: center; }
+  .sidebar-logo-icon { margin: 0; }
+  .sidebar-nav { padding: 12px 6px; }
+  .nav-item {
+    justify-content: center;
+    padding: 10px;
+    position: relative;
+  }
+  .nav-item .nav-icon { font-size: 18px; }
+  .nav-item span:not(.nav-icon):not(.nav-badge) { display: none; }
+  .nav-badge { position: absolute; top: 4px; right: 4px; padding: 1px 4px; font-size: 9px; }
+  .sidebar-footer { padding: 10px 6px; }
+  .user-chip { justify-content: center; padding: 4px; }
+  .user-avatar { margin: 0; }
+  .main { margin-left: 64px; }
+  .content { padding: 20px 24px; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── MÓVIL: ≤ 768px ── */
+@media (max-width: 768px) {
+  /* Sidebar: oculto por defecto, desliza desde la izquierda */
+  .sidebar {
+    position: fixed;
+    left: -260px;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    width: 240px;
+    transition: left 0.25s ease;
+    box-shadow: none;
+  }
+  .sidebar.open {
+    left: 0;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.18);
+  }
+  .main { margin-left: 0; }
+
+  /* Topbar: mostrar hamburguesa */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 90;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .sidebar-toggle { display: flex; align-items: center; }
+
+  /* Contenido */
+  .content { padding: 14px 12px; }
+
+  /* Stats: 2 columnas */
+  .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-card { padding: 12px; gap: 10px; }
+  .stat-icon { width: 36px; height: 36px; font-size: 18px; }
+  .stat-value { font-size: 22px; }
+
+  /* Formularios: columna única */
+  .form-grid-2 { grid-template-columns: 1fr !important; }
+  .form-group.full { grid-column: 1 !important; }
+
+  /* Tablas: scroll horizontal */
+  .card > table,
+  .card > div > table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* Modales: sheet desde abajo */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    border-radius: var(--radius) var(--radius) 0 0 !important;
+    max-width: 100% !important;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal-header { padding: 14px 16px; }
+  .modal-body { padding: 0 16px 16px; }
+
+  /* Footer botones: apilados */
+  .form-footer { flex-direction: column-reverse; gap: 8px; }
+  .form-footer .btn { width: 100%; justify-content: center; }
+
+  /* Pedido cards */
+  .pedido-card-header { flex-wrap: wrap; gap: 8px; }
+  .pedido-card-stats { flex-wrap: wrap; gap: 8px; }
+
+  /* Alertas más compactas */
+  .alert-banner { padding: 10px 12px; gap: 8px; }
+  .alert-icon { font-size: 16px; }
+  .alert-title { font-size: 12px; }
+  .alert-text { font-size: 11px; }
+
+  /* Intervenciones mini en equipo: apiladas */
+  .intervenciones-mini-header { display: none; }
+  .intervencion-mini-row { grid-template-columns: 1fr 1fr !important; gap: 4px; }
+
+  /* Row actions: siempre visibles */
+  .row-actions { opacity: 1 !important; }
+
+  /* Quick register btn */
+  .quick-register-btn { width: 100%; }
+
+  /* Fix iOS: evitar zoom automático al enfocar inputs */
+  input, select, textarea { font-size: 16px !important; }
+  label { font-size: 13px; }
+}
