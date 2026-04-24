@@ -65,15 +65,27 @@ function renderDashboard() {
 // ============================================================
 // EQUIPOS — RENDER
 // ============================================================
-let _filtroEquipos = '', _filtroEquiposEstado = '';
+let _filtroEquipos = '', _filtroEquiposEstado = '', _filtroEquiposUbicacion = '';
 
-function renderEquipos(filtro, filtroEstado) {
+function renderEquipos(filtro, filtroEstado, filtroUbicacion) {
   if (filtro !== undefined) _filtroEquipos = filtro;
   if (filtroEstado !== undefined) _filtroEquiposEstado = filtroEstado;
+  if (filtroUbicacion !== undefined) _filtroEquiposUbicacion = filtroUbicacion;
+  // Poblar datalist de ubicaciones para el filtro
+  const dlEqUbi = document.getElementById('equipos-ubicaciones-datalist');
+  if (dlEqUbi) dlEqUbi.innerHTML = DATA.ubicaciones.filter(u => u.Activa !== 'FALSE').map(u => `<option value="${u.ID_Ubicacion}">${u.Laboratorio_Aula||''} ${u.Zona||''}</option>`).join('');
   const tbody = document.getElementById('tabla-equipos');
   let items = DATA.equipos;
   if (_filtroEquipos) items = items.filter(e => JSON.stringify(e).toLowerCase().includes(_filtroEquipos.toLowerCase()));
   if (_filtroEquiposEstado) items = items.filter(e => e.Estado_Operativo === _filtroEquiposEstado);
+  if (_filtroEquiposUbicacion) {
+    const q = _filtroEquiposUbicacion.toLowerCase();
+    items = items.filter(e => {
+      if ((e.Ubicacion||'').toLowerCase().includes(q)) return true;
+      const ubi = DATA.ubicaciones.find(u => u.ID_Ubicacion === e.Ubicacion);
+      return ubi && ((ubi.Laboratorio_Aula||'').toLowerCase().includes(q) || (ubi.Zona||'').toLowerCase().includes(q));
+    });
+  }
 
   if (!items.length) { tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">🔬</div><div class="empty-state-title">Sin equipos registrados</div><div class="empty-state-text">Añade el primer equipo con el botón superior</div></div></td></tr>`; return; }
 
@@ -87,7 +99,7 @@ function renderEquipos(filtro, filtroEstado) {
     })() : '<span class="text-muted">—</span>';
     const expandId = 'eq-expand-' + e.ID_Activo.replace(/[^a-zA-Z0-9]/g,'_');
     const manualLink = e.Manual_Ficha_Tecnica ? `<a href="${e.Manual_Ficha_Tecnica}" target="_blank" class="icon-btn" title="Ver manual">📄</a>` : '';
-    return `<tr style="cursor:pointer" onclick="toggleEquipoExpand('${expandId}')">
+    return `<tr style="cursor:pointer" onclick="verDetalleEquipo('${e.ID_Activo}')">
       <td><strong>${e.ID_Activo}</strong></td>
       <td>${e.Tipo_Equipo||'—'}</td>
       <td>${[e.Marca,e.Modelo].filter(Boolean).join(' · ')||'—'}</td>
@@ -102,11 +114,93 @@ function renderEquipos(filtro, filtroEstado) {
         <button class="icon-btn" onclick="openModalIncidenciaEquipo('${e.ID_Activo}')" title="Reportar incidencia">⚠️</button>
       </div></td>
     </tr>
-    <tr class="equipo-row-expand" id="${expandId}"><td colspan="8"><div class="equipo-expand-inner">${buildIntervencionesEquipo(e.ID_Activo)}</div></td></tr>`;
+`;
   }).join('');
 }
 
 function toggleEquipoExpand(id) { const row = document.getElementById(id); if (row) row.classList.toggle('open'); }
+
+function verDetalleEquipo(equipoId) {
+  const eq = DATA.equipos.find(e => e.ID_Activo === equipoId);
+  if (!eq) return;
+  renderDetalleEquipo(eq);
+  showPage('equipo-detalle');
+}
+
+function renderDetalleEquipo(eq) {
+  const cont = document.getElementById('equipo-detalle-contenido');
+  if (!cont) return;
+  const idx = DATA.equipos.indexOf(eq);
+  const estadoBadge = {'Operativo':'badge-green','En mantenimiento':'badge-orange','Averiado':'badge-red','Fuera de servicio':'badge-gray'}[eq.Estado_Operativo] || 'badge-gray';
+  const manualLink = eq.Manual_Ficha_Tecnica
+    ? `<a href="${eq.Manual_Ficha_Tecnica}" target="_blank" class="btn btn-secondary" style="font-size:12px">📄 Ver manual / ficha técnica</a>`
+    : '';
+
+  // Intervenciones del equipo ordenadas
+  const ints = DATA.intervenciones
+    .filter(i => i.Equipo && i.Equipo.startsWith(eq.ID_Activo))
+    .sort((a,b) => new Date(b.Fecha_Realizacion||b.Fecha_Planificada) - new Date(a.Fecha_Realizacion||a.Fecha_Planificada));
+
+  const tipoBadge = {'Preventivo':'badge-green','Correctivo':'badge-red','Calibración':'badge-blue','Verificación funcional':'badge-blue','Limpieza':'badge-gray','Sustitución de pieza':'badge-orange','Control de temperatura':'badge-blue'};
+  const estadoIntBadge = {'Planificada':'badge-orange','En gestión':'badge-orange','Cerrada':'badge-green','Pendiente factura':'badge-blue'};
+
+  const intsHTML = !ints.length
+    ? `<div class="empty-state" style="padding:24px"><div class="empty-state-icon">🔧</div><div class="empty-state-title">Sin intervenciones registradas</div></div>`
+    : `<table><thead><tr><th>ID</th><th>Tipo</th><th>Fecha</th><th>Descripción</th><th>Resultado</th><th>Estado</th><th>Adjunto</th><th></th></tr></thead><tbody>
+      ${ints.map(i => {
+        const pdfLink = i.URL_Adjunto ? `<a href="${i.URL_Adjunto}" target="_blank" style="color:var(--accent)">📄</a>` : '—';
+        const intIdx  = DATA.intervenciones.indexOf(i);
+        return `<tr>
+          <td><strong>${i.ID_Intervencion}</strong></td>
+          <td><span class="badge ${tipoBadge[i.Tipo]||'badge-gray'}">${i.Tipo||'—'}</span></td>
+          <td>${formatDate(i.Fecha_Realizacion)||formatDate(i.Fecha_Planificada)||'—'}</td>
+          <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${i.Descripcion_Actuacion||'—'}</td>
+          <td>${i.Resultado||'—'}</td>
+          <td><span class="badge ${estadoIntBadge[i.Estado]||'badge-gray'}">${i.Estado||'Sin estado'}</span></td>
+          <td>${pdfLink}</td>
+          <td><div class="row-actions">
+            ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="editIntervencion(${intIdx})" title="Editar">✏️</button>` : ''}
+          </div></td>
+        </tr>`;
+      }).join('')}
+    </tbody></table>`;
+
+  cont.innerHTML = `
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header">
+        <div>
+          <div class="card-title">${eq.Tipo_Equipo||'—'} · ${eq.Marca||''} ${eq.Modelo||''}</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:2px">${eq.ID_Activo}</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+          <span class="badge ${estadoBadge}"><span class="dot"></span>${eq.Estado_Operativo||'—'}</span>
+          ${manualLink}
+          ${puedeHacer('editarEquipos') ? `<button class="btn btn-secondary" onclick="editEquipo(${idx})">✏️ Editar equipo</button>` : ''}
+          ${puedeHacer('crearIntervenciones') ? `<button class="btn btn-primary" onclick="openModalIntervencionEquipo('${eq.ID_Activo}')">🔧 Nueva intervención</button>` : ''}
+          <button class="icon-btn" onclick="openModalIncidenciaEquipo('${eq.ID_Activo}')" title="Reportar incidencia">⚠️</button>
+        </div>
+      </div>
+      <div class="detail-grid" style="padding:16px">
+        <div class="detail-item"><div class="detail-label">Ubicación</div><div class="detail-value">${eq.Ubicacion||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Responsable</div><div class="detail-value">${eq.Responsable||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Nº de serie</div><div class="detail-value">${eq.Numero_Serie||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Fecha adquisición</div><div class="detail-value">${formatDate(eq.Fecha_Adquisicion)||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Financiación</div><div class="detail-value">${eq.Origen_Financiacion||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Proveedor compra</div><div class="detail-value">${eq.Proveedor_Compra||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">SAT</div><div class="detail-value">${eq.Proveedor_Servicio_Tecnico||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Periodicidad mantenimiento</div><div class="detail-value">${eq.Periodicidad_Mantenimiento||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Último preventivo</div><div class="detail-value">${formatDate(eq.Fecha_Ultimo_Preventivo)||'—'}</div></div>
+        <div class="detail-item"><div class="detail-label">Próximo preventivo</div><div class="detail-value">${formatDate(eq.Fecha_Proximo_Preventivo)||'—'}</div></div>
+        ${eq.Observaciones ? `<div class="detail-item" style="grid-column:1/-1"><div class="detail-label">Observaciones</div><div class="detail-value">${eq.Observaciones}</div></div>` : ''}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Historial de intervenciones (${ints.length})</div>
+      </div>
+      <div style="padding:0 0 8px">${intsHTML}</div>
+    </div>`;
+}
 
 function buildIntervencionesEquipo(equipoId) {
   const ints = DATA.intervenciones.filter(i => i.Equipo && i.Equipo.startsWith(equipoId)).sort((a,b) => new Date(b.Fecha_Realizacion||b.Fecha_Planificada) - new Date(a.Fecha_Realizacion||a.Fecha_Planificada)).slice(0,8);
@@ -122,8 +216,9 @@ function buildIntervencionesEquipo(equipoId) {
     </div>`).join('')}`;
 }
 
-function filtrarEquipos(val)       { renderEquipos(val, undefined); }
-function filtrarEquiposEstado(val) { renderEquipos(undefined, val); }
+function filtrarEquipos(val)          { renderEquipos(val, undefined, undefined); }
+function filtrarEquiposEstado(val)    { renderEquipos(undefined, val, undefined); }
+function filtrarEquiposUbicacion(val) { renderEquipos(undefined, undefined, val); }
 
 // ============================================================
 // INTERVENCIONES — RENDER
@@ -183,18 +278,64 @@ function renderIncidencias(filtroEstado = '') {
 function filtrarIncidenciasEstado(val) { renderIncidencias(val); }
 
 // ============================================================
+// AUTOCOMPLETE UBICACIÓN EQUIPOS
+// ============================================================
+let _incidenciaOrigen = null;
+
+function buscarUbicacionEquipo(query) {
+  const list = document.getElementById('eq-ubicacion-autocomplete');
+  if (!list) return;
+  if (!query || query.length < 1) { list.classList.remove('open'); return; }
+  const q = query.toLowerCase();
+  const resultados = DATA.ubicaciones.filter(u =>
+    u.Activa !== 'FALSE' &&
+    (u.ID_Ubicacion.toLowerCase().includes(q) ||
+     (u.Laboratorio_Aula||'').toLowerCase().includes(q) ||
+     (u.Zona||'').toLowerCase().includes(q))
+  ).slice(0, 8);
+  if (!resultados.length) { list.classList.remove('open'); return; }
+  list.innerHTML = resultados.map(u => `<div class="autocomplete-item" onclick="seleccionarUbicacionEquipo('${u.ID_Ubicacion}','${(u.Laboratorio_Aula+(u.Zona?' · '+u.Zona:'')).replace(/'/g,"\\'")}')">
+    <div><div class="autocomplete-item-name">${u.ID_Ubicacion}</div><div class="autocomplete-item-meta">${u.Laboratorio_Aula||''}${u.Zona?' · '+u.Zona:''}</div></div>
+  </div>`).join('');
+  list.classList.add('open');
+}
+
+function seleccionarUbicacionEquipo(id, label) {
+  document.getElementById('eq-ubicacion').value = id;
+  document.getElementById('eq-ubicacion-search').value = '';
+  document.getElementById('eq-ubicacion-autocomplete').classList.remove('open');
+  document.getElementById('eq-ubicacion-selected-text').textContent = id + ' — ' + label;
+  document.getElementById('eq-ubicacion-selected').style.display = 'flex';
+}
+
+function clearUbicacionEquipo() {
+  document.getElementById('eq-ubicacion').value = '';
+  document.getElementById('eq-ubicacion-search').value = '';
+  document.getElementById('eq-ubicacion-selected').style.display = 'none';
+}
+
+function toggleTipoEquipoLibre(val) {
+  const group = document.getElementById('eq-tipo-libre-group');
+  if (group) group.style.display = val === 'Otro' ? '' : 'none';
+  if (val !== 'Otro') sv('eq-tipo-libre', '');
+}
+
+// ============================================================
 // MODALES EQUIPOS
 // ============================================================
 function openModalEquipo() {
   editingRow = null; pendingEqFileBase64 = null;
   document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
-  ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones','eq-periodicidad-custom'].forEach(id => sv(id,''));
-  ['eq-tipo','eq-ubicacion','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id,''));
+  ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones','eq-periodicidad-custom','eq-tipo-libre'].forEach(id => sv(id,''));
+  ['eq-tipo','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id,''));
   sv('eq-estado','Operativo'); sv('eq-periodicidad','Anual'); sv('eq-pdf-url','');
   document.getElementById('eq-pdf-preview').style.display = 'none';
   document.getElementById('eq-pdf-name').textContent = '';
   if (document.getElementById('eq-pdf-input')) document.getElementById('eq-pdf-input').value = '';
   togglePeriodicidadCustom('Anual');
+  const tipoLibreGroup = document.getElementById('eq-tipo-libre-group');
+  if (tipoLibreGroup) tipoLibreGroup.style.display = 'none';
+  clearUbicacionEquipo();
   poblarSelects(); openModal('modal-equipo');
 }
 
@@ -205,7 +346,25 @@ function editEquipo(idx) {
   document.getElementById('modal-equipo-title').textContent = 'Editar equipo';
   poblarSelects();
   sv('eq-id',e.ID_Activo); sv('eq-tipo',e.Tipo_Equipo); sv('eq-marca',e.Marca);
-  sv('eq-modelo',e.Modelo); sv('eq-serie',e.Numero_Serie); sv('eq-ubicacion',e.Ubicacion);
+  sv('eq-modelo',e.Modelo); sv('eq-serie',e.Numero_Serie);
+  // Ubicación: usar autocomplete
+  sv('eq-ubicacion', e.Ubicacion);
+  if (e.Ubicacion) {
+    const ubi = DATA.ubicaciones.find(u => u.ID_Ubicacion === e.Ubicacion);
+    const label = ubi ? e.Ubicacion + ' — ' + (ubi.Laboratorio_Aula||'') + (ubi.Zona?' · '+ubi.Zona:'') : e.Ubicacion;
+    document.getElementById('eq-ubicacion-selected-text').textContent = label;
+    document.getElementById('eq-ubicacion-selected').style.display = 'flex';
+  } else { clearUbicacionEquipo(); }
+  // Tipo libre
+  const tipoLibreGroup = document.getElementById('eq-tipo-libre-group');
+  const tiposConocidos = ['Agitador / Vórtex','Autoclave','Balanza','Baño termostatizado','Cabina de bioseguridad','Centrífuga','Congelador','Contador de células','Crióstato','Destilador','Equipo de electroforesis','Espectrofotómetro','Estación de parafina','Estufa','Fuente de alimentación','Incubador','Lavador de microplacas','Lector de microplacas','Micropipeta','Microscopio','Microtomo','Nevera','Placa calefactora','Placa fría','Sistema de imagen / documentación','Termociclador','Termobloque','Transiluminador UV','Otro'];
+  if (e.Tipo_Equipo && !tiposConocidos.includes(e.Tipo_Equipo)) {
+    sv('eq-tipo','Otro'); sv('eq-tipo-libre',e.Tipo_Equipo);
+    if (tipoLibreGroup) tipoLibreGroup.style.display = '';
+  } else {
+    sv('eq-tipo',e.Tipo_Equipo); sv('eq-tipo-libre','');
+    if (tipoLibreGroup) tipoLibreGroup.style.display = 'none';
+  }
   sv('eq-responsable',e.Responsable); sv('eq-fecha-adq',e.Fecha_Adquisicion);
   sv('eq-financiacion',e.Origen_Financiacion); sv('eq-proveedor-compra',e.Proveedor_Compra);
   sv('eq-proveedor-sat',e.Proveedor_Servicio_Tecnico); sv('eq-estado',e.Estado_Operativo);
@@ -225,8 +384,14 @@ function togglePeriodicidadCustom(val) {
 
 function openModalIntervencion() {
   editingRow = null; pendingFileBase64 = null; removeFile();
+  _incidenciaOrigen = null;
   ['int-equipo','int-realizado-por','int-proveedor','int-tecnico-ext','int-fecha-plan','int-fecha-real','int-descripcion','int-observaciones'].forEach(id => sv(id,''));
   sv('int-tipo','Preventivo'); sv('int-origen','Planificado'); sv('int-resultado','Resuelto'); sv('int-operativo','Sí'); sv('int-actualiza-preventivo','Sí');
+  // Restaurar origen como editable
+  const origenSel  = document.getElementById('int-origen');
+  const origenNota = document.getElementById('int-origen-nota');
+  if (origenSel)  { origenSel.disabled = false; }
+  if (origenNota) { origenNota.style.display = 'none'; }
   poblarSelects(); openModal('modal-intervencion');
 }
 
@@ -250,6 +415,13 @@ function openModalIncidenciaEquipo(equipoId) {
 function crearIntervencionDesdeIncidencia(incId, equipo) {
   openModalIntervencion();
   sv('int-origen','Incidencia reportada'); sv('int-tipo','Correctivo');
+  // Marcar origen como readonly y mostrar nota
+  const origenSel  = document.getElementById('int-origen');
+  const origenNota = document.getElementById('int-origen-nota');
+  if (origenSel)  { origenSel.disabled = true; }
+  if (origenNota) { origenNota.style.display = ''; }
+  // Guardar incidencia relacionada para enlazarla al guardar
+  _incidenciaOrigen = incId;
   setTimeout(() => { const sel = document.getElementById('int-equipo'); const opt = Array.from(sel.options).find(o => o.value.startsWith(equipo.split(' – ')[0])); if (opt) sel.value = opt.value; }, 50);
 }
 
@@ -300,7 +472,9 @@ function calcProximoPreventivo(ultimoPreventivo, periodicidad) {
 }
 
 async function guardarEquipo() {
-  const id = v('eq-id'); const tipo = v('eq-tipo'); const marca = v('eq-marca');
+  const id = v('eq-id'); const marca = v('eq-marca');
+  const tipoSel = v('eq-tipo');
+  const tipo = tipoSel === 'Otro' ? (v('eq-tipo-libre') || 'Otro') : tipoSel;
   if (!id || !tipo) { showToast('ID y tipo son obligatorios', 'error'); return; }
   if (!marca)       { showToast('La marca es obligatoria', 'error'); return; }
 

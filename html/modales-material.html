@@ -55,27 +55,12 @@
           <label>Proveedor habitual</label>
           <select id="mat-proveedor"><option value="">Seleccionar...</option></select>
         </div>
-        <div class="form-group">
-          <label>Referencia proveedor</label>
-          <input id="mat-referencia" placeholder="">
-        </div>
-        <div class="form-group">
-          <label>Stock actual <span style="font-size:11px;color:var(--text-muted)">(si no hay lotes)</span></label>
-          <input id="mat-stock" type="number" min="0" placeholder="0">
-        </div>
-        <div class="form-group full" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
-          <input type="checkbox" id="mat-gestion-auto" checked onchange="toggleGestionAutoStock(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
-          <label for="mat-gestion-auto" style="margin:0;cursor:pointer;font-weight:500">Gestión automática de stock (alertas por mínimo/óptimo)</label>
-        </div>
-        <div id="mat-stock-auto-fields" style="display:contents;grid-column:1/-1">
-          <div class="form-group">
-            <label>Stock mínimo (alerta)</label>
-            <input id="mat-minimo" type="number" min="0" placeholder="0">
-          </div>
-          <div class="form-group">
-            <label>Stock óptimo (objetivo)</label>
-            <input id="mat-optimo" type="number" min="0" placeholder="0">
-          </div>
+
+<input type="hidden" id="mat-stock" value="0">
+        <input type="hidden" id="mat-gestion-auto-hidden">
+        <div id="mat-stock-auto-fields" style="display:none">
+          <input type="hidden" id="mat-minimo" value="0">
+          <input type="hidden" id="mat-optimo" value="0">
         </div>
         <div class="form-group full">
           <label>Observaciones</label>

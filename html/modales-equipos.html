@@ -13,7 +13,7 @@
         </div>
         <div class="form-group">
           <label>Tipo de equipo *</label>
-          <select id="eq-tipo">
+          <select id="eq-tipo" onchange="toggleTipoEquipoLibre(this.value)">
             <option value="">Seleccionar...</option>
             <option>Agitador / Vórtex</option>
             <option>Autoclave</option>
@@ -39,12 +39,16 @@
             <option>Nevera</option>
             <option>Placa calefactora</option>
             <option>Placa fría</option>
-            <option>Sistem de imagen / documentación</option>
+            <option>Sistema de imagen / documentación</option>
             <option>Termociclador</option>
             <option>Termobloque</option>
             <option>Transiluminador UV</option>
             <option>Otro</option>
           </select>
+        </div>
+        <div class="form-group" id="eq-tipo-libre-group" style="display:none">
+          <label>Especifica el tipo *</label>
+          <input id="eq-tipo-libre" placeholder="Describe el tipo de equipo...">
         </div>
         <!-- MARCA AHORA OBLIGATORIA -->
         <div class="form-group">
@@ -61,7 +65,16 @@
         </div>
         <div class="form-group">
           <label>Ubicación</label>
-          <select id="eq-ubicacion"><option value="">Seleccionar...</option></select>
+          <div class="search-material-wrap">
+            <span class="search-icon">📍</span>
+            <input type="text" id="eq-ubicacion-search" placeholder="Buscar ubicación..." oninput="buscarUbicacionEquipo(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="eq-ubicacion-autocomplete"></div>
+          </div>
+          <input type="hidden" id="eq-ubicacion">
+          <div id="eq-ubicacion-selected" style="display:none;margin-top:6px;padding:6px 10px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:12px;color:var(--accent);display:flex;align-items:center;justify-content:space-between">
+            <span id="eq-ubicacion-selected-text"></span>
+            <span style="cursor:pointer;color:var(--text-muted)" onclick="clearUbicacionEquipo()">✕</span>
+          </div>
         </div>
         <div class="form-group">
           <label>Responsable</label>
@@ -164,11 +177,12 @@
             <option>Sustitución de pieza</option><option>Control de temperatura</option>
           </select>
         </div>
-        <div class="form-group">
+        <div class="form-group" id="int-origen-group">
           <label>Origen</label>
           <select id="int-origen">
             <option>Planificado</option><option>Incidencia reportada</option>
           </select>
+          <div id="int-origen-nota" style="display:none;font-size:11px;color:var(--text-muted);margin-top:4px">Origen fijado automáticamente desde la incidencia.</div>
         </div>
         <div class="form-group">
           <label>Fecha planificada</label>

@@ -324,6 +324,11 @@
                 <option>Averiado</option>
                 <option>Fuera de servicio</option>
               </select>
+              <div class="search-input">
+                <span>📍</span>
+                <input type="text" placeholder="Filtrar por ubicación..." oninput="filtrarEquiposUbicacion(this.value);this.setAttribute('list',this.value.length>0?'equipos-ubicaciones-datalist':'')" id="filter-equipos-ubicacion">
+              </div>
+              <datalist id="equipos-ubicaciones-datalist"></datalist>
               <button class="btn btn-primary" onclick="openModalEquipo()">+ Nuevo equipo</button>
             </div>
           </div>
@@ -343,6 +348,14 @@
             <tbody id="tabla-equipos"></tbody>
           </table>
         </div>
+      </div>
+
+      <!-- DETALLE EQUIPO -->
+      <div class="page" id="page-equipo-detalle">
+        <div style="margin-bottom:16px">
+          <button class="btn btn-secondary" onclick="showPage('equipos')">← Volver al inventario</button>
+        </div>
+        <div id="equipo-detalle-contenido"></div>
       </div>
 
       <!-- INTERVENCIONES -->

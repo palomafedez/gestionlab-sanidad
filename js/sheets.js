@@ -87,7 +87,7 @@ async function loadAllData() {
            material, movimientos, solicitudes, pedidos, lineasPedido, ciclosModulos,
            materialUbicaciones] = await Promise.all([
       sheetsGet('Equipos!A2:R'),
-      sheetsGet('Intervenciones!A2:Q'),
+      sheetsGet('Intervenciones!A2:R'),
       sheetsGet('Incidencias!A2:I'),
       sheetsGet('Proveedores!A2:I'),
       sheetsGet('Ubicaciones!A2:F'),

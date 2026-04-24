@@ -76,7 +76,7 @@ function updateBadges() {
 // ============================================================
 const PERMISOS = {
   Alumno: {
-    nav: ['equipos', 'incidencias', 'solicitudes'],
+    nav: ['equipos', 'equipo-detalle', 'incidencias', 'solicitudes'],
     verIntervenciones: false, editarEquipos: false, crearIntervenciones: false,
     gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: false,
     verProveedores: false, verUbicaciones: false, crearProveedores: false,
@@ -84,7 +84,7 @@ const PERMISOS = {
     verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
   },
   Profesor: {
-    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'proveedores', 'proveedor-detalle', 'ubicaciones'],
+    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'proveedores', 'proveedor-detalle', 'ubicaciones'],
     verIntervenciones: true, editarEquipos: false, crearIntervenciones: false,
     gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -92,7 +92,7 @@ const PERMISOS = {
     verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
   },
   Gestor: {
-    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
+    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
     verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -100,7 +100,7 @@ const PERMISOS = {
     verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
   },
   Administrador: {
-    nav: ['dashboard', 'equipos', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
+    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'movimientos', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
     verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -126,7 +126,7 @@ function showPage(page) {
   document.getElementById('page-' + page).classList.add('active');
   document.querySelector(`[onclick="showPage('${page}')"]`)?.classList.add('active');
   const titles = {
-    dashboard: 'Panel principal', equipos: 'Inventario de equipos', intervenciones: 'Intervenciones',
+    dashboard: 'Panel principal', equipos: 'Inventario de equipos', 'equipo-detalle': 'Ficha de equipo', intervenciones: 'Intervenciones',
     incidencias: 'Incidencias', material: 'Material fungible', movimientos: 'Movimientos de material',
     solicitudes: 'Solicitudes de material', pedidos: 'Pedidos', 'pedido-detalle': 'Detalle del pedido',
     proveedores: 'Proveedores', 'proveedor-detalle': 'Ficha de proveedor', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios'
@@ -218,7 +218,7 @@ function poblarSelects() {
   const proveedoresNames = DATA.proveedores.filter(p => p.Activo !== 'FALSE').map(p => p.Nombre_Proveedor);
   const equiposIds   = DATA.equipos.map(e => e.ID_Activo + (e.Tipo_Equipo ? ' – ' + e.Tipo_Equipo : '') + (e.Marca ? ' ' + e.Marca : ''));
 
-  ['eq-ubicacion'].forEach(id => setOptions(id, ubicNames));
+  // eq-ubicacion es autocomplete, no select estático
   ['eq-responsable'].forEach(id => setOptions(id, usuariosNames));
   ['eq-proveedor-compra', 'eq-proveedor-sat', 'int-proveedor'].forEach(id => setOptions(id, proveedoresNames));
   ['int-realizado-por'].forEach(id => setOptions(id, usuariosNames));

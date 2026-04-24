@@ -287,10 +287,15 @@ function renderLotesModal() {
         <span style="flex:1;font-size:13px;font-weight:500">📍 ${nombre}</span>
         <label style="font-size:11px;color:var(--text-muted)">Stock</label>
         <input type="number" min="0" value="${l.Stock_Local||0}" style="width:70px" onchange="_lotesTemp[${i}].Stock_Local=this.value" oninput="_lotesTemp[${i}].Stock_Local=this.value">
-        <label style="font-size:11px;color:var(--text-muted)">Mín</label>
-        <input type="number" min="0" value="${l.Stock_Minimo_Local||0}" style="width:60px" onchange="_lotesTemp[${i}].Stock_Minimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Minimo_Local=this.value">
-        <label style="font-size:11px;color:var(--text-muted)">Ópt</label>
-        <input type="number" min="0" value="${l.Stock_Optimo_Local||0}" style="width:60px" onchange="_lotesTemp[${i}].Stock_Optimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Optimo_Local=this.value">
+        <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);cursor:pointer" title="Gestión automática de stock en esta ubicación">
+          <input type="checkbox" ${(l.Gestion_Auto!=='FALSE')?'checked':''} onchange="_toggleGestionAutoLote(${i},this.checked)" style="width:13px;height:13px;accent-color:var(--accent)"> Auto
+        </label>
+        <span id="lote-auto-fields-${i}" style="display:inline-flex;gap:4px;align-items:center;${(l.Gestion_Auto!=='FALSE')?'':'display:none'}">
+          <label style="font-size:11px;color:var(--text-muted)">Mín</label>
+          <input type="number" min="0" value="${l.Stock_Minimo_Local||0}" style="width:55px" onchange="_lotesTemp[${i}].Stock_Minimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Minimo_Local=this.value">
+          <label style="font-size:11px;color:var(--text-muted)">Ópt</label>
+          <input type="number" min="0" value="${l.Stock_Optimo_Local||0}" style="width:55px" onchange="_lotesTemp[${i}].Stock_Optimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Optimo_Local=this.value">
+        </span>
         <button class="icon-btn" onclick="_eliminarLoteTemp(${i})" title="Quitar ubicación" style="color:var(--danger)">🗑</button>
       </div>`;
     }).join('');
@@ -302,6 +307,16 @@ function _eliminarLoteTemp(i) {
   renderLotesModal();
 }
 
+function _toggleGestionAutoLote(i, checked) {
+  _lotesTemp[i].Gestion_Auto = checked ? 'TRUE' : 'FALSE';
+  const span = document.getElementById('lote-auto-fields-' + i);
+  if (span) span.style.display = checked ? 'inline-flex' : 'none';
+  if (!checked) {
+    _lotesTemp[i].Stock_Minimo_Local = '0';
+    _lotesTemp[i].Stock_Optimo_Local = '0';
+  }
+}
+
 // Se llama desde el autocomplete de ubicación del modal
 function seleccionarUbicacionMatLote(id, label) {
   // Comprobar que no está ya añadida
@@ -311,7 +326,7 @@ function seleccionarUbicacionMatLote(id, label) {
     document.getElementById('mat-ubicacion-search').value = '';
     return;
   }
-  _lotesTemp.push({ ID_Ubicacion: id, Stock_Local: '0', Stock_Minimo_Local: '0', Stock_Optimo_Local: '0', _nuevo: true });
+  _lotesTemp.push({ ID_Ubicacion: id, Stock_Local: '0', Stock_Minimo_Local: '0', Stock_Optimo_Local: '0', Gestion_Auto: 'TRUE', _nuevo: true });
   document.getElementById('mat-ubicacion').value = id;   // mantener compatibilidad campo oculto
   document.getElementById('mat-ubicacion-search').value = '';
   document.getElementById('mat-ubicacion-autocomplete').classList.remove('open');
@@ -326,7 +341,7 @@ function openModalMaterial() {
   _lotesTemp = [];
   document.getElementById('modal-material-title').textContent = 'Nuevo material';
   const matIdField = document.getElementById('mat-id'); if (matIdField) matIdField.readOnly = false;
-  ['mat-id','mat-nombre','mat-unidad','mat-ubicacion','mat-referencia','mat-observaciones','mat-ubicacion-search'].forEach(id => sv(id, ''));
+  ['mat-id','mat-nombre','mat-unidad','mat-ubicacion','mat-observaciones','mat-ubicacion-search'].forEach(id => sv(id, ''));
   sv('mat-categoria', ''); sv('mat-stock', '0'); sv('mat-minimo', '0'); sv('mat-optimo', '0'); sv('mat-proveedor', '');
   clearUbicacionMat();
   const sel = document.getElementById('mat-proveedor');
@@ -353,6 +368,7 @@ function editMaterial(idx) {
     Stock_Local: l.Stock_Local,
     Stock_Minimo_Local: l.Stock_Minimo_Local,
     Stock_Optimo_Local: l.Stock_Optimo_Local,
+    Gestion_Auto: (parseFloat(l.Stock_Minimo_Local)||0) > 0 || (parseFloat(l.Stock_Optimo_Local)||0) > 0 ? 'TRUE' : 'FALSE',
     _nuevo: false,
     _loteIdx: DATA.materialUbicaciones.indexOf(l)
   }));
@@ -360,7 +376,7 @@ function editMaterial(idx) {
   document.getElementById('modal-material-title').textContent = 'Editar material';
   sv('mat-id', m.ID_Material); sv('mat-nombre', m.Nombre); sv('mat-categoria', m.Categoria);
   const matIdField = document.getElementById('mat-id'); if (matIdField) matIdField.readOnly = true;
-  sv('mat-referencia', m.Referencia_Proveedor); sv('mat-unidad', m.Unidad);
+  sv('mat-unidad', m.Unidad);
   sv('mat-ubicacion', m.Ubicacion);
   sv('mat-stock', m.Stock_Actual); sv('mat-minimo', m.Stock_Minimo); sv('mat-optimo', m.Stock_Optimo);
   sv('mat-observaciones', m.Observaciones);
@@ -528,7 +544,7 @@ async function guardarMaterial() {
   // Ubicacion principal: primera de los lotes, o el campo heredado
   const ubicPrincipal = _lotesTemp.length ? _lotesTemp[0].ID_Ubicacion : v('mat-ubicacion');
 
-  const row = [id, nombre, cat, v('mat-referencia'), v('mat-proveedor'), unidad, ubicPrincipal, stockGlobal, minStock, optStock, v('mat-observaciones'), gestionAuto ? 'TRUE' : 'FALSE'];
+  const row = [id, nombre, cat, '', v('mat-proveedor'), unidad, ubicPrincipal, stockGlobal, minStock, optStock, v('mat-observaciones'), gestionAuto ? 'TRUE' : 'FALSE'];
 
   showLoading('Guardando...');
   try {
