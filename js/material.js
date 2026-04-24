@@ -312,20 +312,54 @@ function renderLotesModal() {
   if (!container) return;
   if (!_lotesTemp.length) {
     container.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Sin ubicaciones asignadas. Usa el campo de abajo para añadir.</div>`;
-  } else {
-    container.innerHTML = _lotesTemp.map((l, i) => {
-      const nombre = getNombreUbicacion(l.ID_Ubicacion);
-      return `<div class="lote-row" style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:6px;flex-wrap:wrap">
-        <span style="flex:1;font-size:13px;font-weight:500">📍 ${nombre}</span>
-        <label style="font-size:11px;color:var(--text-muted)">Stock</label>
-        <input type="number" min="0" value="${l.Stock_Local||0}" style="width:70px" onchange="_lotesTemp[${i}].Stock_Local=this.value" oninput="_lotesTemp[${i}].Stock_Local=this.value">
-        <label style="font-size:11px;color:var(--text-muted)">Mín</label>
-        <input type="number" min="0" value="${l.Stock_Minimo_Local||0}" style="width:60px" onchange="_lotesTemp[${i}].Stock_Minimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Minimo_Local=this.value">
-        <label style="font-size:11px;color:var(--text-muted)">Ópt</label>
-        <input type="number" min="0" value="${l.Stock_Optimo_Local||0}" style="width:60px" onchange="_lotesTemp[${i}].Stock_Optimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Optimo_Local=this.value">
-        <button class="icon-btn" onclick="_eliminarLoteTemp(${i})" title="Quitar ubicación" style="color:var(--danger)">🗑</button>
-      </div>`;
-    }).join('');
+    return;
+  }
+  container.innerHTML = _lotesTemp.map((l, i) => {
+    const nombre   = getNombreUbicacion(l.ID_Ubicacion);
+    const gestionOn = l.Gestion_Auto !== false && l.Gestion_Auto !== 'false';
+    const checkId   = `lote-auto-${i}`;
+    const camposId  = `lote-campos-${i}`;
+    return `<div class="lote-row" style="background:var(--surface2);border-radius:var(--radius-sm);margin-bottom:8px;overflow:hidden">
+      <!-- Cabecera del lote -->
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;flex-wrap:wrap">
+        <span style="flex:1;font-size:13px;font-weight:500;min-width:120px">📍 ${nombre}</span>
+        <label style="font-size:12px;color:var(--text-muted)">Stock actual</label>
+        <input type="number" min="0" value="${l.Stock_Local||0}" style="width:70px"
+          onchange="_lotesTemp[${i}].Stock_Local=this.value"
+          oninput="_lotesTemp[${i}].Stock_Local=this.value">
+        <!-- Checkbox gestión automática -->
+        <label style="display:flex;align-items:center;gap:5px;font-size:12px;cursor:pointer;margin-left:8px;white-space:nowrap">
+          <input type="checkbox" id="${checkId}" ${gestionOn ? 'checked' : ''}
+            onchange="_toggleLoteAuto(${i},this.checked)"
+            style="width:14px;height:14px">
+          Gestión automática
+        </label>
+        <button class="icon-btn" onclick="_eliminarLoteTemp(${i})"
+          title="Quitar ubicación" style="color:var(--danger)">🗑</button>
+      </div>
+      <!-- Campos mín/ópt — visibles solo si gestión automática activa -->
+      <div id="${camposId}" style="display:${gestionOn ? 'flex' : 'none'};align-items:center;gap:8px;padding:6px 12px 10px 32px;flex-wrap:wrap;border-top:1px solid var(--border)">
+        <label style="font-size:11px;color:var(--text-muted)">Stock mínimo</label>
+        <input type="number" min="0" value="${l.Stock_Minimo_Local||0}" style="width:70px"
+          onchange="_lotesTemp[${i}].Stock_Minimo_Local=this.value"
+          oninput="_lotesTemp[${i}].Stock_Minimo_Local=this.value">
+        <label style="font-size:11px;color:var(--text-muted);margin-left:10px">Stock óptimo</label>
+        <input type="number" min="0" value="${l.Stock_Optimo_Local||0}" style="width:70px"
+          onchange="_lotesTemp[${i}].Stock_Optimo_Local=this.value"
+          oninput="_lotesTemp[${i}].Stock_Optimo_Local=this.value">
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function _toggleLoteAuto(i, checked) {
+  _lotesTemp[i].Gestion_Auto = checked;
+  const camposEl = document.getElementById(`lote-campos-${i}`);
+  if (camposEl) camposEl.style.display = checked ? 'flex' : 'none';
+  // Limpiar mín/ópt si se desactiva
+  if (!checked) {
+    _lotesTemp[i].Stock_Minimo_Local = '0';
+    _lotesTemp[i].Stock_Optimo_Local = '0';
   }
 }
 
@@ -338,7 +372,7 @@ function seleccionarUbicacionMatLote(id, label) {
     document.getElementById('mat-ubicacion-search').value = '';
     return;
   }
-  _lotesTemp.push({ ID_Ubicacion: id, Stock_Local: '0', Stock_Minimo_Local: '0', Stock_Optimo_Local: '0', _nuevo: true });
+  _lotesTemp.push({ ID_Ubicacion: id, Stock_Local: '0', Stock_Minimo_Local: '0', Stock_Optimo_Local: '0', Gestion_Auto: true, _nuevo: true });
   document.getElementById('mat-ubicacion').value = id;
   document.getElementById('mat-ubicacion-search').value = '';
   document.getElementById('mat-ubicacion-autocomplete').classList.remove('open');
@@ -379,6 +413,7 @@ function editMaterial(idx) {
     Stock_Local: l.Stock_Local,
     Stock_Minimo_Local: l.Stock_Minimo_Local,
     Stock_Optimo_Local: l.Stock_Optimo_Local,
+    Gestion_Auto: (parseFloat(l.Stock_Minimo_Local) > 0 || parseFloat(l.Stock_Optimo_Local) > 0),
     _nuevo: false,
     _loteIdx: DATA.materialUbicaciones.indexOf(l)
   }));
@@ -715,7 +750,5 @@ async function guardarEntrada() {
 // ============================================================
 // GESTIÓN AUTOMÁTICA DE STOCK
 // ============================================================
-function toggleGestionAutoStock(checked) {
-  const wrap = document.getElementById('mat-stock-auto-fields');
-  if (wrap) wrap.style.display = checked ? 'contents' : 'none';
-}
+// toggleGestionAutoStock eliminado — gestión por lote
+
