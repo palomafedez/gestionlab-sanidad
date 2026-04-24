@@ -1,18 +1,32 @@
 // ============================================================
 // SOLICITUDES — RENDER Y LÓGICA
 // ============================================================
+let _mostrarSolicitudesArchivadas = false;
+
 function renderSolicitudes(filtroEstado = '') {
   const tbody = document.getElementById('tabla-solicitudes');
   if (!tbody) return;
   const rol = getUserRole();
   let items = DATA.solicitudes;
   if (rol === 'Profesor' || rol === 'Alumno') { const miNombre = currentUser?.name||''; items = items.filter(s => s.Solicitante === miNombre); }
-  if (filtroEstado) items = items.filter(s => s.Estado === filtroEstado);
+  if (filtroEstado) {
+    items = items.filter(s => s.Estado === filtroEstado);
+  } else {
+    // Ocultar archivadas por defecto
+    if (!_mostrarSolicitudesArchivadas) items = items.filter(s => s.Estado !== 'Archivado');
+  }
   items = [...items].sort((a,b) => new Date(b.Fecha) - new Date(a.Fecha));
-  if (!items.length) { tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin solicitudes</div></div></td></tr>`; return; }
-  const estadoBadge   = {'Pendiente':'badge-orange','En pedido':'badge-blue','Recibido':'badge-green','Rechazado':'badge-red'};
+  const archivadas = DATA.solicitudes.filter(s => s.Estado === 'Archivado').length;
+  const toggleHtml = archivadas > 0 && !filtroEstado
+    ? `<div style="margin-bottom:10px"><button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="_mostrarSolicitudesArchivadas=!_mostrarSolicitudesArchivadas;renderSolicitudes()">${_mostrarSolicitudesArchivadas ? '← Ocultar archivadas' : '📦 Ver archivadas (' + archivadas + ')'}</button></div>`
+    : '';
+  if (!items.length) { tbody.innerHTML = `<tr><td colspan="9">${toggleHtml}<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin solicitudes</div></div></td></tr>`; return; }
+  const estadoBadge   = {'Pendiente':'badge-orange','En pedido':'badge-blue','Recibido':'badge-green','Rechazado':'badge-red','Archivado':'badge-gray'};
   const urgenciaBadge = {'Urgente':'badge-red','Normal':'badge-gray'};
   const puedeGestionar = rol === 'Administrador' || rol === 'Gestor';
+  // Insertar el toggle encima de la tabla
+  const toggleContainer = document.getElementById('solicitudes-toggle-container');
+  if (toggleContainer) toggleContainer.innerHTML = toggleHtml;
   tbody.innerHTML = items.map(s => `<tr>
     <td><strong>${s.ID_Solicitud}</strong></td>
     <td>${s.Material}</td>
@@ -23,7 +37,7 @@ function renderSolicitudes(filtroEstado = '') {
     <td style="font-size:12px">${s.Proveedor_Requerido||'—'}</td>
     <td><span class="badge ${estadoBadge[s.Estado]||'badge-gray'}">${s.Estado||'Pendiente'}</span></td>
     <td><div class="row-actions">
-      ${puedeGestionar && s.Estado !== 'En pedido' && s.Estado !== 'Recibido' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
+      ${puedeGestionar && s.Estado !== 'En pedido' && s.Estado !== 'Recibido' && s.Estado !== 'Archivado' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
       ${s.Estado === 'En pedido' && s.Lista_Pedido ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
       ${puedeGestionar && s.Estado === 'Pendiente' ? `<button class="icon-btn" title="Rechazar" onclick="rechazarSolicitud('${s.ID_Solicitud}')">✕</button>` : ''}
     </div></td>
