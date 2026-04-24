@@ -110,6 +110,11 @@
           <input type="hidden" id="consumo-material-id">
           <div id="consumo-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
         </div>
+        <div class="form-group" id="consumo-ubicacion-group" style="display:none">
+          <label>Ubicación del consumo</label>
+          <select id="consumo-ubicacion-sel"></select>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Este material está en varias ubicaciones. Indica dónde lo has usado.</div>
+        </div>
         <div class="form-group">
           <label>Cantidad consumida *</label>
           <input id="consumo-cantidad" type="number" min="0.01" step="0.01" placeholder="Ej: 1, 0.5...">
@@ -120,10 +125,6 @@
         </div>
         <div class="form-group">
           <label>Observaciones</label>
-          <div class="form-group" id="consumo-ubicacion-group" style="display:none">
-          <label>Ubicación del consumo</label>
-          <select id="consumo-ubicacion-sel"></select>
-        </div>
           <input id="consumo-obs" placeholder="">
         </div>
       </div>
@@ -155,6 +156,11 @@
           <input type="hidden" id="entrada-material-id">
           <div id="entrada-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
         </div>
+        <div class="form-group" id="entrada-ubicacion-group" style="display:none">
+          <label>Ubicación de la entrada</label>
+          <select id="entrada-ubicacion-sel"></select>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Este material está en varias ubicaciones. Indica dónde lo estás añadiendo.</div>
+        </div>
         <div class="form-group">
           <label>Cantidad recibida *</label>
           <input id="entrada-cantidad" type="number" min="0.01" step="0.01" placeholder="">
@@ -169,10 +175,6 @@
             <option>Otro</option>
           </select>
         </div>
-        <div class="form-group" id="entrada-ubicacion-group" style="display:none">
-          <label>Ubicación de la entrada</label>
-          <select id="entrada-ubicacion-sel"></select>
-        </div>
         <div class="form-group">
           <label>Observaciones</label>
           <input id="entrada-obs" placeholder="">
@@ -185,4 +187,3 @@
     </div>
   </div>
 </div>
-
