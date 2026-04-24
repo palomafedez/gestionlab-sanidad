@@ -28,19 +28,19 @@ function renderDashboard() {
     alertas.innerHTML += `<div class="alert-banner" style="cursor:pointer" onclick="showPage('solicitudes')"><div class="alert-icon">📋</div><div class="alert-content"><div class="alert-title">${solPendientes.length} solicitud(es) de material pendiente(s) de gestión</div><div class="alert-text">${solPendientes.slice(0,4).map(s => s.Material + ' · ' + s.Solicitante).join(' – ')}${solPendientes.length > 4 ? ' y ' + (solPendientes.length-4) + ' más...' : ''}</div></div></div>`;
   }
 
-  // Stock bajo mínimo
-  const bajominimo = DATA.material.filter(m => { const s = parseFloat(m.Stock_Actual)||0; const mn = parseFloat(m.Stock_Minimo)||0; return mn > 0 && s <= mn; });
+  // Stock bajo mínimo — usa helpers de config.js (soporta lotes por ubicación)
+  const bajominimo = DATA.material.filter(m => stockBajoMinimo(m));
   setText('stat-stock-bajo', bajominimo.length);
 
   const alertasStock = document.getElementById('alertas-stock-container');
   if (!alertasStock) return;
   alertasStock.innerHTML = '';
   if (bajominimo.length) {
-    const criticos = bajominimo.filter(m => (parseFloat(m.Stock_Actual)||0) === 0);
-    const bajos    = bajominimo.filter(m => (parseFloat(m.Stock_Actual)||0) > 0);
+    const criticos = bajominimo.filter(m => getStockTotal(m) === 0);
+    const bajos    = bajominimo.filter(m => getStockTotal(m) > 0);
     const puedeGestionar = puedeHacer('gestionarPedidos');
     const renderItemsStock = items => items.slice(0,5).map(m =>
-      `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px">${m.Nombre} (${m.Stock_Actual||'0'} ${m.Unidad||''})${puedeGestionar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();solicitudStockAPedido('${m.ID_Material}')">+ Pedido</button>` : ''}</span>`
+      `<span style="display:inline-flex;align-items:center;gap:6px;margin-right:8px">${m.Nombre} (${getStockTotal(m)} ${m.Unidad||''})${puedeGestionar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();solicitudStockAPedido('${m.ID_Material}')">+ Pedido</button>` : ''}</span>`
     ).join('');
     if (criticos.length) alertasStock.innerHTML += `<div class="alert-banner danger"><div class="alert-icon">🔴</div><div class="alert-content"><div class="alert-title">${criticos.length} material(es) sin stock</div><div class="alert-text" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px">${renderItemsStock(criticos)}${criticos.length > 5 ? ' y ' + (criticos.length-5) + ' más...' : ''}</div></div></div>`;
     if (bajos.length)    alertasStock.innerHTML += `<div class="alert-banner"><div class="alert-icon">🟡</div><div class="alert-content"><div class="alert-title">${bajos.length} material(es) por debajo del mínimo</div><div class="alert-text" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px">${renderItemsStock(bajos)}${bajos.length > 5 ? ' y ' + (bajos.length-5) + ' más...' : ''}</div></div></div>`;

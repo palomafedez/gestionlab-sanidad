@@ -217,6 +217,9 @@ function seleccionarMaterial(id, nombre, listId, hiddenId, selectedId) {
   if (wrap) wrap.querySelector('input[type="text"]').value = '';
   const unidadesField = document.getElementById(selectedId.replace('selected', 'unidades'));
   if (unidadesField && mat) unidadesField.value = mat.Unidad || '';
+  // Mostrar selector de ubicación si el contexto es consumo o entrada
+  if (hiddenId === 'consumo-material-id') _mostrarSelectorUbicConsumo(id);
+  if (hiddenId === 'entrada-material-id') _mostrarSelectorUbicEntrada(id);
 }
 
 function buscarMaterialSolicitud(val) { buscarMaterialGenerico(val, 'sol-autocomplete',    'sol-material-id',     'sol-material-selected'); }
