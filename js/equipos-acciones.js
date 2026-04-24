@@ -1,0 +1,577 @@
+// ============================================================
+// VARIABLE DE ESTADO — intervención pendiente de archivo
+// ============================================================
+let _pendingActFileBase64 = null;  // para modal-registrar-actuacion
+let _incidenciaOrigen     = null;  // ID incidencia al crear intervención desde ella
+
+// ============================================================
+// MODALES EQUIPOS
+// ============================================================
+function openModalEquipo() {
+  editingRow = null; pendingEqFileBase64 = null;
+  document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
+  ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones','eq-periodicidad-custom'].forEach(id => sv(id,''));
+  ['eq-tipo','eq-ubicacion','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id,''));
+  sv('eq-estado','Operativo'); sv('eq-periodicidad','Anual'); sv('eq-pdf-url','');
+  document.getElementById('eq-pdf-preview').style.display = 'none';
+  document.getElementById('eq-pdf-name').textContent = '';
+  if (document.getElementById('eq-pdf-input')) document.getElementById('eq-pdf-input').value = '';
+  togglePeriodicidadCustom('Anual');
+  poblarSelects(); openModal('modal-equipo');
+}
+
+function editEquipo(idx) {
+  const e = DATA.equipos[idx];
+  editingRow = { sheet: 'Equipos', rowIndex: idx };
+  pendingEqFileBase64 = null;
+  document.getElementById('modal-equipo-title').textContent = 'Editar equipo';
+  poblarSelects();
+  sv('eq-id',e.ID_Activo); sv('eq-tipo',e.Tipo_Equipo); sv('eq-marca',e.Marca);
+  sv('eq-modelo',e.Modelo); sv('eq-serie',e.Numero_Serie); sv('eq-ubicacion',e.Ubicacion);
+  sv('eq-responsable',e.Responsable); sv('eq-fecha-adq',e.Fecha_Adquisicion);
+  sv('eq-financiacion',e.Origen_Financiacion); sv('eq-proveedor-compra',e.Proveedor_Compra);
+  sv('eq-proveedor-sat',e.Proveedor_Servicio_Tecnico); sv('eq-estado',e.Estado_Operativo);
+  sv('eq-periodicidad',e.Periodicidad_Mantenimiento); sv('eq-periodicidad-custom',e.Periodicidad_Custom||'');
+  togglePeriodicidadCustom(e.Periodicidad_Mantenimiento);
+  sv('eq-ultimo-preventivo',e.Fecha_Ultimo_Preventivo); sv('eq-observaciones',e.Observaciones);
+  sv('eq-pdf-url',e.Manual_Ficha_Tecnica||'');
+  if (e.Manual_Ficha_Tecnica) { document.getElementById('eq-pdf-preview').style.display = 'flex'; document.getElementById('eq-pdf-name').textContent = 'Manual adjunto (ver 📄)'; }
+  else document.getElementById('eq-pdf-preview').style.display = 'none';
+  openModal('modal-equipo');
+}
+
+function togglePeriodicidadCustom(val) {
+  const group = document.getElementById('eq-periodicidad-custom-group');
+  if (group) group.style.display = val === 'Personalizada' ? 'flex' : 'none';
+}
+
+// ============================================================
+// MODAL INTERVENCIÓN (modo manual / edición directa)
+// ============================================================
+function openModalIntervencion() {
+  editingRow = null; pendingFileBase64 = null; _incidenciaOrigen = null; removeFile();
+  document.getElementById('modal-intervencion-title').textContent = 'Nueva intervención';
+  ['int-equipo','int-realizado-por','int-proveedor','int-tecnico-ext','int-fecha-plan','int-fecha-real','int-descripcion','int-observaciones'].forEach(id => sv(id,''));
+  sv('int-tipo','Preventivo'); sv('int-origen','Planificado'); sv('int-resultado','Resuelto');
+  sv('int-operativo','Sí'); sv('int-actualiza-preventivo','Sí'); sv('int-estado-manual','Planificada');
+  const origenSel = document.getElementById('int-origen');
+  if (origenSel) origenSel.disabled = false;
+  const origenNota = document.getElementById('int-origen-nota');
+  if (origenNota) origenNota.style.display = 'none';
+  poblarSelects(); openModal('modal-intervencion');
+}
+
+function openModalIntervencionEquipo(equipoId) {
+  openModalIntervencion();
+  setTimeout(() => { const sel = document.getElementById('int-equipo'); const opt = Array.from(sel.options).find(o => o.value.startsWith(equipoId)); if (opt) sel.value = opt.value; }, 50);
+}
+
+function editIntervencion(idx) {
+  const i = DATA.intervenciones[idx];
+  editingRow = { sheet: 'Intervenciones', rowIndex: idx };
+  poblarSelects();
+  document.getElementById('modal-intervencion-title').textContent = 'Editar intervención';
+  sv('int-equipo',i.Equipo); sv('int-tipo',i.Tipo); sv('int-origen',i.Origen);
+  sv('int-fecha-plan',i.Fecha_Planificada); sv('int-fecha-real',i.Fecha_Realizacion);
+  sv('int-realizado-por',i.Realizado_Por); sv('int-tecnico-ext',i.Tecnico_Externo);
+  sv('int-proveedor',i.Proveedor); sv('int-descripcion',i.Descripcion_Actuacion||i.Descripcion_Planificada||'');
+  sv('int-resultado',i.Resultado); sv('int-operativo',i.Equipo_Operativo_Tras_Intervencion);
+  sv('int-actualiza-preventivo',i.Actualiza_Proximo_Preventivo); sv('int-observaciones',i.Observaciones);
+  sv('int-estado-manual',i.Estado||'Planificada');
+  sv('int-pdf-url',i.URL_Adjunto||'');
+  if (i.URL_Adjunto) { document.getElementById('int-pdf-preview').style.display = 'flex'; document.getElementById('int-pdf-name').textContent = i.Nombre_Adjunto || 'Documento adjunto'; }
+  else document.getElementById('int-pdf-preview').style.display = 'none';
+  openModal('modal-intervencion');
+}
+
+// ============================================================
+// MODAL INCIDENCIA
+// ============================================================
+function openModalIncidencia() {
+  editingRow = null;
+  ['inc-equipo','inc-descripcion'].forEach(id => sv(id,''));
+  sv('inc-impacto','No bloquea'); sv('inc-urgencia','Normal');
+  poblarSelects(); openModal('modal-incidencia');
+}
+
+function openModalIncidenciaEquipo(equipoId) {
+  openModalIncidencia();
+  setTimeout(() => { const sel = document.getElementById('inc-equipo'); const opt = Array.from(sel.options).find(o => o.value.startsWith(equipoId)); if (opt) sel.value = opt.value; }, 50);
+}
+
+// ============================================================
+// FLUJO PASO 1 — Planificar desde incidencia
+// ============================================================
+function abrirPlanificacion(incId, equipo) {
+  sv('plan-inc-id', incId);
+  sv('plan-equipo', equipo);
+  const label = document.getElementById('plan-inc-label');
+  if (label) label.textContent = incId + ' (' + equipo + ')';
+  sv('plan-tipo', 'Correctivo');
+  sv('plan-fecha', new Date().toISOString().split('T')[0]);
+  sv('plan-descripcion', '');
+  openModal('modal-planificar-intervencion');
+}
+
+async function guardarPlanificacion() {
+  const incId  = v('plan-inc-id');
+  const equipo = v('plan-equipo');
+  const fecha  = v('plan-fecha');
+  if (!fecha) { showToast('La fecha planificada es obligatoria', 'error'); return; }
+
+  const id  = genId('INT-');
+  const row = [
+    id,            // A ID_Intervencion
+    equipo,        // B Equipo
+    v('plan-tipo'),// C Tipo
+    'Incidencia reportada', // D Origen
+    fecha,         // E Fecha_Planificada
+    '',            // F Fecha_Realizacion
+    '',            // G Realizado_Por
+    '',            // H Tecnico_Externo
+    '',            // I Proveedor
+    '',            // J Descripcion_Actuacion  (vacío hasta registrar)
+    '',            // K Resultado
+    '',            // L Equipo_Operativo
+    '',            // M URL_Adjunto
+    '',            // N Factura_Asociada
+    '',            // O Actualiza_Proximo_Preventivo
+    v('plan-descripcion'), // P Observaciones (usamos para guardar descripción planificada)
+    '',            // Q Nombre_Adjunto
+    'Planificada'  // R Estado
+  ];
+
+  showLoading('Guardando...');
+  try {
+    await sheetsAppend('Intervenciones', row);
+    DATA.intervenciones.push(rowToObj(row, 'intervenciones'));
+    // Recuperar el obj recién creado para poder leerlo con sus campos
+    const newInt = DATA.intervenciones[DATA.intervenciones.length - 1];
+    newInt.Descripcion_Planificada = v('plan-descripcion'); // campo virtual para UI
+
+    // Actualizar incidencia: Estado → En gestión, Intervencion_Generada → id
+    const incIdx = DATA.incidencias.findIndex(x => x.ID_Incidencia === incId);
+    if (incIdx !== -1) {
+      const inc = DATA.incidencias[incIdx];
+      inc.Estado = 'En gestión';
+      inc.Intervencion_Generada = id;
+      const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
+      await sheetsUpdate(`Incidencias!A${incIdx + 2}:I${incIdx + 2}`, incRow);
+    }
+
+    showToast('Intervención planificada. Incidencia → En gestión', 'success');
+    closeModal('modal-planificar-intervencion');
+    renderAll();
+  } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+  hideLoading();
+}
+
+// ============================================================
+// FLUJO PASO 2 — Registrar actuación
+// ============================================================
+function openModalRegistrarActuacion(intIdx) {
+  _pendingActFileBase64 = null;
+  removeActFile();
+  const i = DATA.intervenciones[intIdx];
+  sv('act-int-id',  i.ID_Intervencion);
+  sv('act-int-idx', String(intIdx));
+  const label  = document.getElementById('act-int-label');
+  const eqLbl  = document.getElementById('act-equipo-label');
+  if (label) label.textContent = i.ID_Intervencion;
+  if (eqLbl) eqLbl.textContent = i.Equipo || '—';
+
+  // Fecha por defecto = hoy
+  sv('act-fecha-real', new Date().toISOString().split('T')[0]);
+  sv('act-descripcion', '');
+  sv('act-observaciones', '');
+  sv('act-resultado', 'Resuelto');
+  sv('act-operativo', 'Sí');
+  sv('act-pdf-url', '');
+
+  // Poblar selects
+  poblarSelects();
+  const selUser = document.getElementById('act-realizado-por');
+  if (selUser) {
+    selUser.innerHTML = '<option value="">Seleccionar usuario...</option>' +
+      DATA.usuarios.filter(u => u.Activo !== 'FALSE').map(u => `<option value="${u.Nombre}">${u.Nombre}</option>`).join('');
+  }
+  const selProv = document.getElementById('act-proveedor-ext');
+  if (selProv) {
+    selProv.innerHTML = '<option value="">Seleccionar proveedor...</option>' +
+      DATA.proveedores.filter(p => p.Activo !== 'FALSE').map(p => `<option value="${p.Nombre_Proveedor}">${p.Nombre_Proveedor}</option>`).join('');
+  }
+
+  // Restablecer radio a Interna
+  const radInterna = document.getElementById('act-ejec-interna');
+  if (radInterna) { radInterna.checked = true; toggleActEjecucion('Interna'); }
+
+  openModal('modal-registrar-actuacion');
+}
+
+function toggleActEjecucion(tipo) {
+  const intGrp = document.getElementById('act-interna-group');
+  const extGrp = document.getElementById('act-externa-group');
+  if (intGrp) intGrp.style.display = tipo === 'Interna' ? '' : 'none';
+  if (extGrp) extGrp.style.display = tipo === 'Externa' ? '' : 'none';
+}
+
+function toggleActResultado(val) {
+  // Reservado para lógica futura de mostrar/ocultar campos según resultado
+}
+
+async function guardarActuacion() {
+  const intIdx   = parseInt(v('act-int-idx'));
+  const fechaReal = v('act-fecha-real');
+  const desc      = v('act-descripcion');
+  if (!fechaReal) { showToast('La fecha de realización es obligatoria', 'error'); return; }
+  if (!desc)      { showToast('La descripción es obligatoria', 'error'); return; }
+
+  const tipoEjec = document.querySelector('input[name="act-tipo-ejec"]:checked')?.value || 'Interna';
+  const realizadoPor = tipoEjec === 'Interna' ? v('act-realizado-por') : '';
+  const proveedorExt = tipoEjec === 'Externa' ? v('act-proveedor-ext') : '';
+  const resultado = v('act-resultado');
+  const operativo = v('act-operativo');
+
+  const i = DATA.intervenciones[intIdx];
+  if (!i) { showToast('Intervención no encontrada', 'error'); return; }
+
+  // Determinar nuevo estado según reglas de cierre
+  let nuevoEstadoInt, nuevoEstadoInc;
+  if (resultado === 'Resuelto') {
+    if (tipoEjec === 'Interna') {
+      nuevoEstadoInt = 'Cerrada';
+      nuevoEstadoInc = 'Resuelta';
+    } else {
+      nuevoEstadoInt = 'Pendiente factura';
+      nuevoEstadoInc = 'En gestión'; // sigue hasta adjuntar factura
+    }
+  } else if (resultado === 'Resuelto parcialmente') {
+    // Pregunta diferida — se hace después de guardar
+    nuevoEstadoInt = 'En gestión';
+    nuevoEstadoInc = 'En gestión';
+  } else {
+    nuevoEstadoInt = 'En gestión';
+    nuevoEstadoInc = 'En gestión';
+  }
+
+  // Subir adjunto si hay
+  let urlAdjunto = v('act-pdf-url') || '', nombreAdjunto = '';
+  if (_pendingActFileBase64) {
+    showLoading('Subiendo documento...');
+    try {
+      urlAdjunto    = await uploadFileToDrive(_pendingActFileBase64.data, _pendingActFileBase64.name, _pendingActFileBase64.type);
+      nombreAdjunto = _pendingActFileBase64.name;
+    } catch(e) { showToast('Error subiendo el PDF', 'error'); hideLoading(); return; }
+    _pendingActFileBase64 = null;
+  }
+
+  // Actualizar fila en Sheets — mantenemos ID, Equipo, Tipo, Origen y Fecha_Planificada
+  const updatedRow = [
+    i.ID_Intervencion,           // A
+    i.Equipo,                    // B
+    i.Tipo,                      // C
+    i.Origen || 'Incidencia reportada', // D
+    i.Fecha_Planificada || '',   // E
+    fechaReal,                   // F Fecha_Realizacion
+    realizadoPor,                // G Realizado_Por
+    proveedorExt ? '' : '',      // H Tecnico_Externo (libre, no aplica aquí)
+    proveedorExt,                // I Proveedor
+    desc,                        // J Descripcion_Actuacion
+    resultado,                   // K Resultado
+    operativo,                   // L Equipo_Operativo
+    urlAdjunto,                  // M URL_Adjunto
+    '',                          // N Factura_Asociada
+    'No',                        // O Actualiza_Proximo_Preventivo
+    v('act-observaciones'),      // P Observaciones
+    nombreAdjunto,               // Q Nombre_Adjunto
+    nuevoEstadoInt               // R Estado
+  ];
+
+  showLoading('Guardando actuación...');
+  try {
+    await sheetsUpdate(`Intervenciones!A${intIdx + 2}:R${intIdx + 2}`, updatedRow);
+    DATA.intervenciones[intIdx] = rowToObj(updatedRow, 'intervenciones');
+
+    // Actualizar incidencia vinculada si existe
+    const incId  = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
+    if (incId !== -1 && (nuevoEstadoInc === 'Resuelta' || nuevoEstadoInc === 'En gestión')) {
+      const inc = DATA.incidencias[incId];
+      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada') {
+        inc.Estado = nuevoEstadoInc;
+        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
+        await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
+      }
+    }
+
+    // Actualizar preventivo si Preventivo + resuelto
+    if (resultado === 'Resuelto' && i.Tipo === 'Preventivo') {
+      const equipoId = i.Equipo.split(' – ')[0];
+      const eqIdx = DATA.equipos.findIndex(e => e.ID_Activo === equipoId);
+      if (eqIdx !== -1) {
+        const eq = DATA.equipos[eqIdx];
+        const nuevo = calcProximoPreventivo(fechaReal, eq.Periodicidad_Mantenimiento);
+        if (nuevo) {
+          eq.Fecha_Ultimo_Preventivo = fechaReal; eq.Fecha_Proximo_Preventivo = nuevo;
+          const eqRow = [eq.ID_Activo, eq.Tipo_Equipo, eq.Marca, eq.Modelo, eq.Numero_Serie, eq.Ubicacion, eq.Responsable, eq.Fecha_Adquisicion, eq.Origen_Financiacion, eq.Proveedor_Compra, eq.Proveedor_Servicio_Tecnico, eq.Estado_Operativo, eq.Periodicidad_Mantenimiento, eq.Periodicidad_Custom, eq.Fecha_Ultimo_Preventivo, eq.Fecha_Proximo_Preventivo, eq.Manual_Ficha_Tecnica, eq.Observaciones];
+          await sheetsUpdate(`Equipos!A${eqIdx + 2}:R${eqIdx + 2}`, eqRow);
+        }
+      }
+    }
+
+    closeModal('modal-registrar-actuacion');
+
+    // Paso 3b: resolución parcial → preguntar
+    if (resultado === 'Resuelto parcialmente') {
+      sv('rp-int-idx', String(intIdx));
+      openModal('modal-resolucion-parcial');
+    } else {
+      const msg = nuevoEstadoInt === 'Pendiente factura'
+        ? 'Actuación registrada. Intervención queda "Pendiente factura"'
+        : `Actuación registrada. Intervención → ${nuevoEstadoInt}`;
+      showToast(msg, 'success');
+      renderAll();
+    }
+  } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+  hideLoading();
+}
+
+// ============================================================
+// FLUJO PASO 3b — Resolución parcial
+// ============================================================
+async function resolverParcialSeguir() {
+  // Sigue En gestión — ya está guardado, solo cerrar modal
+  closeModal('modal-resolucion-parcial');
+  showToast('Intervención en gestión. Puedes registrar más actuaciones.', 'success');
+  renderAll();
+}
+
+async function resolverParcialCerrar() {
+  const intIdx = parseInt(v('rp-int-idx'));
+  const i = DATA.intervenciones[intIdx];
+  if (!i) { closeModal('modal-resolucion-parcial'); return; }
+
+  showLoading('Cerrando intervención...');
+  try {
+    // Cambiar estado a Cerrada
+    i.Estado = 'Cerrada';
+    await sheetsUpdate(`Intervenciones!R${intIdx + 2}`, ['Cerrada']);
+
+    // Cerrar incidencia vinculada
+    const incId = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
+    if (incId !== -1) {
+      const inc = DATA.incidencias[incId];
+      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada') {
+        inc.Estado = 'Resuelta';
+        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
+        await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
+      }
+    }
+    showToast('Intervención cerrada. Incidencia → Resuelta', 'success');
+  } catch(e) { showToast('Error cerrando', 'error'); console.error(e); }
+  hideLoading();
+  closeModal('modal-resolucion-parcial');
+  renderAll();
+}
+
+// ============================================================
+// ADJUNTOS — INTERVENCIÓN MANUAL
+// ============================================================
+function handleFileSelect(input) {
+  const file = input.files[0]; if (!file) return;
+  document.getElementById('int-pdf-name').textContent = file.name;
+  document.getElementById('int-pdf-preview').style.display = 'flex';
+  const reader = new FileReader();
+  reader.onload = e => { pendingFileBase64 = { name: file.name, type: file.type, data: e.target.result.split(',')[1] }; };
+  reader.readAsDataURL(file);
+}
+function removeFile() {
+  pendingFileBase64 = null;
+  const preview = document.getElementById('int-pdf-preview');
+  const name    = document.getElementById('int-pdf-name');
+  const input   = document.getElementById('int-pdf-input');
+  const url     = document.getElementById('int-pdf-url');
+  if (preview) preview.style.display = 'none';
+  if (name)    name.textContent = '';
+  if (input)   input.value = '';
+  if (url)     url.value = '';
+}
+
+// ============================================================
+// ADJUNTOS — REGISTRAR ACTUACIÓN
+// ============================================================
+function handleActFileSelect(input) {
+  const file = input.files[0]; if (!file) return;
+  document.getElementById('act-pdf-name').textContent = file.name;
+  document.getElementById('act-pdf-preview').style.display = 'flex';
+  const reader = new FileReader();
+  reader.onload = e => { _pendingActFileBase64 = { name: file.name, type: file.type, data: e.target.result.split(',')[1] }; };
+  reader.readAsDataURL(file);
+}
+function removeActFile() {
+  _pendingActFileBase64 = null;
+  const preview = document.getElementById('act-pdf-preview');
+  const name    = document.getElementById('act-pdf-name');
+  const input   = document.getElementById('act-pdf-input');
+  const url     = document.getElementById('act-pdf-url');
+  if (preview) preview.style.display = 'none';
+  if (name)    name.textContent = '';
+  if (input)   input.value = '';
+  if (url)     url.value = '';
+}
+
+// ============================================================
+// ADJUNTOS — EQUIPOS
+// ============================================================
+function handleEqFileSelect(input) {
+  const file = input.files[0]; if (!file) return;
+  document.getElementById('eq-pdf-name').textContent = file.name;
+  document.getElementById('eq-pdf-preview').style.display = 'flex';
+  const reader = new FileReader();
+  reader.onload = e => { pendingEqFileBase64 = { name: file.name, type: file.type, data: e.target.result.split(',')[1] }; };
+  reader.readAsDataURL(file);
+}
+function removeEqFile() {
+  pendingEqFileBase64 = null;
+  document.getElementById('eq-pdf-preview').style.display = 'none';
+  document.getElementById('eq-pdf-name').textContent = '';
+  document.getElementById('eq-pdf-input').value = '';
+  document.getElementById('eq-pdf-url').value = '';
+}
+
+// ============================================================
+// GUARDAR EQUIPO
+// ============================================================
+function calcProximoPreventivo(ultimoPreventivo, periodicidad) {
+  if (!ultimoPreventivo || periodicidad === 'Personalizada') return '';
+  const d = new Date(ultimoPreventivo);
+  const meses = {'Mensual':1,'Trimestral':3,'Semestral':6,'Anual':12}[periodicidad];
+  if (!meses) return '';
+  d.setMonth(d.getMonth() + meses);
+  return d.toISOString().split('T')[0];
+}
+
+async function guardarEquipo() {
+  const id = v('eq-id'); const tipo = v('eq-tipo'); const marca = v('eq-marca');
+  if (!id || !tipo) { showToast('ID y tipo son obligatorios', 'error'); return; }
+  if (!marca)       { showToast('La marca es obligatoria', 'error'); return; }
+
+  const ultimo = v('eq-ultimo-preventivo');
+  const periodicidad = v('eq-periodicidad');
+  const periodicidadCustom = periodicidad === 'Personalizada' ? v('eq-periodicidad-custom') : '';
+  const proximo = calcProximoPreventivo(ultimo, periodicidad);
+
+  let manualUrl = v('eq-pdf-url') || '';
+  if (pendingEqFileBase64) {
+    showLoading('Subiendo manual...');
+    try { manualUrl = await uploadFileToDrive(pendingEqFileBase64.data, pendingEqFileBase64.name, pendingEqFileBase64.type); }
+    catch(e) { showToast('Error subiendo el PDF. Guardando sin él.', 'error'); }
+    pendingEqFileBase64 = null;
+  }
+
+  const row = [id, tipo, marca, v('eq-modelo'), v('eq-serie'), v('eq-ubicacion'), v('eq-responsable'), v('eq-fecha-adq'), v('eq-financiacion'), v('eq-proveedor-compra'), v('eq-proveedor-sat'), v('eq-estado'), periodicidad, periodicidadCustom, ultimo, proximo, manualUrl, v('eq-observaciones')];
+
+  showLoading('Guardando...');
+  try {
+    if (editingRow && editingRow.sheet === 'Equipos') {
+      await sheetsUpdate(`Equipos!A${editingRow.rowIndex + 2}:R${editingRow.rowIndex + 2}`, row);
+      DATA.equipos[editingRow.rowIndex] = rowToObj(row, 'equipos');
+      showToast('Equipo actualizado', 'success');
+    } else {
+      await sheetsAppend('Equipos', row);
+      DATA.equipos.push(rowToObj(row, 'equipos'));
+      showToast('Equipo guardado', 'success');
+    }
+    closeModal('modal-equipo'); renderAll();
+  } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+  hideLoading(); editingRow = null;
+}
+
+// ============================================================
+// GUARDAR INTERVENCIÓN (modal manual / edición directa)
+// ============================================================
+async function guardarIntervencion() {
+  const equipo = v('int-equipo'); const desc = v('int-descripcion');
+  if (!equipo || !desc) { showToast('Equipo y descripción son obligatorios', 'error'); return; }
+
+  const fechaReal = v('int-fecha-real') || new Date().toISOString().split('T')[0];
+  let urlAdjunto = v('int-pdf-url') || '', nombreAdjunto = '';
+
+  if (pendingFileBase64) {
+    showLoading('Subiendo documento...');
+    try { urlAdjunto = await uploadFileToDrive(pendingFileBase64.data, pendingFileBase64.name, pendingFileBase64.type); nombreAdjunto = pendingFileBase64.name; }
+    catch(e) { showToast('Error subiendo el PDF. Revisa permisos de Drive.', 'error'); hideLoading(); return; }
+  }
+
+  const tipo    = v('int-tipo');
+  const estado  = v('int-estado-manual') || 'Planificada';
+  const row     = [editingRow ? DATA.intervenciones[editingRow.rowIndex].ID_Intervencion : genId('INT-'), equipo, tipo, v('int-origen'), v('int-fecha-plan'), fechaReal, v('int-realizado-por'), v('int-tecnico-ext'), v('int-proveedor'), desc, v('int-resultado'), v('int-operativo'), urlAdjunto, '', v('int-actualiza-preventivo'), v('int-observaciones'), nombreAdjunto, estado];
+
+  showLoading('Guardando...');
+  try {
+    if (editingRow && editingRow.sheet === 'Intervenciones') {
+      await sheetsUpdate(`Intervenciones!A${editingRow.rowIndex + 2}:R${editingRow.rowIndex + 2}`, row);
+      DATA.intervenciones[editingRow.rowIndex] = rowToObj(row, 'intervenciones');
+      showToast('Intervención actualizada', 'success');
+    } else {
+      await sheetsAppend('Intervenciones', row);
+      DATA.intervenciones.push(rowToObj(row, 'intervenciones'));
+      showToast('Intervención guardada', 'success');
+    }
+
+    // Actualizar preventivo si aplica
+    if (v('int-actualiza-preventivo') === 'Sí' && tipo === 'Preventivo') {
+      const equipoId = equipo.split(' – ')[0];
+      const eqIdx = DATA.equipos.findIndex(e => e.ID_Activo === equipoId);
+      if (eqIdx !== -1) {
+        const eq = DATA.equipos[eqIdx];
+        const nuevo = calcProximoPreventivo(fechaReal, eq.Periodicidad_Mantenimiento);
+        if (nuevo) {
+          eq.Fecha_Ultimo_Preventivo = fechaReal; eq.Fecha_Proximo_Preventivo = nuevo;
+          const eqRow = [eq.ID_Activo, eq.Tipo_Equipo, eq.Marca, eq.Modelo, eq.Numero_Serie, eq.Ubicacion, eq.Responsable, eq.Fecha_Adquisicion, eq.Origen_Financiacion, eq.Proveedor_Compra, eq.Proveedor_Servicio_Tecnico, eq.Estado_Operativo, eq.Periodicidad_Mantenimiento, eq.Periodicidad_Custom, eq.Fecha_Ultimo_Preventivo, eq.Fecha_Proximo_Preventivo, eq.Manual_Ficha_Tecnica, eq.Observaciones];
+          await sheetsUpdate(`Equipos!A${eqIdx + 2}:R${eqIdx + 2}`, eqRow);
+        }
+      }
+    }
+    pendingFileBase64 = null;
+    closeModal('modal-intervencion'); renderAll();
+  } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+  hideLoading(); editingRow = null;
+}
+
+// ============================================================
+// GUARDAR INCIDENCIA
+// ============================================================
+async function guardarIncidencia() {
+  const equipo = v('inc-equipo'); const desc = v('inc-descripcion');
+  if (!equipo || !desc) { showToast('Equipo y descripción son obligatorios', 'error'); return; }
+  const id  = genId('INC-');
+  const row = [id, equipo, currentUser?.name || 'Usuario', new Date().toISOString().replace('T',' ').slice(0,16), desc, v('inc-impacto'), v('inc-urgencia'), 'Abierta', ''];
+  showLoading('Guardando...');
+  try {
+    await sheetsAppend('Incidencias', row);
+    DATA.incidencias.push(rowToObj(row, 'incidencias'));
+    showToast('Incidencia reportada', 'success');
+    closeModal('modal-incidencia'); renderAll();
+  } catch(e) { showToast('Error guardando', 'error'); }
+  hideLoading();
+}
+
+async function cambiarEstadoIncidencia(idx) {
+  const i = DATA.incidencias[idx];
+  const estados = ['Abierta','En gestión','Resuelta','Cerrada'];
+  const next = estados[(estados.indexOf(i.Estado) + 1) % estados.length];
+  if (!confirm(`¿Cambiar estado de "${i.ID_Incidencia}" a "${next}"?`)) return;
+  i.Estado = next;
+  const row = [i.ID_Incidencia, i.Equipo, i.Reportado_Por, i.Fecha_Hora, i.Descripcion_Problema, i.Impacto, i.Urgencia, i.Estado, i.Intervencion_Generada];
+  showLoading('Actualizando...');
+  try { await sheetsUpdate(`Incidencias!A${idx + 2}:I${idx + 2}`, row); showToast('Estado actualizado', 'success'); renderAll(); }
+  catch(e) { showToast('Error', 'error'); }
+  hideLoading();
+}
+
+// ============================================================
+// ALIAS — compatibilidad con llamadas existentes en index.html
+// ============================================================
+// El botón "+ Nueva intervención" en index.html llama openModalIntervencion()
+// ya definida arriba — no hace falta alias.
+// crearIntervencionDesdeIncidencia() sustituida por abrirPlanificacion()

@@ -5,6 +5,15 @@
 function abrirGeneradorHoja(pedidoId) {
   sv('gen-pedido-id', pedidoId);
   sv('gen-ciclo',''); sv('gen-modulo','');
+  sv('gen-num-factura',''); sv('gen-fecha-factura','');
+
+  // Pre-rellenar si el pedido ya tiene datos de factura en Sheets
+  const p = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);
+  if (p) {
+    if (p.Numero_Factura) sv('gen-num-factura', p.Numero_Factura);
+    if (p.Fecha_Factura)  sv('gen-fecha-factura', p.Fecha_Factura);
+  }
+
   document.getElementById('gen-estado-container').style.display = 'none';
   actualizarModulos();
   openModal('modal-generar-hoja');
@@ -28,7 +37,6 @@ function setGenEstado(msg, tipo = 'info') {
   cont.querySelector('div').style.color      = textColors[tipo] || textColors.info;
   txt.innerHTML = msg;
 }
-
 
 function injectTextIntoRow(rowXml, texts) {
   if (!texts || !texts.some(t => t)) return rowXml;
@@ -56,11 +64,34 @@ async function generarHojaPedido() {
   const btn = document.getElementById('btn-generar-hoja');
   btn.disabled = true; btn.textContent = '⏳ Generando...';
 
+  // ── Guardar Numero_Factura y Fecha_Factura en Sheets antes de generar ──
+  const numFacturaNuevo  = v('gen-num-factura')  || '';
+  const fechaFacturaNuevo = v('gen-fecha-factura') || '';
+  const pedIdx = DATA.pedidos.findIndex(x => x.ID_Pedido === pedidoId);
+
+  if (pedIdx !== -1) {
+    const cambiado = numFacturaNuevo !== (p.Numero_Factura || '') || fechaFacturaNuevo !== (p.Fecha_Factura || '');
+    if (cambiado) {
+      try {
+        // Num_Factura → col L (índice 11, fila pedIdx+2), Fecha_Factura → col I (índice 8)
+        // Actualizamos las dos columnas individualmente para no tocar el resto
+        await sheetsUpdate(`Pedidos!I${pedIdx + 2}`, [fechaFacturaNuevo]);
+        await sheetsUpdate(`Pedidos!L${pedIdx + 2}`, [numFacturaNuevo]);
+        DATA.pedidos[pedIdx].Numero_Factura = numFacturaNuevo;
+        DATA.pedidos[pedIdx].Fecha_Factura  = fechaFacturaNuevo;
+      } catch(e) {
+        console.warn('No se pudieron guardar los datos de factura', e);
+      }
+    }
+  }
+
   try {
     const lineasConPrecios = lineas.map(l => ({ concepto: l.Material, cantidad: l.Cantidad_Pedida, precio: '', total: '' }));
     const importeTotal = '';
-    const numFactura = p.Numero_Factura || '';
-    const fechaDoc = p.Fecha_Factura || p.Fecha_Recepcion_Completa || new Date().toLocaleDateString('es-ES');
+    const numFactura = DATA.pedidos[pedIdx]?.Numero_Factura || numFacturaNuevo || '';
+    const fechaDoc   = DATA.pedidos[pedIdx]?.Fecha_Factura  || fechaFacturaNuevo
+                        || p.Fecha_Recepcion_Completa
+                        || new Date().toLocaleDateString('es-ES');
 
     setGenEstado('📝 Generando documento...', 'info');
     let templateBuffer;
@@ -102,8 +133,7 @@ async function generarHojaPedido() {
         const base64data = e.target.result.split(',')[1];
         const url = await uploadFileToDrive(base64data, fileName, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
         setGenEstado(`✅ Listo. <a href="${url}" target="_blank" style="color:var(--accent);font-weight:600;text-decoration:underline">📥 Abrir documento en Drive</a>`, 'ok');
-        // Marcar Doc_Hoja_Generada automáticamente
-        const pedIdx = DATA.pedidos.findIndex(x => x.ID_Pedido === pedidoId);
+        // Marcar Doc_Hoja_Generada
         if (pedIdx !== -1 && DATA.pedidos[pedIdx].Doc_Hoja_Generada !== 'TRUE') {
           DATA.pedidos[pedIdx].Doc_Hoja_Generada = 'TRUE';
           try { await sheetsUpdate('Pedidos!N' + (pedIdx+2), ['TRUE']); } catch(e) { console.warn('No se pudo marcar Doc_Hoja_Generada', e); }

@@ -9,7 +9,6 @@ function renderMaterial(filtro, cat, stockFiltro, ubicacion) {
   if (stockFiltro !== undefined) _filtroMaterialStock  = stockFiltro;
   if (ubicacion !== undefined) _filtroMaterialUbicacion = ubicacion;
 
-  // Poblar datalist ubicaciones
   const dlUbi = document.getElementById('ubicaciones-datalist');
   if (dlUbi) {
     dlUbi.innerHTML = DATA.ubicaciones.filter(u => u.Activa !== 'FALSE').map(u => {
@@ -18,7 +17,6 @@ function renderMaterial(filtro, cat, stockFiltro, ubicacion) {
     }).join('');
   }
 
-  // Poblar filtro de categorías
   const cats = [...new Set(DATA.material.map(m => m.Categoria).filter(Boolean))].sort();
   const filterCat = document.getElementById('filter-material-cat');
   if (filterCat) {
@@ -29,28 +27,20 @@ function renderMaterial(filtro, cat, stockFiltro, ubicacion) {
 
   let items = DATA.material;
 
-  // Filtro texto
   if (_filtroMaterial) {
     const q = _filtroMaterial.toLowerCase();
     items = items.filter(m => (m.Nombre + m.Categoria + m.ID_Material + m.Proveedor + m.Referencia_Proveedor).toLowerCase().includes(q));
   }
-
-  // Filtro categoría
   if (_filtroMaterialCat) items = items.filter(m => m.Categoria === _filtroMaterialCat);
-
-  // Filtro stock — usa helpers de config.js
   if (_filtroMaterialStock === 'bajo') items = items.filter(m => stockBajoMinimo(m));
   if (_filtroMaterialStock === 'ok')   items = items.filter(m => !stockBajoMinimo(m));
 
-  // Filtro ubicación — busca también en lotes
   if (_filtroMaterialUbicacion) {
     const q = _filtroMaterialUbicacion.toLowerCase();
     items = items.filter(m => {
-      // Comprobar campo Ubicacion heredado
       if ((m.Ubicacion||'').toLowerCase().includes(q)) return true;
       const ubi = DATA.ubicaciones.find(u => u.ID_Ubicacion === m.Ubicacion);
       if (ubi && ((ubi.Zona||'').toLowerCase().includes(q) || (ubi.Subzona||'').toLowerCase().includes(q) || (ubi.Laboratorio_Aula||'').toLowerCase().includes(q))) return true;
-      // Comprobar lotes
       return getMatUbics(m.ID_Material).some(l => (l.ID_Ubicacion||'').toLowerCase().includes(q) || getNombreUbicacion(l.ID_Ubicacion).toLowerCase().includes(q));
     });
   }
@@ -73,18 +63,19 @@ function renderFilaMaterial(m) {
   const pct    = opt > 0 ? Math.min(100, Math.round(stock / opt * 100)) : (minTot > 0 ? Math.min(100, Math.round(stock / minTot * 100)) : 100);
   const color  = stock === 0 ? 'var(--danger)' : (minTot > 0 && stock <= minTot ? 'var(--warning)' : 'var(--success)');
   const idx    = DATA.material.indexOf(m);
+  const safeId = m.ID_Material.replace(/[^a-zA-Z0-9]/g, '-');
 
-  // Indicador de multi-ubicación
   const multiUbi = lotes.length > 0;
   const ubiLabel = multiUbi
     ? `<span style="font-size:11px;color:var(--accent);font-weight:500">${lotes.length} ubicación${lotes.length > 1 ? 'es' : ''}</span>`
     : `<span style="font-size:12px;color:var(--text-muted)">${m.Ubicacion || '—'}</span>`;
 
-  const rowId = `mat-row-${m.ID_Material.replace(/[^a-zA-Z0-9]/g,'-')}`;
+  const rowId = `mat-row-${safeId}`;
 
+  // Fila principal — añade botón Solicitar (📋) y botón Movimientos (📊)
   let html = `<tr class="equipo-row${multiUbi ? ' expandable' : ''}" id="${rowId}" ${multiUbi ? `onclick="toggleMatUbics('${m.ID_Material}')" style="cursor:pointer"` : ''}>
     <td><strong>${m.ID_Material}</strong></td>
-    <td>${multiUbi ? `<span class="expand-icon" id="expand-mat-${m.ID_Material.replace(/[^a-zA-Z0-9]/g,'-')}">▶</span> ` : ''}${m.Nombre}</td>
+    <td>${multiUbi ? `<span class="expand-icon" id="expand-mat-${safeId}">▶</span> ` : ''}${m.Nombre}</td>
     <td><span class="badge badge-gray">${m.Categoria || '—'}</span></td>
     <td>${ubiLabel}</td>
     <td style="font-size:12px">${m.Unidad || '—'}</td>
@@ -98,11 +89,13 @@ function renderFilaMaterial(m) {
     <td onclick="event.stopPropagation()"><div class="row-actions">
       <button class="icon-btn" onclick="openModalConsumoMaterial('${m.ID_Material}')" title="Registrar consumo">📦</button>
       <button class="icon-btn" onclick="openModalEntradaMaterial('${m.ID_Material}')" title="Registrar entrada">📥</button>
+      ${puedeHacer('crearSolicitudes') ? `<button class="icon-btn" onclick="openModalSolicitudMaterial('${m.ID_Material}')" title="Solicitar">📋</button>` : ''}
+      <button class="icon-btn" onclick="toggleMatMovimientos('${m.ID_Material}')" title="Ver movimientos">📊</button>
       <button class="icon-btn" onclick="editMaterial(${idx})" title="Editar">✏️</button>
     </div></td>
   </tr>`;
 
-  // Sub-filas por ubicación (ocultas inicialmente)
+  // Sub-filas por ubicación (ocultas inicialmente) — con botón Solicitar
   if (multiUbi) {
     html += lotes.map((l, li) => {
       const sLocal  = parseFloat(l.Stock_Local)  || 0;
@@ -110,8 +103,7 @@ function renderFilaMaterial(m) {
       const opLocal = parseFloat(l.Stock_Optimo_Local) || 0;
       const pctL  = opLocal > 0 ? Math.min(100, Math.round(sLocal / opLocal * 100)) : (mnLocal > 0 ? Math.min(100, Math.round(sLocal / mnLocal * 100)) : 100);
       const colL  = sLocal === 0 ? 'var(--danger)' : (mnLocal > 0 && sLocal <= mnLocal ? 'var(--warning)' : 'var(--success)');
-      const loteIdx = DATA.materialUbicaciones.indexOf(l);
-      return `<tr class="mat-ubic-row" id="mat-ubic-${m.ID_Material.replace(/[^a-zA-Z0-9]/g,'-')}-${li}" style="display:none;background:var(--surface2)">
+      return `<tr class="mat-ubic-row" id="mat-ubic-${safeId}-${li}" style="display:none;background:var(--surface2)">
         <td></td>
         <td style="padding-left:28px;font-size:12px;color:var(--text-soft)">📍 ${getNombreUbicacion(l.ID_Ubicacion)}</td>
         <td></td>
@@ -127,26 +119,72 @@ function renderFilaMaterial(m) {
         <td><div class="row-actions">
           <button class="icon-btn" onclick="openModalConsumoLote('${m.ID_Material}','${l.ID_Ubicacion}')" title="Consumo en esta ubicación">📦</button>
           <button class="icon-btn" onclick="openModalEntradaLote('${m.ID_Material}','${l.ID_Ubicacion}')" title="Entrada en esta ubicación">📥</button>
+          ${puedeHacer('crearSolicitudes') ? `<button class="icon-btn" onclick="openModalSolicitudMaterial('${m.ID_Material}')" title="Solicitar">📋</button>` : ''}
         </div></td>
       </tr>`;
     }).join('');
   }
 
+  // Fila desplegable de movimientos (oculta inicialmente)
+  html += `<tr class="mat-ubic-row" id="mat-mov-${safeId}" style="display:none;background:var(--surface2)">
+    <td colspan="8" style="padding:10px 16px 10px 28px">
+      <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Últimos movimientos</div>
+      <div id="mat-mov-inner-${safeId}">${buildMovimientosMaterial(m.ID_Material, m.Nombre)}</div>
+    </td>
+  </tr>`;
+
   return html;
 }
 
+// ============================================================
+// TOGGLE EXPANSIÓN — ubicaciones y movimientos
+// ============================================================
 function toggleMatUbics(idMaterial) {
-  const safeId = idMaterial.replace(/[^a-zA-Z0-9]/g, '-');
+  const safeId    = idMaterial.replace(/[^a-zA-Z0-9]/g, '-');
   const expandIcon = document.getElementById(`expand-mat-${safeId}`);
-  const lotes = getMatUbics(idMaterial);
-  const firstRow = document.getElementById(`mat-ubic-${safeId}-0`);
+  const lotes     = getMatUbics(idMaterial);
+  const firstRow  = document.getElementById(`mat-ubic-${safeId}-0`);
   if (!firstRow) return;
   const isOpen = firstRow.style.display !== 'none';
   lotes.forEach((_, i) => {
     const row = document.getElementById(`mat-ubic-${safeId}-${i}`);
     if (row) row.style.display = isOpen ? 'none' : '';
   });
+  // Cerrar movimientos si estaban abiertos
+  const movRow = document.getElementById(`mat-mov-${safeId}`);
+  if (movRow && !isOpen === false) movRow.style.display = 'none';
   if (expandIcon) expandIcon.textContent = isOpen ? '▶' : '▼';
+}
+
+function toggleMatMovimientos(idMaterial) {
+  const safeId = idMaterial.replace(/[^a-zA-Z0-9]/g, '-');
+  const row    = document.getElementById(`mat-mov-${safeId}`);
+  if (!row) return;
+  const isOpen = row.style.display !== 'none';
+  row.style.display = isOpen ? 'none' : '';
+  // Refrescar contenido cada vez que se abre (datos pueden haber cambiado)
+  if (!isOpen) {
+    const inner = document.getElementById(`mat-mov-inner-${safeId}`);
+    const mat   = DATA.material.find(m => m.ID_Material === idMaterial);
+    if (inner && mat) inner.innerHTML = buildMovimientosMaterial(idMaterial, mat.Nombre);
+  }
+}
+
+function buildMovimientosMaterial(idMaterial, nombreMaterial) {
+  const nombre = nombreMaterial || (DATA.material.find(m => m.ID_Material === idMaterial)?.Nombre || '');
+  const movs = DATA.movimientos
+    .filter(m => m.Material === nombre)
+    .sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha))
+    .slice(0, 8);
+  if (!movs.length) return `<span style="font-size:12px;color:var(--text-muted)">Sin movimientos registrados para este ítem.</span>`;
+  return movs.map(m => `
+    <div style="display:grid;grid-template-columns:88px 100px 56px 1fr 100px;gap:8px;align-items:center;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--text-muted)">${formatDate(m.Fecha)||'—'}</span>
+      <span>${m.Tipo === 'Entrada' ? '<span class="badge badge-green" style="font-size:10px">📥 Entrada</span>' : '<span class="badge badge-orange" style="font-size:10px">📦 Salida</span>'}</span>
+      <strong>${m.Cantidad||'—'}</strong>
+      <span style="color:var(--text-soft)">${m.Motivo||'—'}</span>
+      <span style="color:var(--text-muted)">${m.Usuario||'—'}</span>
+    </div>`).join('');
 }
 
 function filtrarMaterial(val)          { renderMaterial(val, undefined, undefined); }
@@ -155,7 +193,7 @@ function filtrarMaterialStock(val)     { renderMaterial(undefined, undefined, va
 function filtrarMaterialUbicacion(val) { renderMaterial(undefined, undefined, undefined, val); }
 
 // ============================================================
-// RENDER MOVIMIENTOS
+// RENDER MOVIMIENTOS (vista global)
 // ============================================================
 function renderMovimientos(filtroTipo = '') {
   const tbody = document.getElementById('tabla-movimientos');
@@ -217,7 +255,6 @@ function seleccionarMaterial(id, nombre, listId, hiddenId, selectedId) {
   if (wrap) wrap.querySelector('input[type="text"]').value = '';
   const unidadesField = document.getElementById(selectedId.replace('selected', 'unidades'));
   if (unidadesField && mat) unidadesField.value = mat.Unidad || '';
-  // Mostrar selector de ubicación si el contexto es consumo o entrada
   if (hiddenId === 'consumo-material-id') _mostrarSelectorUbicConsumo(id);
   if (hiddenId === 'entrada-material-id') _mostrarSelectorUbicEntrada(id);
 }
@@ -248,10 +285,7 @@ function buscarUbicacionMat(query) {
   list.classList.add('open');
 }
 
-// La función original se mantiene para compatibilidad si hay otras referencias
-function seleccionarUbicacionMat(id, label) {
-  seleccionarUbicacionMatLote(id, label);
-}
+function seleccionarUbicacionMat(id, label) { seleccionarUbicacionMatLote(id, label); }
 
 function clearUbicacionMat() {
   document.getElementById('mat-ubicacion').value = '';
@@ -259,7 +293,6 @@ function clearUbicacionMat() {
   document.getElementById('mat-ubicacion-selected').style.display = 'none';
 }
 
-// Cerrar autocomplete al hacer clic fuera
 document.addEventListener('click', e => {
   if (!e.target.closest('.search-material-wrap') && !e.target.closest('#mat-lotes-container')) {
     document.querySelectorAll('.autocomplete-list').forEach(l => l.classList.remove('open'));
@@ -269,15 +302,12 @@ document.addEventListener('click', e => {
 // ============================================================
 // GESTIÓN DE LOTES POR UBICACIÓN EN EL MODAL
 // ============================================================
-
-// Estado temporal de lotes mientras el modal está abierto
-let _lotesTemp = [];   // [{ id, ID_Ubicacion, Stock_Local, Stock_Minimo_Local, Stock_Optimo_Local, _nuevo, _loteIdx }]
-let _loteEditandoIdx = null;  // índice en _lotesTemp del lote cuyo autocomplete está activo
+let _lotesTemp = [];
+let _loteEditandoIdx = null;
 
 function renderLotesModal() {
   const container = document.getElementById('mat-lotes-container');
   if (!container) return;
-
   if (!_lotesTemp.length) {
     container.innerHTML = `<div style="font-size:12px;color:var(--text-muted);padding:8px 0">Sin ubicaciones asignadas. Usa el campo de abajo para añadir.</div>`;
   } else {
@@ -287,47 +317,27 @@ function renderLotesModal() {
         <span style="flex:1;font-size:13px;font-weight:500">📍 ${nombre}</span>
         <label style="font-size:11px;color:var(--text-muted)">Stock</label>
         <input type="number" min="0" value="${l.Stock_Local||0}" style="width:70px" onchange="_lotesTemp[${i}].Stock_Local=this.value" oninput="_lotesTemp[${i}].Stock_Local=this.value">
-        <label style="display:inline-flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted);cursor:pointer" title="Gestión automática de stock en esta ubicación">
-          <input type="checkbox" ${(l.Gestion_Auto!=='FALSE')?'checked':''} onchange="_toggleGestionAutoLote(${i},this.checked)" style="width:13px;height:13px;accent-color:var(--accent)"> Auto
-        </label>
-        <span id="lote-auto-fields-${i}" style="display:inline-flex;gap:4px;align-items:center;${(l.Gestion_Auto!=='FALSE')?'':'display:none'}">
-          <label style="font-size:11px;color:var(--text-muted)">Mín</label>
-          <input type="number" min="0" value="${l.Stock_Minimo_Local||0}" style="width:55px" onchange="_lotesTemp[${i}].Stock_Minimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Minimo_Local=this.value">
-          <label style="font-size:11px;color:var(--text-muted)">Ópt</label>
-          <input type="number" min="0" value="${l.Stock_Optimo_Local||0}" style="width:55px" onchange="_lotesTemp[${i}].Stock_Optimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Optimo_Local=this.value">
-        </span>
+        <label style="font-size:11px;color:var(--text-muted)">Mín</label>
+        <input type="number" min="0" value="${l.Stock_Minimo_Local||0}" style="width:60px" onchange="_lotesTemp[${i}].Stock_Minimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Minimo_Local=this.value">
+        <label style="font-size:11px;color:var(--text-muted)">Ópt</label>
+        <input type="number" min="0" value="${l.Stock_Optimo_Local||0}" style="width:60px" onchange="_lotesTemp[${i}].Stock_Optimo_Local=this.value" oninput="_lotesTemp[${i}].Stock_Optimo_Local=this.value">
         <button class="icon-btn" onclick="_eliminarLoteTemp(${i})" title="Quitar ubicación" style="color:var(--danger)">🗑</button>
       </div>`;
     }).join('');
   }
 }
 
-function _eliminarLoteTemp(i) {
-  _lotesTemp.splice(i, 1);
-  renderLotesModal();
-}
+function _eliminarLoteTemp(i) { _lotesTemp.splice(i, 1); renderLotesModal(); }
 
-function _toggleGestionAutoLote(i, checked) {
-  _lotesTemp[i].Gestion_Auto = checked ? 'TRUE' : 'FALSE';
-  const span = document.getElementById('lote-auto-fields-' + i);
-  if (span) span.style.display = checked ? 'inline-flex' : 'none';
-  if (!checked) {
-    _lotesTemp[i].Stock_Minimo_Local = '0';
-    _lotesTemp[i].Stock_Optimo_Local = '0';
-  }
-}
-
-// Se llama desde el autocomplete de ubicación del modal
 function seleccionarUbicacionMatLote(id, label) {
-  // Comprobar que no está ya añadida
   if (_lotesTemp.some(l => l.ID_Ubicacion === id)) {
     showToast('Esta ubicación ya está añadida', 'error');
     document.getElementById('mat-ubicacion-autocomplete').classList.remove('open');
     document.getElementById('mat-ubicacion-search').value = '';
     return;
   }
-  _lotesTemp.push({ ID_Ubicacion: id, Stock_Local: '0', Stock_Minimo_Local: '0', Stock_Optimo_Local: '0', Gestion_Auto: 'TRUE', _nuevo: true });
-  document.getElementById('mat-ubicacion').value = id;   // mantener compatibilidad campo oculto
+  _lotesTemp.push({ ID_Ubicacion: id, Stock_Local: '0', Stock_Minimo_Local: '0', Stock_Optimo_Local: '0', _nuevo: true });
+  document.getElementById('mat-ubicacion').value = id;
   document.getElementById('mat-ubicacion-search').value = '';
   document.getElementById('mat-ubicacion-autocomplete').classList.remove('open');
   renderLotesModal();
@@ -337,11 +347,10 @@ function seleccionarUbicacionMatLote(id, label) {
 // MODALES MATERIAL
 // ============================================================
 function openModalMaterial() {
-  editingRow = null;
-  _lotesTemp = [];
+  editingRow = null; _lotesTemp = [];
   document.getElementById('modal-material-title').textContent = 'Nuevo material';
   const matIdField = document.getElementById('mat-id'); if (matIdField) matIdField.readOnly = false;
-  ['mat-id','mat-nombre','mat-unidad','mat-ubicacion','mat-observaciones','mat-ubicacion-search'].forEach(id => sv(id, ''));
+  ['mat-id','mat-nombre','mat-unidad','mat-ubicacion','mat-referencia','mat-observaciones','mat-ubicacion-search'].forEach(id => sv(id, ''));
   sv('mat-categoria', ''); sv('mat-stock', '0'); sv('mat-minimo', '0'); sv('mat-optimo', '0'); sv('mat-proveedor', '');
   clearUbicacionMat();
   const sel = document.getElementById('mat-proveedor');
@@ -368,26 +377,22 @@ function editMaterial(idx) {
     Stock_Local: l.Stock_Local,
     Stock_Minimo_Local: l.Stock_Minimo_Local,
     Stock_Optimo_Local: l.Stock_Optimo_Local,
-    Gestion_Auto: (parseFloat(l.Stock_Minimo_Local)||0) > 0 || (parseFloat(l.Stock_Optimo_Local)||0) > 0 ? 'TRUE' : 'FALSE',
     _nuevo: false,
     _loteIdx: DATA.materialUbicaciones.indexOf(l)
   }));
-
   document.getElementById('modal-material-title').textContent = 'Editar material';
   sv('mat-id', m.ID_Material); sv('mat-nombre', m.Nombre); sv('mat-categoria', m.Categoria);
   const matIdField = document.getElementById('mat-id'); if (matIdField) matIdField.readOnly = true;
-  sv('mat-unidad', m.Unidad);
+  sv('mat-referencia', m.Referencia_Proveedor); sv('mat-unidad', m.Unidad);
   sv('mat-ubicacion', m.Ubicacion);
   sv('mat-stock', m.Stock_Actual); sv('mat-minimo', m.Stock_Minimo); sv('mat-optimo', m.Stock_Optimo);
   sv('mat-observaciones', m.Observaciones);
-
   if (m.Ubicacion) {
     const ubi = DATA.ubicaciones.find(u => u.ID_Ubicacion === m.Ubicacion);
     const label = ubi ? m.Ubicacion + ' — ' + (ubi.Laboratorio_Aula || '') + (ubi.Zona ? ' · ' + ubi.Zona : '') : m.Ubicacion;
     document.getElementById('mat-ubicacion-selected-text').textContent = label;
     document.getElementById('mat-ubicacion-selected').style.display = 'flex';
   } else { clearUbicacionMat(); }
-
   sv('mat-ubicacion-search', '');
   const sel = document.getElementById('mat-proveedor');
   if (sel) {
@@ -404,6 +409,33 @@ function editMaterial(idx) {
   openModal('modal-material');
 }
 
+// ============================================================
+// ABRIR MODAL SOLICITUD CON MATERIAL PRE-CARGADO
+// ============================================================
+function openModalSolicitudMaterial(matId) {
+  openModalSolicitud();  // definida en pedidos.js
+  const mat = DATA.material.find(m => m.ID_Material === matId);
+  if (!mat) return;
+  setTimeout(() => {
+    // Ocultar buscador, mostrar material seleccionado
+    const grp = document.getElementById('sol-catalogo-group');
+    if (grp) {
+      const searchWrap = grp.querySelector('.search-material-wrap');
+      if (searchWrap) searchWrap.style.display = 'none';
+    }
+    const hidden = document.getElementById('sol-material-id');
+    if (hidden) hidden.value = matId;
+    const sel = document.getElementById('sol-material-selected');
+    if (sel) {
+      sel.textContent = mat.Nombre + ' · Stock actual: ' + getStockTotal(mat) + ' ' + (mat.Unidad || '');
+      sel.style.display = 'block';
+    }
+  }, 60);
+}
+
+// ============================================================
+// MODALES CONSUMO / ENTRADA
+// ============================================================
 function openModalConsumo() {
   document.getElementById('consumo-material-id').value = '';
   document.getElementById('consumo-material-selected').style.display = 'none';
@@ -412,7 +444,6 @@ function openModalConsumo() {
   const grp = document.getElementById('consumo-search-group');
   if (grp) grp.style.display = '';
   sv('consumo-cantidad', ''); sv('consumo-motivo', ''); sv('consumo-obs', '');
-  // Ocultar selector de ubicación hasta que se elija material
   const ubiGrp = document.getElementById('consumo-ubicacion-group');
   if (ubiGrp) ubiGrp.style.display = 'none';
   openModal('modal-consumo');
@@ -429,14 +460,11 @@ function openModalConsumoMaterial(matId) {
   const sel = document.getElementById('consumo-material-selected');
   sel.textContent = mat.Nombre + ' · Stock actual: ' + stock + ' ' + (mat.Unidad || '');
   sel.style.display = 'block';
-  // Mostrar selector de ubicación si tiene lotes
   _mostrarSelectorUbicConsumo(matId);
 }
 
-/** Abre el consumo directamente en una ubicación concreta (botón de sub-fila) */
 function openModalConsumoLote(matId, idUbicacion) {
   openModalConsumoMaterial(matId);
-  // Pre-seleccionar la ubicación
   const sel = document.getElementById('consumo-ubicacion-sel');
   if (sel) { sel.value = idUbicacion; }
 }
@@ -478,7 +506,6 @@ function openModalEntradaMaterial(matId) {
   _mostrarSelectorUbicEntrada(matId);
 }
 
-/** Abre la entrada directamente en una ubicación concreta (botón de sub-fila) */
 function openModalEntradaLote(matId, idUbicacion) {
   openModalEntradaMaterial(matId);
   const sel = document.getElementById('entrada-ubicacion-sel');
@@ -530,7 +557,6 @@ async function guardarMaterial() {
   const id = (editingRow && editingRow.sheet === 'Material') ? v('mat-id') : generarIdMaterial(nombre);
   const gestionAuto = document.getElementById('mat-gestion-auto') ? document.getElementById('mat-gestion-auto').checked : true;
 
-  // Si hay lotes, los min/opt globales se calculan como suma de los locales
   const stockGlobal = _lotesTemp.length
     ? String(_lotesTemp.reduce((s, l) => s + (parseFloat(l.Stock_Local) || 0), 0))
     : (v('mat-stock') || '0');
@@ -541,10 +567,8 @@ async function guardarMaterial() {
     ? String(_lotesTemp.reduce((s, l) => s + (parseFloat(l.Stock_Optimo_Local) || 0), 0))
     : (gestionAuto ? (v('mat-optimo') || '0') : '0');
 
-  // Ubicacion principal: primera de los lotes, o el campo heredado
   const ubicPrincipal = _lotesTemp.length ? _lotesTemp[0].ID_Ubicacion : v('mat-ubicacion');
-
-  const row = [id, nombre, cat, '', v('mat-proveedor'), unidad, ubicPrincipal, stockGlobal, minStock, optStock, v('mat-observaciones'), gestionAuto ? 'TRUE' : 'FALSE'];
+  const row = [id, nombre, cat, v('mat-referencia'), v('mat-proveedor'), unidad, ubicPrincipal, stockGlobal, minStock, optStock, v('mat-observaciones'), gestionAuto ? 'TRUE' : 'FALSE'];
 
   showLoading('Guardando...');
   try {
@@ -557,14 +581,12 @@ async function guardarMaterial() {
       DATA.material.push(rowToObj(row, 'material'));
     }
 
-    // Guardar/actualizar lotes
     for (const lote of _lotesTemp) {
       if (lote._nuevo) {
         await añadirLote(id, lote.ID_Ubicacion, lote.Stock_Local, lote.Stock_Minimo_Local, lote.Stock_Optimo_Local);
       } else if (lote._loteIdx !== undefined) {
         const l = DATA.materialUbicaciones[lote._loteIdx];
         if (l && (l.Stock_Local !== lote.Stock_Local || l.Stock_Minimo_Local !== lote.Stock_Minimo_Local || l.Stock_Optimo_Local !== lote.Stock_Optimo_Local)) {
-          // Actualizar las tres columnas D, E, F
           const fila = lote._loteIdx + 2;
           await sheetsUpdate(`Material_Ubicaciones!D${fila}:F${fila}`, [lote.Stock_Local, lote.Stock_Minimo_Local, lote.Stock_Optimo_Local]);
           DATA.materialUbicaciones[lote._loteIdx].Stock_Local         = lote.Stock_Local;
@@ -598,7 +620,6 @@ async function guardarMaterial() {
 
 // ============================================================
 // GUARDAR CONSUMO / ENTRADA
-// (lógica de ubicación completa en Paso 3 — aquí versión transitoria)
 // ============================================================
 async function guardarConsumo() {
   const matId   = document.getElementById('consumo-material-id').value;
@@ -608,39 +629,33 @@ async function guardarConsumo() {
   const mat = DATA.material.find(m => m.ID_Material === matId);
   if (!mat) { showToast('Material no encontrado', 'error'); return; }
   const cantidad = parseFloat(cantStr);
-
-  // Detectar si hay lotes y qué ubicación se ha seleccionado
-  const lotes = getMatUbics(matId);
-  const ubiSel = document.getElementById('consumo-ubicacion-sel')?.value || '';
+  const lotes    = getMatUbics(matId);
+  const ubiSel   = document.getElementById('consumo-ubicacion-sel')?.value || '';
 
   showLoading('Registrando...');
   try {
-    const fecha = new Date().toISOString().split('T')[0];
-    const idMov = genId('MOV-');
+    const fecha  = new Date().toISOString().split('T')[0];
+    const idMov  = genId('MOV-');
     const rowMov = [idMov, mat.Nombre, 'Salida', cantidad, currentUser?.name || 'Usuario', fecha, v('consumo-motivo') || 'Consumo', v('consumo-obs')];
     await sheetsAppend('Movimientos', rowMov);
     DATA.movimientos.push(rowToObj(rowMov, 'movimientos'));
 
     if (lotes.length > 0 && ubiSel) {
-      // Descontar del lote seleccionado
       const loteIdx = DATA.materialUbicaciones.findIndex(l => l.ID_Material === matId && l.ID_Ubicacion === ubiSel);
       if (loteIdx !== -1) {
         const nuevoLocal = Math.max(0, (parseFloat(DATA.materialUbicaciones[loteIdx].Stock_Local) || 0) - cantidad);
         await actualizarStockLocal(loteIdx, nuevoLocal);
       }
-      // Recalcular stock global
       const nuevoTotal = getStockTotal(mat);
       const matIdx = DATA.material.indexOf(mat);
       mat.Stock_Actual = String(nuevoTotal);
       await sheetsUpdate(`Material!H${matIdx + 2}`, [nuevoTotal]);
     } else {
-      // Sin lotes: comportamiento original
       const nuevoStock = Math.max(0, (parseFloat(mat.Stock_Actual) || 0) - cantidad);
       const matIdx = DATA.material.indexOf(mat);
       mat.Stock_Actual = String(nuevoStock);
       await sheetsUpdate(`Material!H${matIdx + 2}`, [nuevoStock]);
     }
-
     showToast(`Consumo registrado. Stock: ${getStockTotal(mat)} ${mat.Unidad}`, 'success');
     closeModal('modal-consumo'); renderAll();
   } catch(e) { showToast('Error registrando consumo', 'error'); console.error(e); }
@@ -655,14 +670,13 @@ async function guardarEntrada() {
   const mat = DATA.material.find(m => m.ID_Material === matId);
   if (!mat) { showToast('Material no encontrado', 'error'); return; }
   const cantidad = parseFloat(cantStr);
-
-  const lotes = getMatUbics(matId);
-  const ubiSel = document.getElementById('entrada-ubicacion-sel')?.value || '';
+  const lotes    = getMatUbics(matId);
+  const ubiSel   = document.getElementById('entrada-ubicacion-sel')?.value || '';
 
   showLoading('Registrando...');
   try {
-    const fecha = new Date().toISOString().split('T')[0];
-    const idMov = genId('MOV-');
+    const fecha  = new Date().toISOString().split('T')[0];
+    const idMov  = genId('MOV-');
     const rowMov = [idMov, mat.Nombre, 'Entrada', cantidad, currentUser?.name || 'Usuario', fecha, v('entrada-motivo'), v('entrada-obs')];
     await sheetsAppend('Movimientos', rowMov);
     DATA.movimientos.push(rowToObj(rowMov, 'movimientos'));
@@ -683,7 +697,6 @@ async function guardarEntrada() {
       mat.Stock_Actual = String(nuevoStock);
       await sheetsUpdate(`Material!H${matIdx + 2}`, [nuevoStock]);
     }
-
     showToast(`Entrada registrada. Stock: ${getStockTotal(mat)} ${mat.Unidad}`, 'success');
     closeModal('modal-entrada'); renderAll();
   } catch(e) { showToast('Error registrando entrada', 'error'); console.error(e); }
@@ -691,7 +704,7 @@ async function guardarEntrada() {
 }
 
 // ============================================================
-// GESTIÓN AUTOMÁTICA DE STOCK (toggle campos min/opt)
+// GESTIÓN AUTOMÁTICA DE STOCK
 // ============================================================
 function toggleGestionAutoStock(checked) {
   const wrap = document.getElementById('mat-stock-auto-fields');
