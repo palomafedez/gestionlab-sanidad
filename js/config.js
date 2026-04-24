@@ -90,3 +90,27 @@ function getNombreUbicacion(idUbicacion) {
   if (!u) return idUbicacion;
   return u.Laboratorio_Aula ? `${u.ID_Ubicacion} – ${u.Laboratorio_Aula}` : u.ID_Ubicacion;
 }
+
+// ============================================================
+// ZONA COMÚN — almacén central de suministro
+// ============================================================
+/** Palabras clave que identifican la ubicación "zona común" / almacén */
+const ZONA_COMUN_KEYWORDS = ['zona común', 'zona comun', 'almacén', 'almacen', 'común', 'comun'];
+
+/** True si una ubicación es la zona común / almacén central */
+function esZonaComun(idUbicacion) {
+  const u = DATA.ubicaciones.find(u => u.ID_Ubicacion === idUbicacion);
+  if (!u) return false;
+  const texto = [u.Laboratorio_Aula, u.Zona, u.Subzona, u.Descripcion_Completa].join(' ').toLowerCase();
+  return ZONA_COMUN_KEYWORDS.some(k => texto.includes(k));
+}
+
+/** Devuelve los lotes de zona común de un material cuyo stock está bajo el mínimo local */
+function getLotesZonaComunBajoMinimo(mat) {
+  const lotes = getMatUbics(mat.ID_Material);
+  return lotes.filter(l =>
+    esZonaComun(l.ID_Ubicacion) &&
+    parseFloat(l.Stock_Minimo_Local) > 0 &&
+    parseFloat(l.Stock_Local) <= parseFloat(l.Stock_Minimo_Local)
+  );
+}

@@ -11,12 +11,14 @@ function openModalEquipo() {
   editingRow = null; pendingEqFileBase64 = null;
   document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
   ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones','eq-periodicidad-custom'].forEach(id => sv(id,''));
-  ['eq-tipo','eq-ubicacion','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id,''));
+  ['eq-tipo','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id,''));
   sv('eq-estado','Operativo'); sv('eq-periodicidad','Anual'); sv('eq-pdf-url','');
   document.getElementById('eq-pdf-preview').style.display = 'none';
   document.getElementById('eq-pdf-name').textContent = '';
   if (document.getElementById('eq-pdf-input')) document.getElementById('eq-pdf-input').value = '';
   togglePeriodicidadCustom('Anual');
+  // Limpiar autocomplete ubicación
+  clearUbicacionEquipo();
   poblarSelects(); openModal('modal-equipo');
 }
 
@@ -35,6 +37,19 @@ function editEquipo(idx) {
   togglePeriodicidadCustom(e.Periodicidad_Mantenimiento);
   sv('eq-ultimo-preventivo',e.Fecha_Ultimo_Preventivo); sv('eq-observaciones',e.Observaciones);
   sv('eq-pdf-url',e.Manual_Ficha_Tecnica||'');
+  // Restaurar autocomplete de ubicación
+  document.getElementById('eq-ubicacion').value = e.Ubicacion || '';
+  document.getElementById('eq-ubicacion-search').value = '';
+  const selUbi = document.getElementById('eq-ubicacion-selected');
+  const txtUbi = document.getElementById('eq-ubicacion-selected-text');
+  if (e.Ubicacion) {
+    const uObj = DATA.ubicaciones.find(u => u.ID_Ubicacion === e.Ubicacion);
+    const label = uObj ? (uObj.Laboratorio_Aula || '') + (uObj.Zona ? ' · ' + uObj.Zona : '') : '';
+    if (selUbi) selUbi.style.display = 'flex';
+    if (txtUbi) txtUbi.textContent = e.Ubicacion + (label ? ' – ' + label : '');
+  } else {
+    if (selUbi) selUbi.style.display = 'none';
+  }
   if (e.Manual_Ficha_Tecnica) { document.getElementById('eq-pdf-preview').style.display = 'flex'; document.getElementById('eq-pdf-name').textContent = 'Manual adjunto (ver 📄)'; }
   else document.getElementById('eq-pdf-preview').style.display = 'none';
   openModal('modal-equipo');
@@ -58,12 +73,20 @@ function openModalIntervencion() {
   if (origenSel) origenSel.disabled = false;
   const origenNota = document.getElementById('int-origen-nota');
   if (origenNota) origenNota.style.display = 'none';
+  const grp = document.getElementById('int-equipo-group');
+  if (grp) grp.style.display = '';
   poblarSelects(); openModal('modal-intervencion');
 }
 
 function openModalIntervencionEquipo(equipoId) {
   openModalIntervencion();
-  setTimeout(() => { const sel = document.getElementById('int-equipo'); const opt = Array.from(sel.options).find(o => o.value.startsWith(equipoId)); if (opt) sel.value = opt.value; }, 50);
+  setTimeout(() => {
+    const sel = document.getElementById('int-equipo');
+    const opt = Array.from(sel.options).find(o => o.value.startsWith(equipoId));
+    if (opt) sel.value = opt.value;
+    const grp = document.getElementById('int-equipo-group');
+    if (grp) grp.style.display = 'none';
+  }, 50);
 }
 
 function editIntervencion(idx) {
@@ -91,12 +114,20 @@ function openModalIncidencia() {
   editingRow = null;
   ['inc-equipo','inc-descripcion'].forEach(id => sv(id,''));
   sv('inc-impacto','No bloquea'); sv('inc-urgencia','Normal');
+  const grp = document.getElementById('inc-equipo-group');
+  if (grp) grp.style.display = '';
   poblarSelects(); openModal('modal-incidencia');
 }
 
 function openModalIncidenciaEquipo(equipoId) {
   openModalIncidencia();
-  setTimeout(() => { const sel = document.getElementById('inc-equipo'); const opt = Array.from(sel.options).find(o => o.value.startsWith(equipoId)); if (opt) sel.value = opt.value; }, 50);
+  setTimeout(() => {
+    const sel = document.getElementById('inc-equipo');
+    const opt = Array.from(sel.options).find(o => o.value.startsWith(equipoId));
+    if (opt) sel.value = opt.value;
+    const grp = document.getElementById('inc-equipo-group');
+    if (grp) grp.style.display = 'none';
+  }, 50);
 }
 
 // ============================================================
@@ -300,10 +331,16 @@ async function guardarActuacion() {
     const incId  = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
     if (incId !== -1 && (nuevoEstadoInc === 'Resuelta' || nuevoEstadoInc === 'En gestión')) {
       const inc = DATA.incidencias[incId];
-      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada') {
+      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada' && inc.Estado !== 'Archivada') {
         inc.Estado = nuevoEstadoInc;
         const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
         await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
+        // Auto-archivar si queda Resuelta
+        if (nuevoEstadoInc === 'Resuelta') {
+          inc.Estado = 'Archivada';
+          const incRowArch = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, 'Archivada', inc.Intervencion_Generada];
+          await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRowArch);
+        }
       }
     }
 
@@ -360,13 +397,13 @@ async function resolverParcialCerrar() {
     i.Estado = 'Cerrada';
     await sheetsUpdate(`Intervenciones!R${intIdx + 2}`, ['Cerrada']);
 
-    // Cerrar incidencia vinculada
+    // Cerrar incidencia vinculada y auto-archivar
     const incId = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
     if (incId !== -1) {
       const inc = DATA.incidencias[incId];
-      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada') {
-        inc.Estado = 'Resuelta';
-        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
+      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada' && inc.Estado !== 'Archivada') {
+        inc.Estado = 'Archivada';
+        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, 'Archivada', inc.Intervencion_Generada];
         await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
       }
     }
@@ -579,3 +616,49 @@ async function cambiarEstadoIncidencia(idx) {
 // El botón "+ Nueva intervención" en index.html llama openModalIntervencion()
 // ya definida arriba — no hace falta alias.
 // crearIntervencionDesdeIncidencia() sustituida por abrirPlanificacion()
+
+// Bug 3: "Ver/Actuar" en incidencias llama a openModalActuacionDerivada
+// que es lo mismo que openModalRegistrarActuacion
+function openModalActuacionDerivada(intIdx) { openModalRegistrarActuacion(intIdx); }
+
+// ============================================================
+// AUTOCOMPLETE UBICACIÓN — MODAL EQUIPO
+// ============================================================
+function buscarUbicacionEquipo(query) {
+  const list = document.getElementById('eq-ubicacion-autocomplete');
+  if (!list) return;
+  if (!query || query.length < 1) { list.classList.remove('open'); return; }
+  const q = query.toLowerCase();
+  const resultados = DATA.ubicaciones.filter(u =>
+    u.Activa !== 'FALSE' &&
+    (u.ID_Ubicacion.toLowerCase().includes(q) ||
+     (u.Laboratorio_Aula || '').toLowerCase().includes(q) ||
+     (u.Zona || '').toLowerCase().includes(q))
+  ).slice(0, 8);
+  if (!resultados.length) { list.classList.remove('open'); return; }
+  list.innerHTML = resultados.map(u => {
+    const label = (u.Laboratorio_Aula || '') + (u.Zona ? ' · ' + u.Zona : '');
+    return `<div class="autocomplete-item" onclick="seleccionarUbicacionEquipo('${u.ID_Ubicacion}','${label.replace(/'/g,"\\'")}')">
+      <div><div class="autocomplete-item-name">${u.ID_Ubicacion}</div><div class="autocomplete-item-meta">${label}</div></div>
+    </div>`;
+  }).join('');
+  list.classList.add('open');
+}
+
+function seleccionarUbicacionEquipo(id, label) {
+  document.getElementById('eq-ubicacion').value = id;
+  document.getElementById('eq-ubicacion-search').value = '';
+  const sel = document.getElementById('eq-ubicacion-selected');
+  const txt = document.getElementById('eq-ubicacion-selected-text');
+  if (sel) sel.style.display = 'flex';
+  if (txt) txt.textContent = id + (label ? ' – ' + label : '');
+  const list = document.getElementById('eq-ubicacion-autocomplete');
+  if (list) list.classList.remove('open');
+}
+
+function clearUbicacionEquipo() {
+  document.getElementById('eq-ubicacion').value = '';
+  document.getElementById('eq-ubicacion-search').value = '';
+  const sel = document.getElementById('eq-ubicacion-selected');
+  if (sel) sel.style.display = 'none';
+}

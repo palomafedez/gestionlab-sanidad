@@ -323,10 +323,15 @@ async function confirmarSolicitudAPedido(pedidoId) {
   hideLoading();
 }
 
-function solicitudStockAPedido(matId) {
+function solicitudStockAPedido(matId, cantidadPreset) {
   const mat = DATA.material.find(m => m.ID_Material === matId); if (!mat) return;
-  const cantidad = prompt(`¿Cuántas unidades (${mat.Unidad||'uds'}) de "${mat.Nombre}" quieres pedir?`, mat.Stock_Optimo||'');
-  if (!cantidad || parseFloat(cantidad) <= 0) return;
+  let cantidad;
+  if (cantidadPreset !== undefined && cantidadPreset !== '' && parseFloat(cantidadPreset) > 0) {
+    cantidad = String(parseFloat(cantidadPreset));
+  } else {
+    cantidad = prompt(`¿Cuántas unidades (${mat.Unidad||'uds'}) de "${mat.Nombre}" quieres pedir?`, mat.Stock_Optimo||'');
+    if (!cantidad || parseFloat(cantidad) <= 0) return;
+  }
   const pedidosAbiertos = DATA.pedidos.filter(p => p.Estado === 'Abierto');
   if (!pedidosAbiertos.length) { _pendingSolicitudParaPedido = { tipo: 'stock', matNombre: mat.Nombre, cantidad }; openModalNuevoPedido(); return; }
   document.getElementById('sel-ped-sol-id').value = '__stock__' + matId + '__' + cantidad;
@@ -403,6 +408,10 @@ async function guardarLineaPedido() {
 async function guardarEstadoPedido() {
   const pedidoId = v('estado-pedido-id');
   const nuevoEstado = v('estado-pedido-nuevo');
+  // Recepción parcial y completa son automáticos — no se pueden poner manualmente
+  if (nuevoEstado === 'Recepción parcial' || nuevoEstado === 'Recepción completa') {
+    showToast('Este estado se asigna automáticamente al registrar recepciones de líneas', 'error'); return;
+  }
   const idx = DATA.pedidos.findIndex(p => p.ID_Pedido === pedidoId);
   if (idx === -1) return;
   const p = DATA.pedidos[idx];
