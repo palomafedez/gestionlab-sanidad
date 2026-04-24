@@ -1,0 +1,294 @@
+<!-- Modal Solicitud -->
+<div class="modal-overlay" id="modal-solicitud">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title">Nueva solicitud de material</div>
+      <button class="modal-close" onclick="closeModal('modal-solicitud')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="toggle-source">
+        <button id="btn-source-catalogo" class="active" onclick="setSourceSolicitud('catalogo')">Buscar en catálogo</button>
+        <button id="btn-source-nuevo" onclick="setSourceSolicitud('nuevo')">Material no catalogado</button>
+      </div>
+      <div class="form-grid" style="gap:14px">
+        <!-- Búsqueda catálogo -->
+        <div class="form-group" id="sol-catalogo-group">
+          <label>Material *</label>
+          <div class="search-material-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="sol-search" placeholder="Escribe para buscar..." oninput="buscarMaterialSolicitud(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="sol-autocomplete"></div>
+          </div>
+          <input type="hidden" id="sol-material-id">
+          <div id="sol-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
+        </div>
+        <!-- Material libre -->
+        <div class="form-group" id="sol-nuevo-group" style="display:none">
+          <label>Nombre del material *</label>
+          <input id="sol-material-libre" placeholder="Describe el material que necesitas...">
+        </div>
+        <div class="form-group" id="sol-unidad-group" style="display:none">
+          <label>Unidad *</label>
+          <input id="sol-unidad" placeholder="Ej: caja, bote, paquete, kg, L...">
+        </div>
+        <div class="form-grid form-grid-2" style="width:100%">
+          <div class="form-group">
+            <label>Cantidad *</label>
+            <input id="sol-cantidad" type="number" min="0.01" step="0.01" placeholder="">
+          </div>
+          <div class="form-group">
+            <label>Urgencia</label>
+            <select id="sol-urgencia">
+              <option>Normal</option>
+              <option>Urgente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Fecha en que se necesita</label>
+            <input id="sol-fecha-necesidad" type="date">
+          </div>
+          <div class="form-group">
+            <label>Proveedor requerido</label>
+            <select id="sol-proveedor"><option value="">Sin preferencia</option></select>
+          </div>
+          <div class="form-group full">
+            <label>Motivo / para qué práctica</label>
+            <input id="sol-motivo" placeholder="Ej: Práctica de PCR, control de calidad...">
+          </div>
+          <div class="form-group full">
+            <label>Observaciones</label>
+            <textarea id="sol-obs" style="min-height:60px" placeholder=""></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-solicitud')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarSolicitud()">Enviar solicitud</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Nueva Lista de Pedido -->
+<div class="modal-overlay" id="modal-nuevo-pedido">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Nueva lista de pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-nuevo-pedido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Nombre de la lista *</label>
+          <input id="ped-nombre" placeholder="Ej: Consumibles mayo, Sigma junio...">
+        </div>
+        <div class="form-group">
+          <label>Proveedor (opcional)</label>
+          <select id="ped-proveedor"><option value="">Sin asignar todavía</option></select>
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <textarea id="ped-obs" style="min-height:60px" placeholder=""></textarea>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-nuevo-pedido')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarNuevoPedido()">Crear lista</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Añadir Línea a Pedido -->
+<div class="modal-overlay" id="modal-nueva-linea">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Añadir línea al pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-nueva-linea')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="linea-pedido-id">
+      <div class="toggle-source">
+        <button id="btn-lsource-catalogo" class="active" onclick="setSourceLinea('catalogo')">Buscar en catálogo</button>
+        <button id="btn-lsource-libre" onclick="setSourceLinea('libre')">Material libre</button>
+      </div>
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group" id="linea-catalogo-group">
+          <label>Material *</label>
+          <div class="search-material-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="linea-search" placeholder="Escribe para buscar..." oninput="buscarMaterialLinea(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="linea-autocomplete"></div>
+          </div>
+          <input type="hidden" id="linea-material-id">
+          <div id="linea-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
+        </div>
+        <div class="form-group" id="linea-libre-group" style="display:none">
+          <label>Descripción del material *</label>
+          <input id="linea-material-libre" placeholder="">
+        </div>
+        <div class="form-group" id="linea-libre-unidad-group" style="display:none">
+          <label>Unidad</label>
+          <input id="linea-material-unidades" placeholder="uds, ml, g…">
+        </div>
+        <div class="form-group">
+          <label>Cantidad *</label>
+          <input id="linea-cantidad" type="number" min="0.01" step="0.01" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <input id="linea-obs" placeholder="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-nueva-linea')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarLineaPedido()">Añadir línea</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cambiar Estado Pedido -->
+<div class="modal-overlay" id="modal-estado-pedido">
+  <div class="modal" style="max-width:440px">
+    <div class="modal-header">
+      <div class="modal-title">Actualizar estado del pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-estado-pedido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="estado-pedido-id">
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Nuevo estado *</label>
+          <select id="estado-pedido-nuevo">
+            <option>Abierto</option>
+            <option>Presupuesto solicitado</option>
+            <option>Presupuesto aprobado</option>
+            <option>Recepción parcial</option>
+            <option>Recepción completa</option>
+          </select>
+        </div>
+        <div class="form-group" id="grupo-num-presupuesto" style="display:none">
+          <label>Nº presupuesto</label>
+          <input id="estado-num-presupuesto" placeholder="">
+        </div>
+        <div class="form-group" id="grupo-num-factura" style="display:none">
+          <label>Nº factura</label>
+          <input id="estado-num-factura" placeholder="">
+        </div>
+        <div class="form-group" id="grupo-proveedor-estado" style="display:none">
+          <label>Proveedor (si aún no asignado)</label>
+          <select id="estado-proveedor"><option value="">Sin cambios</option></select>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-estado-pedido')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarEstadoPedido()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Seleccionar Pedido -->
+<div class="modal-overlay" id="modal-seleccionar-pedido">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">Añadir a lista de pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-seleccionar-pedido')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="sel-ped-sol-id">
+      <p style="font-size:13px;color:var(--text-soft);margin-bottom:14px">Elige la lista a la que quieres añadir esta solicitud:</p>
+      <div id="sel-ped-lista" style="display:flex;flex-direction:column;gap:8px;max-height:320px;overflow-y:auto"></div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+        <button class="btn btn-secondary" style="width:100%" onclick="closeModal('modal-seleccionar-pedido');openModalNuevoPedido()">
+          + Crear nueva lista de pedido
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Recepción Línea -->
+<div class="modal-overlay" id="modal-recepcion-linea">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">Registrar recepción</div>
+      <button class="modal-close" onclick="closeModal('modal-recepcion-linea')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="rec-linea-id">
+      <input type="hidden" id="rec-pedido-id">
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Material</label>
+          <div id="rec-material-nombre" style="font-weight:500;font-size:13px;padding:8px 0"></div>
+        </div>
+        <div class="form-group">
+          <label>Cantidad pedida</label>
+          <div id="rec-cantidad-pedida" style="font-size:13px;color:var(--text-soft);padding:4px 0"></div>
+        </div>
+        <div class="form-group">
+          <label>Cantidad recibida *</label>
+          <input id="rec-cantidad" type="number" min="0" step="0.01" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <input id="rec-obs" placeholder="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-recepcion-linea')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarRecepcionLinea()">Confirmar recepción</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Generar Hoja de Pedido -->
+<div class="modal-overlay" id="modal-generar-hoja">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">📄 Generar folla de pedido</div>
+      <button class="modal-close" onclick="closeModal('modal-generar-hoja')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="gen-pedido-id">
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Ciclo *</label>
+          <select id="gen-ciclo" onchange="actualizarModulos()">
+            <option value="">Seleccionar...</option>
+            <option>CS Anatomía Patolóxica e Citodiagnóstico</option>
+            <option>ZS Anatomía Patolóxica e Citodiagnóstico</option>
+            <option>CS Laboratorio Clínico e Biomédico</option>
+            <option>ZS Laboratorio Clínico e Biomédico</option>
+            <option>CS Química e Saúde Ambiental</option>
+            <option>Laboratorios</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Módulo</label>
+          <select id="gen-modulo">
+            <option value="">— (dejar vacío si es para varios) —</option>
+          </select>
+        </div>
+        <div class="form-group" id="gen-pdf-group" style="display:none">
+          <label>PDF de la factura</label>
+          <input type="file" id="gen-pdf-input" accept=".pdf" style="display:none">
+          <div id="gen-pdf-preview" style="display:none" class="upload-preview">
+            <span>📄</span><span id="gen-pdf-name"></span>
+          </div>
+        </div>
+        <div id="gen-estado-container" style="display:none">
+          <div style="padding:10px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent)" id="gen-estado-text"></div>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-generar-hoja')">Cancelar</button>
+        <button class="btn btn-primary" id="btn-generar-hoja" onclick="generarHojaPedido()">Generar Word</button>
+      </div>
+    </div>
+  </div>
+</div>
+

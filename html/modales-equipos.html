@@ -1,0 +1,282 @@
+<!-- Modal Equipo -->
+<div class="modal-overlay" id="modal-equipo">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-equipo-title">Nuevo equipo</div>
+      <button class="modal-close" onclick="closeModal('modal-equipo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label>ID Activo *</label>
+          <input id="eq-id" placeholder="EQ-001">
+        </div>
+        <div class="form-group">
+          <label>Tipo de equipo *</label>
+          <select id="eq-tipo">
+            <option value="">Seleccionar...</option>
+            <option>Agitador / Vórtex</option>
+            <option>Autoclave</option>
+            <option>Balanza</option>
+            <option>Baño termostatizado</option>
+            <option>Cabina de bioseguridad</option>
+            <option>Centrífuga</option>
+            <option>Congelador</option>
+            <option>Contador de células</option>
+            <option>Crióstato</option>
+            <option>Destilador</option>
+            <option>Equipo de electroforesis</option>
+            <option>Espectrofotómetro</option>
+            <option>Estación de parafina</option>
+            <option>Estufa</option>
+            <option>Fuente de alimentación</option>
+            <option>Incubador</option>
+            <option>Lavador de microplacas</option>
+            <option>Lector de microplacas</option>
+            <option>Micropipeta</option>
+            <option>Microscopio</option>
+            <option>Microtomo</option>
+            <option>Nevera</option>
+            <option>Placa calefactora</option>
+            <option>Placa fría</option>
+            <option>Sistem de imagen / documentación</option>
+            <option>Termociclador</option>
+            <option>Termobloque</option>
+            <option>Transiluminador UV</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <!-- MARCA AHORA OBLIGATORIA -->
+        <div class="form-group">
+          <label>Marca *</label>
+          <input id="eq-marca" placeholder="Ej: Eppendorf" required>
+        </div>
+        <div class="form-group">
+          <label>Modelo</label>
+          <input id="eq-modelo" placeholder="Ej: 5430R">
+        </div>
+        <div class="form-group">
+          <label>Nº de serie</label>
+          <input id="eq-serie" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Ubicación</label>
+          <select id="eq-ubicacion"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Responsable</label>
+          <select id="eq-responsable"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Fecha adquisición</label>
+          <input id="eq-fecha-adq" type="date">
+        </div>
+        <!-- ORIGEN FINANCIACIÓN CON NUEVAS OPCIONES -->
+        <div class="form-group">
+          <label>Origen financiación</label>
+          <select id="eq-financiacion">
+            <option value="">Seleccionar...</option>
+            <option>Fondos propios</option>
+            <option>Subvención Xunta</option>
+            <option>Proyecto europeo</option>
+            <option>Proyecto de innovación</option>
+            <option>PFFP</option>
+            <option>Donación</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Proveedor de compra</label>
+          <select id="eq-proveedor-compra"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Proveedor servicio técnico</label>
+          <select id="eq-proveedor-sat"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Estado operativo</label>
+          <select id="eq-estado">
+            <option>Operativo</option><option>En mantenimiento</option>
+            <option>Averiado</option><option>Fuera de servicio</option>
+          </select>
+        </div>
+        <!-- PERIODICIDAD CON CAMPO PERSONALIZADA -->
+        <div class="form-group">
+          <label>Periodicidad mantenimiento</label>
+          <select id="eq-periodicidad" onchange="togglePeriodicidadCustom(this.value)">
+            <option>Mensual</option><option>Trimestral</option>
+            <option>Semestral</option><option>Anual</option><option>Personalizada</option>
+          </select>
+        </div>
+        <div class="form-group" id="eq-periodicidad-custom-group">
+          <label>Descripción periodicidad personalizada</label>
+          <input id="eq-periodicidad-custom" placeholder="Ej: Cada 18 meses, o según fabricante...">
+        </div>
+        <div class="form-group">
+          <label>Fecha último preventivo</label>
+          <input id="eq-ultimo-preventivo" type="date">
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <textarea id="eq-observaciones" placeholder="Notas adicionales..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Manual / instrucciones (PDF)</label>
+          <div class="upload-area" onclick="document.getElementById('eq-pdf-input').click()">
+            <div>📎 Adjuntar manual o ficha técnica en PDF</div>
+            <div class="upload-area-text">Instrucciones de uso, ficha técnica, certificado...</div>
+            <input type="file" id="eq-pdf-input" accept=".pdf,image/*" onchange="handleEqFileSelect(this)">
+          </div>
+          <div id="eq-pdf-preview" style="display:none" class="upload-preview">
+            <span>📄</span>
+            <span id="eq-pdf-name"></span>
+            <span class="remove-file" onclick="removeEqFile()">✕</span>
+          </div>
+          <input type="hidden" id="eq-pdf-url" value="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-equipo')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarEquipo()">Guardar equipo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Intervención -->
+<div class="modal-overlay" id="modal-intervencion">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Nueva intervención</div>
+      <button class="modal-close" onclick="closeModal('modal-intervencion')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid form-grid-2">
+        <div class="form-group full">
+          <label>Equipo *</label>
+          <select id="int-equipo"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de intervención *</label>
+          <select id="int-tipo">
+            <option>Preventivo</option><option>Correctivo</option><option>Calibración</option>
+            <option>Verificación funcional</option><option>Limpieza</option>
+            <option>Sustitución de pieza</option><option>Control de temperatura</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Origen</label>
+          <select id="int-origen">
+            <option>Planificado</option><option>Incidencia reportada</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Fecha planificada</label>
+          <input id="int-fecha-plan" type="date">
+        </div>
+        <div class="form-group">
+          <label>Fecha realización</label>
+          <input id="int-fecha-real" type="date">
+        </div>
+        <!-- REALIZADO POR: DROPDOWN DE USUARIOS REGISTRADOS -->
+        <div class="form-group">
+          <label>Realizado por (interno)</label>
+          <select id="int-realizado-por"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Técnico externo</label>
+          <input id="int-tecnico-ext" placeholder="Nombre del técnico externo">
+        </div>
+        <div class="form-group">
+          <label>Proveedor</label>
+          <select id="int-proveedor"><option value="">Ninguno</option></select>
+        </div>
+        <div class="form-group">
+          <label>Resultado</label>
+          <select id="int-resultado">
+            <option>Resuelto</option><option>Resuelto parcialmente</option>
+            <option>Pendiente</option><option>No resuelto</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>¿Equipo operativo tras intervención?</label>
+          <select id="int-operativo">
+            <option value="Sí">Sí</option><option value="No">No</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>¿Actualizar próximo preventivo?</label>
+          <select id="int-actualiza-preventivo">
+            <option value="Sí">Sí</option><option value="No">No</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Descripción de la actuación *</label>
+          <textarea id="int-descripcion" placeholder="Describe qué se hizo exactamente..."></textarea>
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <textarea id="int-observaciones" placeholder="Notas adicionales..."></textarea>
+        </div>
+        <!-- ADJUNTO PDF -->
+        <div class="form-group full">
+          <label>Documento adjunto (factura, informe técnico...)</label>
+          <div class="upload-area" onclick="document.getElementById('int-pdf-input').click()">
+            <div>📎 Haz clic para adjuntar un PDF</div>
+            <div class="upload-area-text">Facturas, informes de servicio técnico, certificados de calibración...</div>
+            <input type="file" id="int-pdf-input" accept=".pdf,image/*" onchange="handleFileSelect(this)">
+          </div>
+          <div id="int-pdf-preview" style="display:none" class="upload-preview">
+            <span>📄</span>
+            <span id="int-pdf-name"></span>
+            <span class="remove-file" onclick="removeFile()">✕</span>
+          </div>
+          <input type="hidden" id="int-pdf-url" value="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-intervencion')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarIntervencion()">Guardar intervención</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Incidencia -->
+<div class="modal-overlay" id="modal-incidencia">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Reportar incidencia</div>
+      <button class="modal-close" onclick="closeModal('modal-incidencia')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid form-grid-2">
+        <div class="form-group full">
+          <label>Equipo afectado *</label>
+          <select id="inc-equipo"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Impacto operativo</label>
+          <select id="inc-impacto">
+            <option>No bloquea</option><option>Uso limitado</option><option>Equipo fuera de servicio</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Urgencia</label>
+          <select id="inc-urgencia">
+            <option>Normal</option><option>Urgente</option>
+          </select>
+        </div>
+        <div class="form-group full">
+          <label>Descripción del problema *</label>
+          <textarea id="inc-descripcion" placeholder="Describe el problema con el mayor detalle posible..."></textarea>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-incidencia')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarIncidencia()">Reportar incidencia</button>
+      </div>
+    </div>
+  </div>
+</div>
+

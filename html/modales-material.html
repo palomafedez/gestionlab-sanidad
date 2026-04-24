@@ -1,0 +1,188 @@
+<!-- Modal Material -->
+<div class="modal-overlay" id="modal-material">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-material-title">Nuevo material</div>
+      <button class="modal-close" onclick="closeModal('modal-material')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid form-grid-2">
+        <div class="form-group" style="display:none">
+          <label>ID Material *</label>
+          <input id="mat-id" placeholder="Ej: MAT-001">
+        </div>
+        <div class="form-group">
+          <label>Nombre *</label>
+          <input id="mat-nombre" placeholder="Ej: Puntas de 200µL azules" oninput="autoIdMaterial(this.value)">
+        </div>
+        <div class="form-group">
+          <label>Categoría *</label>
+          <select id="mat-categoria">
+            <option value="">Seleccionar...</option>
+            <option>Consumible</option>
+            <option>Reactivo</option>
+            <option>Vidrio</option>
+            <option>Plástico</option>
+            <option>Papel y filtración</option>
+            <option>Equipamiento menor</option>
+            <option>Seguridad y EPI</option>
+            <option>Colorante y tinción</option>
+            <option>Medio de cultivo</option>
+            <option>Tampón y solución</option>
+            <option>Kit diagnóstico</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Unidad de medida *</label>
+          <input id="mat-unidad" placeholder="Ej: caja, botella, kg, L, unidad...">
+        </div>
+        <div class="form-group full">
+          <label>Ubicaciones y stock por ubicación</label>
+          <div id="mat-lotes-container" style="margin-bottom:8px"></div>
+          <div class="search-material-wrap">
+            <span class="search-icon">📍</span>
+            <input type="text" id="mat-ubicacion-search" placeholder="Añadir ubicación..." oninput="buscarUbicacionMat(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="mat-ubicacion-autocomplete"></div>
+          </div>
+          <input type="hidden" id="mat-ubicacion">
+          <div style="display:none" id="mat-ubicacion-selected">
+            <span id="mat-ubicacion-selected-text"></span>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Escribe para buscar y añadir una ubicación. Puedes añadir varias.</div>
+        </div>
+        <div class="form-group">
+          <label>Proveedor habitual</label>
+          <select id="mat-proveedor"><option value="">Seleccionar...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Referencia proveedor</label>
+          <input id="mat-referencia" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Stock actual <span style="font-size:11px;color:var(--text-muted)">(si no hay lotes)</span></label>
+          <input id="mat-stock" type="number" min="0" placeholder="0">
+        </div>
+        <div class="form-group full" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+          <input type="checkbox" id="mat-gestion-auto" checked onchange="toggleGestionAutoStock(this.checked)" style="width:16px;height:16px;cursor:pointer;accent-color:var(--accent)">
+          <label for="mat-gestion-auto" style="margin:0;cursor:pointer;font-weight:500">Gestión automática de stock (alertas por mínimo/óptimo)</label>
+        </div>
+        <div id="mat-stock-auto-fields" style="display:contents;grid-column:1/-1">
+          <div class="form-group">
+            <label>Stock mínimo (alerta)</label>
+            <input id="mat-minimo" type="number" min="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>Stock óptimo (objetivo)</label>
+            <input id="mat-optimo" type="number" min="0" placeholder="0">
+          </div>
+        </div>
+        <div class="form-group full">
+          <label>Observaciones</label>
+          <textarea id="mat-observaciones" placeholder=""></textarea>
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-material')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarMaterial()">Guardar material</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Consumo Rápido -->
+<div class="modal-overlay" id="modal-consumo">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">📦 Registrar consumo</div>
+      <button class="modal-close" onclick="closeModal('modal-consumo')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-soft);margin-bottom:16px">Busca el material y anota cuánto has usado.</p>
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group" id="consumo-search-group">
+          <label>Material *</label>
+          <div class="search-material-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="consumo-search" placeholder="Escribe para buscar..." oninput="buscarMaterialConsumo(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="consumo-autocomplete"></div>
+          </div>
+          <input type="hidden" id="consumo-material-id">
+          <div id="consumo-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
+        </div>
+        <div class="form-group">
+          <label>Cantidad consumida *</label>
+          <input id="consumo-cantidad" type="number" min="0.01" step="0.01" placeholder="Ej: 1, 0.5...">
+        </div>
+        <div class="form-group">
+          <label>Motivo (opcional)</label>
+          <input id="consumo-motivo" placeholder="Ej: Práctica PCR, control cultivos...">
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <div class="form-group" id="consumo-ubicacion-group" style="display:none">
+          <label>Ubicación del consumo</label>
+          <select id="consumo-ubicacion-sel"></select>
+        </div>
+          <input id="consumo-obs" placeholder="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-consumo')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarConsumo()">Registrar consumo</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Entrada de Material -->
+<div class="modal-overlay" id="modal-entrada">
+  <div class="modal" style="max-width:480px">
+    <div class="modal-header">
+      <div class="modal-title">📥 Registrar entrada</div>
+      <button class="modal-close" onclick="closeModal('modal-entrada')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text-soft);margin-bottom:16px">Registra material recibido (pedido, donación, etc.)</p>
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Material *</label>
+          <div class="search-material-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="entrada-search" placeholder="Escribe para buscar..." oninput="buscarMaterialEntrada(this.value)" autocomplete="off">
+            <div class="autocomplete-list" id="entrada-autocomplete"></div>
+          </div>
+          <input type="hidden" id="entrada-material-id">
+          <div id="entrada-material-selected" style="display:none;margin-top:8px;padding:8px 12px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:13px;color:var(--accent);font-weight:500"></div>
+        </div>
+        <div class="form-group">
+          <label>Cantidad recibida *</label>
+          <input id="entrada-cantidad" type="number" min="0.01" step="0.01" placeholder="">
+        </div>
+        <div class="form-group">
+          <label>Motivo</label>
+          <select id="entrada-motivo">
+            <option>Pedido recibido</option>
+            <option>Donación</option>
+            <option>Devolución</option>
+            <option>Ajuste de inventario</option>
+            <option>Otro</option>
+          </select>
+        </div>
+        <div class="form-group" id="entrada-ubicacion-group" style="display:none">
+          <label>Ubicación de la entrada</label>
+          <select id="entrada-ubicacion-sel"></select>
+        </div>
+        <div class="form-group">
+          <label>Observaciones</label>
+          <input id="entrada-obs" placeholder="">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-entrada')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarEntrada()">Registrar entrada</button>
+      </div>
+    </div>
+  </div>
+</div>
+
