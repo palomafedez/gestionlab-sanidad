@@ -1114,6 +1114,23 @@
   /* Quick register btn */
   .quick-register-btn { width: 100%; }
 
+  /* Card header: apila título y acciones en móvil */
+  .card-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .card-title { font-size: 13px; }
+  .card-actions {
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 6px;
+  }
+  .card-actions .btn,
+  .card-actions select,
+  .card-actions input { flex: 1 1 auto; min-width: 0; }
+  .card-actions .btn { text-align: center; justify-content: center; }
+
   /* Fix iOS: evitar zoom automático al enfocar inputs */
   input, select, textarea { font-size: 16px !important; }
   label { font-size: 13px; }
