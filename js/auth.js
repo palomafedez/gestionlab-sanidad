@@ -7,6 +7,11 @@ const USER_STORAGE_KEY  = 'gestionlab_user';
 // Flag para distinguir login inicial de renovación silenciosa
 let _tokenRenewal = false;
 
+// Soporte para renovación reactiva ante errores 401
+let _pendingRenewalResolve = null;
+let _pendingRenewalReject  = null;
+let _renewalTimeout        = null;
+
 function saveSession(token, user) {
   try {
     const expires = Date.now() + 55 * 60 * 1000;
@@ -67,6 +72,15 @@ async function initAuth() {
       scope: SCOPES,
       callback: async (resp) => {
         if (resp.error) {
+          // Notificar a cualquier petición que estaba esperando renovación
+          if (_pendingRenewalReject) {
+            clearTimeout(_renewalTimeout);
+            const rej = _pendingRenewalReject;
+            _pendingRenewalResolve = null;
+            _pendingRenewalReject  = null;
+            _renewalTimeout        = null;
+            rej(new Error(resp.error));
+          }
           if (resp.error === 'interaction_required' || resp.error === 'user_cancelled') {
             document.getElementById('auth-screen').style.display = 'flex';
             return;
@@ -76,10 +90,18 @@ async function initAuth() {
         accessToken = resp.access_token;
 
         if (_tokenRenewal) {
-          // Renovación silenciosa: solo actualizar el token y reprogramar, sin recargar datos ni UI
+          // Renovación (programada o reactiva): actualizar token y notificar
           _tokenRenewal = false;
           saveSession(accessToken, currentUser);
           scheduleTokenRenewal();
+          if (_pendingRenewalResolve) {
+            clearTimeout(_renewalTimeout);
+            const res = _pendingRenewalResolve;
+            _pendingRenewalResolve = null;
+            _pendingRenewalReject  = null;
+            _renewalTimeout        = null;
+            res(accessToken);
+          }
           return;
         }
 
@@ -108,6 +130,26 @@ async function initAuth() {
     console.error('Error iniciando auth:', e);
     document.getElementById('auth-screen').style.display = 'flex';
   }
+}
+
+// ============================================================
+// RENOVACIÓN REACTIVA — para 401 en llamadas a Sheets API
+// Devuelve una Promise que se resuelve cuando el token se renueva,
+// o se rechaza si el usuario no puede renovar (sesión expirada).
+// ============================================================
+function renewTokenPromise() {
+  return new Promise((resolve, reject) => {
+    _pendingRenewalResolve = resolve;
+    _pendingRenewalReject  = reject;
+    _renewalTimeout = setTimeout(() => {
+      _pendingRenewalResolve = null;
+      _pendingRenewalReject  = null;
+      _renewalTimeout        = null;
+      reject(new Error('Timeout de renovación de token'));
+    }, 15000);
+    _tokenRenewal = true;
+    tokenClient.requestAccessToken({ prompt: '' });
+  });
 }
 
 function scheduleTokenRenewal() {

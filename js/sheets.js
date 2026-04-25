@@ -1,41 +1,65 @@
 // ============================================================
 // SHEETS API
 // ============================================================
+
+// ----------------------------------------------------------------
+// authFetch — wrapper central para todas las llamadas a la API.
+// Inyecta el Bearer token, y si recibe un 401 intenta renovar el
+// token una vez antes de rendirse y redirigir al login.
+// ----------------------------------------------------------------
+async function authFetch(url, options = {}) {
+  options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
+  let r = await fetch(url, options);
+  if (r.status === 401) {
+    try {
+      await renewTokenPromise();
+      options.headers.Authorization = `Bearer ${accessToken}`;
+      r = await fetch(url, options);
+    } catch(e) {
+      // La renovación falló — sesión expirada, volver al login
+      clearSession();
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('auth-screen').style.display = 'flex';
+      throw new Error('Sesión expirada. Por favor, inicia sesión de nuevo.');
+    }
+  }
+  return r;
+}
+
 async function sheetsGet(range) {
-  const r = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+  const r = await authFetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}`
   );
   const d = await r.json();
   return d.values || [];
 }
 
 async function sheetsAppend(sheet, row) {
-  await fetch(
+  await authFetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(sheet + '!A1')}:append?valueInputOption=USER_ENTERED`,
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [row] })
     }
   );
 }
 
 async function sheetsUpdate(range, row) {
-  await fetch(
+  await authFetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
     {
       method: 'PUT',
-      headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ values: [row] })
     }
   );
 }
 
 async function sheetsClear(range) {
-  await fetch(
+  await authFetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(range)}:clear`,
-    { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }
+    { method: 'POST' }
   );
 }
 

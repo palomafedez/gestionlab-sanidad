@@ -82,7 +82,7 @@ function renderPedidos(filtroEstado = '') {
         <div style="display:flex;gap:8px;align-items:center" onclick="event.stopPropagation()">
           ${docBadges ? `<span style="font-size:14px" title="Documentación">${docBadges}</span>` : ''}
           <span class="estado-pedido ${estadoPedidoClass(p.Estado)}">${p.Estado}</span>
-          ${p.Estado !== 'Archivado' ? `<button class="icon-btn" title="Cambiar estado" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄</button>` : ''}
+          ${!['Archivado','Recepción parcial','Recepción completa'].includes(p.Estado) ? `<button class="icon-btn" title="Cambiar estado" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄</button>` : ''}
         </div>
       </div>
       <div class="pedido-card-stats">
@@ -109,7 +109,7 @@ function verDetallePedido(pedidoId) {
         <div><div class="card-title">${p.Nombre_Lista}</div><div style="font-size:12px;color:var(--text-muted);margin-top:2px">${p.ID_Pedido}</div></div>
         <div style="display:flex;gap:8px;align-items:center">
           <span class="estado-pedido ${estadoPedidoClass(p.Estado)}">${p.Estado}</span>
-          ${puedeEditar ? `<button class="btn btn-secondary" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄 Estado</button>` : ''}
+          ${puedeEditar && !['Recepción parcial','Recepción completa','Archivado'].includes(p.Estado) ? `<button class="btn btn-secondary" onclick="openModalEstadoPedido('${p.ID_Pedido}')">🔄 Estado</button>` : ''}
 
         </div>
       </div>
