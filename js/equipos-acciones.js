@@ -320,6 +320,12 @@ async function guardarActuacion() {
     _pendingActFileBase64 = null;
   }
 
+  // Acumular descripción: si hay actuaciones previas (Resuelto parcialmente), añadir con separador
+  const descAnterior = i.Descripcion_Actuacion || i.Descripcion_Planificada || '';
+  const descAcumulada = (descAnterior && resultado === 'Resuelto parcialmente' && descAnterior !== desc)
+    ? descAnterior + '\n── ' + fechaReal + ' ──\n' + desc
+    : desc;
+
   // Actualizar fila en Sheets — mantenemos ID, Equipo, Tipo, Origen y Fecha_Planificada
   const updatedRow = [
     i.ID_Intervencion,           // A
@@ -329,9 +335,9 @@ async function guardarActuacion() {
     i.Fecha_Planificada || '',   // E
     fechaReal,                   // F Fecha_Realizacion
     realizadoPor,                // G Realizado_Por
-    proveedorExt ? '' : '',      // H Tecnico_Externo (libre, no aplica aquí)
+    proveedorExt ? '' : '',      // H Tecnico_Externo
     proveedorExt,                // I Proveedor
-    desc,                        // J Descripcion_Actuacion
+    descAcumulada,               // J Descripcion_Actuacion (acumulada)
     resultado,                   // K Resultado
     operativo,                   // L Equipo_Operativo
     urlAdjunto,                  // M URL_Adjunto
