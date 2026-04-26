@@ -138,8 +138,10 @@ async function loadAllData() {
     DATA.solicitudes         = toObj(solicitudes,         'solicitudes');
     DATA.pedidos             = toObj(pedidos,             'pedidos');
     DATA.lineasPedido        = toObj(lineasPedido,        'lineasPedido');
-    DATA.ciclosModulos       = toObj(ciclosModulos,       'ciclosModulos');
-    // Propagar Ciclo hacia abajo: en Sheets las celdas "fusionadas" llegan vacías en filas 2..n
+    DATA.ciclosModulos = ciclosModulos
+      .filter(r => r.length && r.some(Boolean))  // mantener filas con col A vacía (módulos sin ciclo repetido)
+      .map(r => rowToObj(r, 'ciclosModulos'));
+    // Propagar Ciclo hacia abajo: celdas vacías heredan el ciclo de la fila anterior
     let ultimoCiclo = '';
     DATA.ciclosModulos.forEach(cm => {
       if (cm.Ciclo) { ultimoCiclo = cm.Ciclo; } else { cm.Ciclo = ultimoCiclo; }

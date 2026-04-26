@@ -379,8 +379,22 @@ async function guardarActuacion() {
       }
     }
 
-    // Restaurar estado Operativo si la intervención se cierra con equipo operativo=Sí
-    if (nuevoEstadoInt === 'Cerrada' && operativo === 'Sí') {
+    // Restaurar estado Operativo si resultado=Resuelto y equipo operativo=Sí
+    // (se aplica tanto a intervenciones Cerradas como a Pendiente factura)
+    if (resultado === 'Resuelto' && operativo === 'Sí') {
+      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn('No se pudo restaurar estado equipo', e); }
+      // Archivar incidencia vinculada si no estaba ya archivada
+      const incIdBadge = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
+      if (incIdBadge !== -1) {
+        const incB = DATA.incidencias[incIdBadge];
+        if (incB.Estado !== 'Archivada' && incB.Estado !== 'Cerrada') {
+          incB.Estado = 'Archivada';
+          const rB = [incB.ID_Incidencia, incB.Equipo, incB.Reportado_Por, incB.Fecha_Hora, incB.Descripcion_Problema, incB.Impacto, incB.Urgencia, 'Archivada', incB.Intervencion_Generada];
+          try { await sheetsUpdate(`Incidencias!A${incIdBadge + 2}:I${incIdBadge + 2}`, rB); } catch(e) { console.warn(e); }
+        }
+      }
+    } else if (nuevoEstadoInt === 'Cerrada' && operativo === 'Sí') {
+      // Fallback: cerrada sin resultado explícito Resuelto
       try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn('No se pudo restaurar estado equipo', e); }
     }
 

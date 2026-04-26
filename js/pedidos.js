@@ -21,7 +21,7 @@ function renderSolicitudes(filtroEstado = '') {
     ? `<div style="margin-bottom:10px"><button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="_mostrarSolicitudesArchivadas=!_mostrarSolicitudesArchivadas;renderSolicitudes()">${_mostrarSolicitudesArchivadas ? '← Ocultar archivadas' : '📦 Ver archivadas (' + archivadas + ')'}</button></div>`
     : '';
   if (!items.length) { tbody.innerHTML = `<tr><td colspan="9">${toggleHtml}<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin solicitudes</div></div></td></tr>`; return; }
-  const estadoBadge   = {'Pendiente':'badge-orange','En pedido':'badge-blue','Recibido':'badge-green','Rechazado':'badge-red','Archivado':'badge-gray'};
+  const estadoBadge   = {'Pendiente':'badge-orange','En pedido':'badge-blue','En camino':'badge-blue','Recibido':'badge-green','Rechazado':'badge-red','Archivado':'badge-gray'};
   const urgenciaBadge = {'Urgente':'badge-red','Normal':'badge-gray'};
   const puedeGestionar = rol === 'Administrador' || rol === 'Gestor';
   // Insertar el toggle encima de la tabla
@@ -38,7 +38,7 @@ function renderSolicitudes(filtroEstado = '') {
     <td><span class="badge ${estadoBadge[s.Estado]||'badge-gray'}">${s.Estado||'Pendiente'}</span></td>
     <td><div class="row-actions">
       ${puedeGestionar && s.Estado !== 'En pedido' && s.Estado !== 'Recibido' && s.Estado !== 'Archivado' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
-      ${s.Estado === 'En pedido' && s.Lista_Pedido ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
+      ${(s.Estado === 'En pedido' || s.Estado === 'En camino') && s.Lista_Pedido ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
       ${puedeGestionar && s.Estado === 'Pendiente' ? `<button class="icon-btn" title="Rechazar" onclick="rechazarSolicitud('${s.ID_Solicitud}')">✕</button>` : ''}
     </div></td>
   </tr>`).join('');
@@ -248,45 +248,42 @@ function openModalRecepcion(lineaId, pedidoId) {
 // ============================================================
 async function guardarSolicitud() {
   const esNuevo = document.getElementById('btn-source-nuevo').classList.contains('active');
-  let materialNombre = '', materialId = '';
+  // Declarar variables comunes ANTES del if/else para evitar problemas de scope
+  const cant = v('sol-cantidad');
+  if (!cant || parseFloat(cant) <= 0) { showToast('Indica la cantidad', 'error'); return; }
+  const id             = genId('SOL-');
+  const fecha          = new Date().toISOString().split('T')[0];
+  const usuario        = currentUser?.name || 'Usuario';
+  const urgencia       = v('sol-urgencia');
+  const fechaNecesidad = v('sol-fecha-necesidad');
+  const obsBase        = urgencia === 'Urgente' ? '⚠️ URGENTE — ' + v('sol-obs') : v('sol-obs');
+
+  let materialNombre = '', unidadObs = '';
   if (esNuevo) {
     materialNombre = v('sol-material-libre');
     const unidad = v('sol-unidad');
     if (!unidad) { showToast('La unidad es obligatoria para material no catalogado', 'error'); return; }
-    // La unidad NO forma parte del nombre: se guarda solo en observaciones para no contaminar el catálogo
     if (!materialNombre) { showToast('Indica el material', 'error'); return; }
-    const obsBase = urgencia === 'Urgente' ? '⚠️ URGENTE — ' + v('sol-obs') : v('sol-obs');
-    const rowSheet = [id, materialNombre, cant, usuario, fecha, v('sol-motivo') + (fechaNecesidad ? ' · Necesario: ' + fechaNecesidad : ''), v('sol-proveedor'), 'Pendiente', '', '[Unidad: ' + unidad + '] ' + obsBase];
-    showLoading('Guardando...');
-    try {
-      await sheetsAppend('Solicitudes', rowSheet);
-      const objLocal = { ID_Solicitud: id, Material: materialNombre, Cantidad_Solicitada: cant, Solicitante: usuario, Fecha: fecha, Motivo: v('sol-motivo'), Proveedor_Requerido: v('sol-proveedor'), Estado: 'Pendiente', Lista_Pedido: '', Observaciones: rowSheet[9], Urgencia: urgencia };
-      DATA.solicitudes.push(objLocal);
-      showToast('Solicitud enviada', 'success');
-      closeModal('modal-solicitud'); renderSolicitudes(); updateBadges();
-    } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
-    hideLoading();
-    return;
+    // Unidad va solo a observaciones, NO al nombre
+    unidadObs = '[Unidad: ' + unidad + '] ';
   } else {
-    materialId = document.getElementById('sol-material-id').value;
+    const materialId = document.getElementById('sol-material-id').value;
     const mat = DATA.material.find(m => m.ID_Material === materialId);
     materialNombre = mat ? mat.Nombre : '';
   }
   if (!materialNombre) { showToast('Indica el material', 'error'); return; }
-  const cant = v('sol-cantidad');
-  if (!cant || parseFloat(cant) <= 0) { showToast('Indica la cantidad', 'error'); return; }
 
-  const id = genId('SOL-');
-  const fecha    = new Date().toISOString().split('T')[0];
-  const usuario  = currentUser?.name || 'Usuario';
-  const urgencia = v('sol-urgencia');
-  const fechaNecesidad = v('sol-fecha-necesidad');
-  const rowSheet = [id, materialNombre, cant, usuario, fecha, v('sol-motivo') + (fechaNecesidad ? ' · Necesario: ' + fechaNecesidad : ''), v('sol-proveedor'), 'Pendiente', '', urgencia === 'Urgente' ? '⚠️ URGENTE — ' + v('sol-obs') : v('sol-obs')];
+  const rowSheet = [id, materialNombre, cant, usuario, fecha,
+    v('sol-motivo') + (fechaNecesidad ? ' · Necesario: ' + fechaNecesidad : ''),
+    v('sol-proveedor'), 'Pendiente', '', unidadObs + obsBase];
 
   showLoading('Guardando...');
   try {
     await sheetsAppend('Solicitudes', rowSheet);
-    const objLocal = { ID_Solicitud: id, Material: materialNombre, Cantidad_Solicitada: cant, Solicitante: usuario, Fecha: fecha, Motivo: v('sol-motivo'), Proveedor_Requerido: v('sol-proveedor'), Estado: 'Pendiente', Lista_Pedido: '', Observaciones: rowSheet[9], Urgencia: urgencia };
+    const objLocal = { ID_Solicitud: id, Material: materialNombre, Cantidad_Solicitada: cant,
+      Solicitante: usuario, Fecha: fecha, Motivo: v('sol-motivo'),
+      Proveedor_Requerido: v('sol-proveedor'), Estado: 'Pendiente', Lista_Pedido: '',
+      Observaciones: rowSheet[9], Urgencia: urgencia };
     DATA.solicitudes.push(objLocal);
     showToast('Solicitud enviada', 'success');
     closeModal('modal-solicitud'); renderSolicitudes(); updateBadges();
@@ -455,6 +452,16 @@ async function guardarEstadoPedido() {
   showLoading('Actualizando...');
   try {
     await sheetsUpdate(`Pedidos!A${idx+2}:M${idx+2}`, row);
+    // Sincronizar estado de las solicitudes vinculadas al pedido
+    if (nuevoEstado === 'Pedido enviado') {
+      const solsVinculadas = DATA.solicitudes.filter(s => s.Lista_Pedido === pedidoId && s.Estado === 'En pedido');
+      for (const sol of solsVinculadas) {
+        const solIdx = DATA.solicitudes.indexOf(sol);
+        sol.Estado = 'En camino';
+        const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En camino', sol.Lista_Pedido, sol.Observaciones];
+        try { await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol); } catch(e) { console.warn('No se pudo actualizar solicitud', e); }
+      }
+    }
     showToast('Estado actualizado', 'success');
     closeModal('modal-estado-pedido'); renderPedidos();
     if (document.getElementById('page-pedido-detalle').classList.contains('active')) verDetallePedido(pedidoId);

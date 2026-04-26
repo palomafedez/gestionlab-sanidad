@@ -166,7 +166,8 @@ function buildIntervencionesEquipo(equipoId) {
       const intIdx = DATA.intervenciones.indexOf(i);
       const puedeRegistrar = puedeHacer('crearIntervenciones') &&
         (getUserRole() !== 'Profesor' || DATA.equipos.find(eq => eq.ID_Activo === equipoId)?.Responsable === (currentUser?.name || '')) &&
-        (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado);
+        (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado) &&
+        i.Resultado !== 'Resuelto';
       const btnLabel = i.Estado === 'Planificada' ? '🔧 Ejecutar' : '📋 Añadir actuación';
       return `<div class="intervencion-mini-row">
         <span><span class="badge ${tipoBadge[i.Tipo]||'badge-gray'}" style="font-size:10px">${i.Tipo||'—'}</span></span>
@@ -196,7 +197,7 @@ function renderIntervenciones(filtroTipo = '') {
   tbody.innerHTML = items.map(i => {
     const pdfLink = i.URL_Adjunto ? `<a href="${i.URL_Adjunto}" target="_blank" title="${i.Nombre_Adjunto||'Ver documento'}" style="color:var(--accent);font-size:16px">📄</a>` : '<span class="text-muted">—</span>';
     const intIdx  = DATA.intervenciones.indexOf(i);
-    const puedeRegistrar = puedeHacer('crearIntervenciones') && (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado);
+    const puedeRegistrar = puedeHacer('crearIntervenciones') && (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado) && i.Resultado !== 'Resuelto';
     const btnLabel = i.Estado === 'Planificada' ? '🔧 Ejecutar' : '📋 Añadir actuación';
     return `<tr>
       <td><strong>${i.ID_Intervencion}</strong></td>
@@ -302,7 +303,7 @@ function openFichaIntervencion(intIdx) {
     : '<span style="color:var(--text-muted);font-size:12px">Sin documento adjunto</span>';
 
   // Botones de acción
-  const puedeRegistrar = puedeHacer('crearIntervenciones') && (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado);
+  const puedeRegistrar = puedeHacer('crearIntervenciones') && (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado) && i.Resultado !== 'Resuelto';
   const btnLabel = i.Estado === 'Planificada' ? '🔧 Ejecutar' : '📋 Añadir actuación';
   const acciones = document.getElementById('ficha-int-acciones');
   let btns = '';
