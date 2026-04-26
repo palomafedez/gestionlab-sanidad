@@ -565,12 +565,14 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
         solOrigen.Estado = 'Recibido';
         const rowSol = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Recibido', solOrigen.Lista_Pedido, solOrigen.Observaciones];
         await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
-        // Archivar la solicitud automáticamente
-        try {
+        // Gestores y Administradores ven la lista limpia: archivar automáticamente
+        // Profesores y Alumnos conservan el Recibido como historial personal
+        const rolActual = getUserRole();
+        if (rolActual === 'Gestor' || rolActual === 'Administrador') {
           solOrigen.Estado = 'Archivado';
           const rowArch = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Archivado', solOrigen.Lista_Pedido, solOrigen.Observaciones];
-          await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowArch);
-        } catch(e) { console.warn('No se pudo archivar solicitud', e); }
+          try { await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowArch); } catch(e) { console.warn('No se pudo archivar solicitud', e); }
+        }
       }
     }
     showToast('Recepción registrada', 'success');
