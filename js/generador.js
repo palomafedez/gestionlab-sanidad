@@ -4,8 +4,14 @@
 
 function abrirGeneradorHoja(pedidoId) {
   sv('gen-pedido-id', pedidoId);
-  sv('gen-ciclo',''); sv('gen-modulo','');
+  sv('gen-modulo','');
   sv('gen-num-factura',''); sv('gen-fecha-factura','');
+
+  // Poblar ciclos dinámicamente desde DATA.ciclosModulos
+  const selCiclo = document.getElementById('gen-ciclo');
+  const ciclos = [...new Set(DATA.ciclosModulos.map(cm => cm.Ciclo).filter(Boolean))].sort();
+  selCiclo.innerHTML = '<option value="">Seleccionar...</option>' + ciclos.map(c => `<option value="${c}">${c}</option>`).join('');
+  selCiclo.value = '';
 
   // Pre-rellenar si el pedido ya tiene datos de factura en Sheets
   const p = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);

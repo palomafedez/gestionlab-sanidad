@@ -5,6 +5,26 @@ let _pendingActFileBase64 = null;  // para modal-registrar-actuacion
 let _incidenciaOrigen     = null;  // ID incidencia al crear intervención desde ella
 
 // ============================================================
+// HELPER — Actualiza Estado_Operativo del equipo en Sheets y DATA
+// equipoStr: string del campo Equipo ("ID – Nombre" o solo "ID")
+// nuevoEstado: 'Operativo' | 'En mantenimiento' | 'Averiado' | 'Fuera de servicio'
+// ============================================================
+async function actualizarEstadoEquipo(equipoStr, nuevoEstado) {
+  const equipoId = (equipoStr || '').split(' – ')[0].trim();
+  const eqIdx = DATA.equipos.findIndex(e => e.ID_Activo === equipoId);
+  if (eqIdx === -1) return;
+  const eq = DATA.equipos[eqIdx];
+  if (eq.Estado_Operativo === nuevoEstado) return; // sin cambios
+  eq.Estado_Operativo = nuevoEstado;
+  const eqRow = [eq.ID_Activo, eq.Tipo_Equipo, eq.Marca, eq.Modelo, eq.Numero_Serie,
+    eq.Ubicacion, eq.Responsable, eq.Fecha_Adquisicion, eq.Origen_Financiacion,
+    eq.Proveedor_Compra, eq.Proveedor_Servicio_Tecnico, nuevoEstado,
+    eq.Periodicidad_Mantenimiento, eq.Periodicidad_Custom, eq.Fecha_Ultimo_Preventivo,
+    eq.Fecha_Proximo_Preventivo, eq.Manual_Ficha_Tecnica, eq.Observaciones];
+  await sheetsUpdate(`Equipos!A${eqIdx + 2}:R${eqIdx + 2}`, eqRow);
+}
+
+// ============================================================
 // MODALES EQUIPOS
 // ============================================================
 function openModalEquipo() {
@@ -359,6 +379,11 @@ async function guardarActuacion() {
       }
     }
 
+    // Restaurar estado Operativo si la intervención se cierra con equipo operativo=Sí
+    if (nuevoEstadoInt === 'Cerrada' && operativo === 'Sí') {
+      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn('No se pudo restaurar estado equipo', e); }
+    }
+
     closeModal('modal-registrar-actuacion');
 
     // Paso 3b: resolución parcial → preguntar
@@ -406,6 +431,10 @@ async function resolverParcialCerrar() {
         const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, 'Archivada', inc.Intervencion_Generada];
         await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
       }
+    }
+    // Restaurar estado Operativo si el técnico indicó equipo operativo=Sí
+    if (i.Equipo_Operativo_Tras_Intervencion === 'Sí') {
+      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn('No se pudo restaurar estado equipo', e); }
     }
     showToast('Intervención cerrada. Incidencia → Resuelta', 'success');
   } catch(e) { showToast('Error cerrando', 'error'); console.error(e); }
@@ -591,6 +620,12 @@ async function guardarIncidencia() {
   try {
     await sheetsAppend('Incidencias', row);
     DATA.incidencias.push(rowToObj(row, 'incidencias'));
+    // Actualizar estado del equipo según impacto
+    const impacto = v('inc-impacto');
+    const estadoEqPorImpacto = { 'Equipo fuera de servicio': 'Averiado', 'Uso limitado': 'En mantenimiento' };
+    if (estadoEqPorImpacto[impacto]) {
+      try { await actualizarEstadoEquipo(equipo, estadoEqPorImpacto[impacto]); } catch(e) { console.warn('No se pudo actualizar estado equipo', e); }
+    }
     showToast('Incidencia reportada', 'success');
     closeModal('modal-incidencia'); renderAll();
   } catch(e) { showToast('Error guardando', 'error'); }

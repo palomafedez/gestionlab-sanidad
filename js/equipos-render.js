@@ -156,7 +156,7 @@ function buildIntervencionesEquipo(equipoId) {
         <span>${formatDate(i.Fecha_Realizacion)||formatDate(i.Fecha_Planificada)||'—'}</span>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${i.Descripcion_Actuacion||''}">${i.Descripcion_Actuacion||i.Descripcion_Planificada||'—'}</span>
         <span>${i.Resultado||'—'}${i.Observaciones ? ' · <em>' + i.Observaciones + '</em>' : ''}</span>
-        <span>${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();openModalActuacionDerivada(${intIdx})">${btnLabel}</button>` : ''}</span>
+        <span>${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="event.stopPropagation();openModalActuacionDerivada(${intIdx})">${btnLabel}</button>` : ''}<button class="icon-btn" style="font-size:11px;margin-left:2px" onclick="event.stopPropagation();openFichaIntervencion(${intIdx})" title="Ver ficha">🔍</button></span>
       </div>`;
     }).join('')}`;
 }
@@ -191,6 +191,7 @@ function renderIntervenciones(filtroTipo = '') {
       <td>${i.Equipo_Operativo_Tras_Intervencion==='Sí'?'<span class="badge badge-green">Sí</span>':i.Equipo_Operativo_Tras_Intervencion==='No'?'<span class="badge badge-red">No</span>':'—'}</td>
       <td>${pdfLink}</td>
       <td><div class="row-actions">
+        <button class="icon-btn" onclick="openFichaIntervencion(${intIdx})" title="Ver ficha">🔍</button>
         ${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openModalActuacionDerivada(${intIdx})">${btnLabel}</button>` : ''}
         ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="editIntervencion(${intIdx})" title="Editar directamente">✏️</button>` : ''}
       </div></td>
@@ -246,3 +247,45 @@ function renderIncidencias(filtroEstado = '') {
   }).join('');
 }
 function filtrarIncidenciasEstado(val) { renderIncidencias(val); }
+
+// ============================================================
+// FICHA DE INTERVENCIÓN — modal de solo lectura con acciones
+// ============================================================
+function openFichaIntervencion(intIdx) {
+  const i = DATA.intervenciones[intIdx];
+  if (!i) return;
+  const tipoBadge  = {'Preventivo':'badge-green','Correctivo':'badge-red','Calibración':'badge-blue','Verificación funcional':'badge-blue','Limpieza':'badge-gray','Sustitución de pieza':'badge-orange','Control de temperatura':'badge-blue'};
+  const estadoBadge = {'Planificada':'badge-blue','En gestión':'badge-orange','Cerrada':'badge-green','Pendiente factura':'badge-red'};
+
+  document.getElementById('ficha-int-id').textContent       = i.ID_Intervencion;
+  document.getElementById('ficha-int-equipo').textContent   = i.Equipo || '—';
+  document.getElementById('ficha-int-tipo').innerHTML       = `<span class="badge ${tipoBadge[i.Tipo]||'badge-gray'}">${i.Tipo||'—'}</span>`;
+  document.getElementById('ficha-int-estado').innerHTML     = i.Estado ? `<span class="badge ${estadoBadge[i.Estado]||'badge-gray'}">${i.Estado}</span>` : '—';
+  document.getElementById('ficha-int-origen').textContent   = i.Origen || '—';
+  document.getElementById('ficha-int-fecha-plan').textContent = formatDate(i.Fecha_Planificada) || '—';
+  document.getElementById('ficha-int-fecha-real').textContent = formatDate(i.Fecha_Realizacion) || '—';
+  const quienRealizo = i.Realizado_Por || (i.Proveedor ? 'SAT: ' + i.Proveedor : '') || i.Tecnico_Externo || '—';
+  document.getElementById('ficha-int-realizado').textContent = quienRealizo;
+  document.getElementById('ficha-int-descripcion').textContent = i.Descripcion_Actuacion || i.Descripcion_Planificada || '—';
+  document.getElementById('ficha-int-resultado').textContent   = i.Resultado || '—';
+  document.getElementById('ficha-int-operativo').innerHTML     = i.Equipo_Operativo_Tras_Intervencion === 'Sí'
+    ? '<span class="badge badge-green">Sí</span>'
+    : i.Equipo_Operativo_Tras_Intervencion === 'No'
+      ? '<span class="badge badge-red">No</span>'
+      : '—';
+  document.getElementById('ficha-int-observaciones').textContent = i.Observaciones || '—';
+  document.getElementById('ficha-int-doc').innerHTML = i.URL_Adjunto
+    ? `<a href="${i.URL_Adjunto}" target="_blank" class="btn btn-secondary" style="font-size:12px">📄 ${i.Nombre_Adjunto || 'Ver documento'}</a>`
+    : '<span style="color:var(--text-muted);font-size:12px">Sin documento adjunto</span>';
+
+  // Botones de acción
+  const puedeRegistrar = puedeHacer('crearIntervenciones') && (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado);
+  const btnLabel = i.Estado === 'Planificada' ? '🔧 Ejecutar' : '📋 Añadir actuación';
+  const acciones = document.getElementById('ficha-int-acciones');
+  let btns = '';
+  if (puedeRegistrar) btns += `<button class="btn btn-primary" onclick="closeModal('modal-ficha-intervencion');openModalActuacionDerivada(${intIdx})">${btnLabel}</button>`;
+  if (puedeHacer('crearIntervenciones')) btns += `<button class="btn btn-secondary" onclick="closeModal('modal-ficha-intervencion');editIntervencion(${intIdx})">✏️ Editar</button>`;
+  acciones.innerHTML = btns;
+
+  openModal('modal-ficha-intervencion');
+}
