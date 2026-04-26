@@ -1002,8 +1002,8 @@
 }
 .sidebar-backdrop.open { display: block; }
 
-/* ── TABLET: 769px – 1024px ── */
-@media (max-width: 1024px) and (min-width: 769px) {
+/* ── TABLET LANDSCAPE: 769px – 1024px en horizontal ── */
+@media (max-width: 1024px) and (min-width: 769px) and (orientation: landscape) {
   .sidebar {
     width: 64px;
     overflow: visible;
@@ -1030,8 +1030,8 @@
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-/* ── MÓVIL: ≤ 768px ── */
-@media (max-width: 768px) {
+/* ── MÓVIL y TABLET PORTRAIT: ≤ 768px, o tablet en vertical ── */
+@media (max-width: 768px), (max-width: 1024px) and (orientation: portrait) {
   /* Sidebar: oculto por defecto, desliza desde la izquierda */
   .sidebar {
     position: fixed;
