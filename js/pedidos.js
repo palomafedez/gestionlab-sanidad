@@ -578,6 +578,7 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
     showToast('Recepción registrada', 'success');
     closeModal('modal-recepcion-linea');
     renderMaterial();
+    renderPedidos();
     verDetallePedido(pedidoId);
   } catch(e) { showToast('Error', 'error'); console.error(e); }
   hideLoading();

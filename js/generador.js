@@ -9,7 +9,9 @@ function abrirGeneradorHoja(pedidoId) {
 
   // Poblar ciclos dinámicamente desde DATA.ciclosModulos
   const selCiclo = document.getElementById('gen-ciclo');
-  const ciclos = [...new Set(DATA.ciclosModulos.map(cm => cm.Ciclo).filter(Boolean))].sort();
+  const ciclos = [...new Set(DATA.ciclosModulos.map(cm => (cm.Ciclo||'').normalize('NFC').trim()).filter(Boolean))].sort();
+  // Normalizar también los Ciclos en DATA para que el filtro posterior sea consistente
+  DATA.ciclosModulos.forEach(cm => { cm.Ciclo = (cm.Ciclo||'').normalize('NFC').trim(); cm.Modulo = (cm.Modulo||'').normalize('NFC').trim(); });
   selCiclo.innerHTML = '<option value="">Seleccionar...</option>' + ciclos.map(c => `<option value="${c}">${c}</option>`).join('');
   selCiclo.value = '';
 
@@ -28,7 +30,11 @@ function abrirGeneradorHoja(pedidoId) {
 function actualizarModulos() {
   const ciclo = v('gen-ciclo');
   const sel   = document.getElementById('gen-modulo');
-  const modulos = DATA.ciclosModulos.filter(cm => cm.Ciclo === ciclo).map(cm => cm.Modulo).filter(Boolean);
+  const norm  = s => (s || '').normalize('NFC').trim();
+  const modulos = DATA.ciclosModulos
+    .filter(cm => norm(cm.Ciclo) === norm(ciclo))
+    .map(cm => cm.Modulo)
+    .filter(Boolean);
   sel.innerHTML = '<option value="">— (dejar vacío si es para varios) —</option>' + modulos.map(m => `<option value="${m}">${m}</option>`).join('');
 }
 
