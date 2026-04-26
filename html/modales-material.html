@@ -167,3 +167,37 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Traslado entre ubicaciones -->
+<div class="modal-overlay" id="modal-traslado">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">🔀 Trasladar material</div>
+      <button class="modal-close" onclick="closeModal('modal-traslado')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="traslado-mat-id">
+      <input type="hidden" id="traslado-origen">
+      <div style="background:var(--surface2);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:16px;font-size:13px">
+        <strong id="traslado-mat-nombre"></strong>
+        <div style="color:var(--text-muted);font-size:12px;margin-top:4px">
+          Origen: <strong id="traslado-origen-label"></strong> · Stock disponible: <strong id="traslado-stock-origen"></strong>
+        </div>
+      </div>
+      <div class="form-grid" style="gap:14px">
+        <div class="form-group">
+          <label>Destino *</label>
+          <select id="traslado-destino"><option value="">Seleccionar destino...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Cantidad a trasladar *</label>
+          <input id="traslado-cantidad" type="number" min="1" placeholder="Ej: 10">
+        </div>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-traslado')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarTraslado()">🔀 Trasladar</button>
+      </div>
+    </div>
+  </div>
+</div>
