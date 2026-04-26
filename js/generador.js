@@ -98,7 +98,20 @@ async function generarHojaPedido() {
   }
 
   try {
-    const lineasConPrecios = lineas.map(l => ({ concepto: l.Material, cantidad: l.Cantidad_Pedida, precio: '', total: '' }));
+    const lineasConPrecios = lineas.map(l => {
+      const mat = DATA.material.find(m => m.Nombre === l.Material || l.Material.startsWith(m.Nombre));
+      let unidad = mat?.Unidad || '';
+      if (!unidad) {
+        const solIdM = (l.Observaciones || '').match(/Desde solicitud (SOL-\S+)/);
+        if (solIdM) {
+          const solVinc = DATA.solicitudes.find(s => s.ID_Solicitud === solIdM[1]);
+          const uMatch = (solVinc?.Observaciones || '').match(/\[Unidad:\s*([^\]]+)\]/);
+          if (uMatch) unidad = uMatch[1].trim();
+        }
+      }
+      const concepto = unidad ? l.Material + ', ' + unidad : l.Material;
+      return { concepto, cantidad: l.Cantidad_Pedida, precio: '', total: '' };
+    });
     const importeTotal = '';
     const numFactura = DATA.pedidos[pedIdx]?.Numero_Factura || numFacturaNuevo || '';
     const fechaDoc   = DATA.pedidos[pedIdx]?.Fecha_Factura  || fechaFacturaNuevo

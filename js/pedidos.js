@@ -20,7 +20,12 @@ function renderSolicitudes(filtroEstado = '') {
   const toggleHtml = archivadas > 0 && !filtroEstado
     ? `<div style="margin-bottom:10px"><button class="btn btn-secondary" style="font-size:12px;padding:4px 12px" onclick="_mostrarSolicitudesArchivadas=!_mostrarSolicitudesArchivadas;renderSolicitudes()">${_mostrarSolicitudesArchivadas ? '← Ocultar archivadas' : '📦 Ver archivadas (' + archivadas + ')'}</button></div>`
     : '';
-  if (!items.length) { tbody.innerHTML = `<tr><td colspan="9">${toggleHtml}<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin solicitudes</div></div></td></tr>`; return; }
+  if (!items.length) {
+    const toggleContainer = document.getElementById('solicitudes-toggle-container');
+    if (toggleContainer) toggleContainer.innerHTML = toggleHtml;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin solicitudes</div></div></td></tr>`;
+    return;
+  }
   const estadoBadge   = {'Pendiente':'badge-orange','En pedido':'badge-blue','En camino':'badge-blue','Recibido':'badge-green','Rechazado':'badge-red','Archivado':'badge-gray'};
   const urgenciaBadge = {'Urgente':'badge-red','Normal':'badge-gray'};
   const puedeGestionar = rol === 'Administrador' || rol === 'Gestor';
@@ -151,12 +156,24 @@ function verDetallePedido(pedidoId) {
       <div style="padding:12px 16px">
         ${!lineas.length ? `<div class="empty-state" style="padding:24px"><div class="empty-state-icon">📝</div><div class="empty-state-title">Sin líneas todavía</div></div>` :
           lineas.map(l => {
+            const mat = DATA.material.find(m => m.Nombre === l.Material || l.Material.startsWith(m.Nombre));
+            let unidadLinea = mat?.Unidad || '';
+            if (!unidadLinea) {
+              // Material no catalogado: buscar unidad en observaciones de la solicitud vinculada
+              const solIdM = (l.Observaciones || '').match(/Desde solicitud (SOL-\S+)/);
+              if (solIdM) {
+                const solVinc = DATA.solicitudes.find(s => s.ID_Solicitud === solIdM[1]);
+                const uMatch = (solVinc?.Observaciones || '').match(/\[Unidad:\s*([^\]]+)\]/);
+                if (uMatch) unidadLinea = uMatch[1].trim();
+              }
+            }
+            unidadLinea = unidadLinea ? ' ' + unidadLinea : '';
             const estadoLinea = {'Pendiente':'badge-orange','Recibido parcialmente':'badge-blue','Recibido':'badge-green'}[l.Estado_Linea] || 'badge-gray';
             const puedeEliminar = puedeEditar && l.Estado_Linea === 'Pendiente';
-            return `<div class="linea-row" style="grid-template-columns:1fr 70px 70px 110px auto">
+            return `<div class="linea-row" style="grid-template-columns:1fr 80px 80px 110px auto">
               <div style="font-weight:500;font-size:13px">${l.Material}</div>
-              <div style="text-align:center;font-size:12px;color:var(--text-soft)">Ped: ${l.Cantidad_Pedida}</div>
-              <div style="text-align:center;font-size:12px">Rec: ${l.Cantidad_Recibida||'0'}</div>
+              <div style="text-align:center;font-size:12px;color:var(--text-soft)">Ped: ${l.Cantidad_Pedida}${unidadLinea}</div>
+              <div style="text-align:center;font-size:12px">Rec: ${l.Cantidad_Recibida||'0'}${unidadLinea}</div>
               <div><span class="badge ${estadoLinea}" style="font-size:10px">${l.Estado_Linea||'Pendiente'}</span></div>
               <div style="display:flex;gap:4px">
                 ${puedeEditar && l.Estado_Linea !== 'Recibido' && ['Presupuesto aprobado','Recepción parcial','Recepción completa'].includes(p.Estado) ? `<button class="icon-btn" title="Registrar recepción" onclick="openModalRecepcion('${l.ID_Linea}','${pedidoId}')">📥</button>` : ''}
