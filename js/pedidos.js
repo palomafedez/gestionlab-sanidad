@@ -553,20 +553,27 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
     }
     // Actualizar estado de la solicitud de origen si la línea queda como Recibido
     if (l.Estado_Linea === 'Recibido') {
-      // Normalizar nombre quitando sufijos [xxx] para comparación robusta
-      const normNombre = n => (n || '').replace(/\s*\[.*?\]/g, '').trim().toLowerCase();
-      const solOrigen = DATA.solicitudes.find(s =>
+      const normNombre = n => (n || '').normalize('NFC').replace(/\s*\[.*?\]/g, '').trim().toLowerCase();
+      // Intento 1: match estricto por pedido + material
+      let solOrigen = DATA.solicitudes.find(s =>
         s.Lista_Pedido === pedidoId &&
         normNombre(s.Material) === normNombre(l.Material) &&
         s.Estado !== 'Recibido' && s.Estado !== 'Archivado'
       );
+      // Intento 2 (fallback): solo por material + estado activo, si el intento 1 falló
+      if (!solOrigen) {
+        solOrigen = DATA.solicitudes.find(s =>
+          normNombre(s.Material) === normNombre(l.Material) &&
+          (s.Estado === 'En pedido' || s.Estado === 'En camino')
+        );
+      }
       if (solOrigen) {
         const solIdx = DATA.solicitudes.indexOf(solOrigen);
+        // Asegurarnos de que Lista_Pedido queda bien enlazado
+        if (!solOrigen.Lista_Pedido) solOrigen.Lista_Pedido = pedidoId;
         solOrigen.Estado = 'Recibido';
         const rowSol = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Recibido', solOrigen.Lista_Pedido, solOrigen.Observaciones];
         await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
-        // Gestores y Administradores ven la lista limpia: archivar automáticamente
-        // Profesores y Alumnos conservan el Recibido como historial personal
         const rolActual = getUserRole();
         if (rolActual === 'Gestor' || rolActual === 'Administrador') {
           solOrigen.Estado = 'Archivado';
