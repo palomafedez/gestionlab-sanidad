@@ -554,22 +554,28 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
     // Actualizar estado de la solicitud de origen si la línea queda como Recibido
     if (l.Estado_Linea === 'Recibido') {
       const normNombre = n => (n || '').normalize('NFC').replace(/\s*\[.*?\]/g, '').trim().toLowerCase();
-      // Intento 1: match estricto por pedido + material
-      let solOrigen = DATA.solicitudes.find(s =>
-        s.Lista_Pedido === pedidoId &&
-        normNombre(s.Material) === normNombre(l.Material) &&
-        s.Estado !== 'Recibido' && s.Estado !== 'Archivado'
-      );
-      // Intento 2 (fallback): solo por material + estado activo, si el intento 1 falló
+      // Intento 1 — match directo por ID: la línea guarda "Desde solicitud SOL-xxx" en Observaciones
+      const solIdMatch = (l.Observaciones || '').match(/Desde solicitud (SOL-\S+)/);
+      let solOrigen = solIdMatch
+        ? DATA.solicitudes.find(s => s.ID_Solicitud === solIdMatch[1] && s.Estado !== 'Recibido' && s.Estado !== 'Archivado')
+        : null;
+      // Intento 2 — match por pedidoId + nombre normalizado
+      if (!solOrigen) {
+        solOrigen = DATA.solicitudes.find(s =>
+          s.Lista_Pedido === pedidoId &&
+          normNombre(s.Material) === normNombre(l.Material) &&
+          s.Estado !== 'Recibido' && s.Estado !== 'Archivado'
+        );
+      }
+      // Intento 3 (último recurso) — solo por nombre + estado activo
       if (!solOrigen) {
         solOrigen = DATA.solicitudes.find(s =>
           normNombre(s.Material) === normNombre(l.Material) &&
-          (s.Estado === 'En pedido' || s.Estado === 'En camino')
+          (s.Estado === 'En pedido' || s.Estado === 'En camino' || s.Estado === 'Pendiente')
         );
       }
       if (solOrigen) {
         const solIdx = DATA.solicitudes.indexOf(solOrigen);
-        // Asegurarnos de que Lista_Pedido queda bien enlazado
         if (!solOrigen.Lista_Pedido) solOrigen.Lista_Pedido = pedidoId;
         solOrigen.Estado = 'Recibido';
         const rowSol = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Recibido', solOrigen.Lista_Pedido, solOrigen.Observaciones];
@@ -577,7 +583,7 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
         const rolActual = getUserRole();
         if (rolActual === 'Gestor' || rolActual === 'Administrador') {
           solOrigen.Estado = 'Archivado';
-          const rowArch = [solOrigen.ID_Solicitud, solOrigen.Material, solOrigen.Cantidad_Solicitada, solOrigen.Solicitante, solOrigen.Fecha, solOrigen.Motivo, solOrigen.Proveedor_Requerido, 'Archivado', solOrigen.Lista_Pedido, solOrigen.Observaciones];
+          const rowArch = [...rowSol]; rowArch[7] = 'Archivado';
           try { await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowArch); } catch(e) { console.warn('No se pudo archivar solicitud', e); }
         }
       }
