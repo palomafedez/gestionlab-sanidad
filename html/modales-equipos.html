@@ -462,3 +462,74 @@
     </div>
   </div>
 </div>
+
+<!-- ============================================================ -->
+<!-- Modal Ficha de Intervención — solo lectura + acciones       -->
+<!-- ============================================================ -->
+<div class="modal-overlay" id="modal-ficha-intervencion">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Ficha de intervención</div>
+        <div id="ficha-int-id" style="font-size:12px;color:var(--text-muted);margin-top:2px"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('modal-ficha-intervencion')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px 20px;margin-bottom:16px">
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Equipo</div>
+          <div id="ficha-int-equipo" style="font-size:13px;font-weight:500"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Tipo</div>
+          <div id="ficha-int-tipo"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Estado</div>
+          <div id="ficha-int-estado"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Origen</div>
+          <div id="ficha-int-origen" style="font-size:13px"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Fecha planificada</div>
+          <div id="ficha-int-fecha-plan" style="font-size:13px"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Fecha realización</div>
+          <div id="ficha-int-fecha-real" style="font-size:13px"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Realizado por</div>
+          <div id="ficha-int-realizado" style="font-size:13px"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Resultado</div>
+          <div id="ficha-int-resultado" style="font-size:13px"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Equipo operativo</div>
+          <div id="ficha-int-operativo"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Documento adjunto</div>
+          <div id="ficha-int-doc"></div>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Descripción</div>
+          <div id="ficha-int-descripcion" style="font-size:13px;color:var(--text-soft);line-height:1.5"></div>
+        </div>
+        <div style="grid-column:1/-1">
+          <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px">Observaciones</div>
+          <div id="ficha-int-observaciones" style="font-size:13px;color:var(--text-soft);line-height:1.5"></div>
+        </div>
+      </div>
+      <div class="form-footer" style="justify-content:flex-end">
+        <div id="ficha-int-acciones" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+        <button class="btn btn-secondary" onclick="closeModal('modal-ficha-intervencion')">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
