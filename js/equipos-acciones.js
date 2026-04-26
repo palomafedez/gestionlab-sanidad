@@ -620,12 +620,9 @@ async function guardarIncidencia() {
   try {
     await sheetsAppend('Incidencias', row);
     DATA.incidencias.push(rowToObj(row, 'incidencias'));
-    // Actualizar estado del equipo según impacto
-    const impacto = v('inc-impacto');
-    const estadoEqPorImpacto = { 'Equipo fuera de servicio': 'Averiado', 'Uso limitado': 'En mantenimiento' };
-    if (estadoEqPorImpacto[impacto]) {
-      try { await actualizarEstadoEquipo(equipo, estadoEqPorImpacto[impacto]); } catch(e) { console.warn('No se pudo actualizar estado equipo', e); }
-    }
+    // Marcar equipo como "En mantenimiento" siempre que se abra una incidencia
+    // (el impacto real se muestra en el badge de la tabla de equipos)
+    try { await actualizarEstadoEquipo(equipo, 'En mantenimiento'); } catch(e) { console.warn('No se pudo actualizar estado equipo', e); }
     showToast('Incidencia reportada', 'success');
     closeModal('modal-incidencia'); renderAll();
   } catch(e) { showToast('Error guardando', 'error'); }

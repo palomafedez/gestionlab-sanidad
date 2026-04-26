@@ -6,7 +6,13 @@ function renderDashboard() {
 
   const hoy  = new Date();
   const en30 = new Date(); en30.setDate(hoy.getDate() + 30);
-  const preventivos = DATA.equipos.filter(e => e.Fecha_Proximo_Preventivo && new Date(e.Fecha_Proximo_Preventivo) <= en30);
+  const miNombre = currentUser?.name || '';
+  const esProfesor = getUserRole() === 'Profesor';
+  // Profesor solo ve sus propios equipos en el dashboard de preventivos
+  const misEquipos = esProfesor
+    ? DATA.equipos.filter(e => e.Responsable === miNombre)
+    : DATA.equipos;
+  const preventivos = misEquipos.filter(e => e.Fecha_Proximo_Preventivo && new Date(e.Fecha_Proximo_Preventivo) <= en30);
   setText('stat-preventivos', preventivos.length);
 
   const incAbiertas = DATA.incidencias.filter(i => i.Estado === 'Abierta' || i.Estado === 'En gestión');
@@ -76,7 +82,7 @@ function renderDashboard() {
     alertasStock.innerHTML += `<div class="alert-banner" style="border-left:3px solid var(--accent);background:var(--accent-light)"><div class="alert-icon">🏬</div><div class="alert-content"><div class="alert-title" style="color:var(--accent)">${alertasZC.length} material(es) bajo mínimo en la zona común (almacén)</div><div class="alert-text" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-top:4px">${itemsZC}${alertasZC.length > 6 ? ' y ' + (alertasZC.length-6) + ' más...' : ''}</div></div></div>`;
   }
 
-  const proximos = DATA.equipos.filter(e => e.Fecha_Proximo_Preventivo).sort((a,b) => new Date(a.Fecha_Proximo_Preventivo) - new Date(b.Fecha_Proximo_Preventivo)).slice(0, 8);
+  const proximos = misEquipos.filter(e => e.Fecha_Proximo_Preventivo).sort((a,b) => new Date(a.Fecha_Proximo_Preventivo) - new Date(b.Fecha_Proximo_Preventivo)).slice(0, 8);
   const tbody = document.getElementById('tabla-proximos');
   if (!proximos.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-title">Sin preventivos programados</div><div class="empty-state-text">Asigna fechas de próximo preventivo en el inventario</div></div></td></tr>`; return; }
   tbody.innerHTML = proximos.map(e => {
@@ -108,6 +114,14 @@ function renderEquipos(filtro, filtroEstado) {
 
   tbody.innerHTML = items.map(e => {
     const estadoBadge = {'Operativo':'badge-green','En mantenimiento':'badge-orange','Averiado':'badge-red','Fuera de servicio':'badge-gray'}[e.Estado_Operativo] || 'badge-gray';
+    // Buscar incidencia abierta para mostrar impacto junto al estado
+    const incAbierta = DATA.incidencias.find(i =>
+      (i.Estado === 'Abierta' || i.Estado === 'En gestión') &&
+      i.Equipo && (i.Equipo === e.ID_Activo || i.Equipo.startsWith(e.ID_Activo + ' '))
+    );
+    const impactoBadge = incAbierta
+      ? `<span class="badge badge-orange" style="font-size:10px;margin-left:4px" title="Incidencia ${incAbierta.ID_Incidencia}">⚠️ ${incAbierta.Impacto}</span>`
+      : '';
     const proxPreventivo = e.Fecha_Proximo_Preventivo ? (() => {
       const diffDias = Math.ceil((new Date(e.Fecha_Proximo_Preventivo) - new Date()) / 86400000);
       if (diffDias < 0)    return `<span class="badge badge-red">Vencido</span>`;
@@ -116,18 +130,20 @@ function renderEquipos(filtro, filtroEstado) {
     })() : '<span class="text-muted">—</span>';
     const expandId = 'eq-expand-' + e.ID_Activo.replace(/[^a-zA-Z0-9]/g,'_');
     const manualLink = e.Manual_Ficha_Tecnica ? `<a href="${e.Manual_Ficha_Tecnica}" target="_blank" class="icon-btn" title="Ver manual">📄</a>` : '';
+    const puedeIntervenir = puedeHacer('crearIntervenciones') &&
+      (getUserRole() !== 'Profesor' || e.Responsable === (currentUser?.name || ''));
     return `<tr style="cursor:pointer" onclick="toggleEquipoExpand('${expandId}')">
       <td><strong>${e.ID_Activo}</strong></td>
       <td>${e.Tipo_Equipo||'—'}</td>
       <td>${[e.Marca,e.Modelo].filter(Boolean).join(' · ')||'—'}</td>
       <td>${e.Ubicacion||'—'}</td>
       <td>${e.Responsable||'—'}</td>
-      <td><span class="badge ${estadoBadge}"><span class="dot"></span>${e.Estado_Operativo||'—'}</span></td>
+      <td><span class="badge ${estadoBadge}"><span class="dot"></span>${e.Estado_Operativo||'—'}</span>${impactoBadge}</td>
       <td>${proxPreventivo}</td>
       <td onclick="event.stopPropagation()"><div class="row-actions">
         ${manualLink}
         ${puedeHacer('editarEquipos') ? `<button class="icon-btn" onclick="editEquipo(${DATA.equipos.indexOf(e)})" title="Editar">✏️</button>` : ''}
-        ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="openModalIntervencionEquipo('${e.ID_Activo}')" title="Nueva intervención">🔧</button>` : ''}
+        ${puedeIntervenir ? `<button class="icon-btn" onclick="openModalIntervencionEquipo('${e.ID_Activo}')" title="Nueva intervención">🔧</button>` : ''}
         <button class="icon-btn" onclick="openModalIncidenciaEquipo('${e.ID_Activo}')" title="Reportar incidencia">⚠️</button>
       </div></td>
     </tr>
@@ -148,7 +164,9 @@ function buildIntervencionesEquipo(equipoId) {
     <div class="intervenciones-mini-header"><span>Tipo</span><span>Estado</span><span>Fecha</span><span>Descripción</span><span>Resultado</span><span></span></div>
     ${ints.map(i => {
       const intIdx = DATA.intervenciones.indexOf(i);
-      const puedeRegistrar = puedeHacer('crearIntervenciones') && (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado);
+      const puedeRegistrar = puedeHacer('crearIntervenciones') &&
+        (getUserRole() !== 'Profesor' || DATA.equipos.find(eq => eq.ID_Activo === equipoId)?.Responsable === (currentUser?.name || '')) &&
+        (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado);
       const btnLabel = i.Estado === 'Planificada' ? '🔧 Ejecutar' : '📋 Añadir actuación';
       return `<div class="intervencion-mini-row">
         <span><span class="badge ${tipoBadge[i.Tipo]||'badge-gray'}" style="font-size:10px">${i.Tipo||'—'}</span></span>
@@ -193,7 +211,6 @@ function renderIntervenciones(filtroTipo = '') {
       <td><div class="row-actions">
         <button class="icon-btn" onclick="openFichaIntervencion(${intIdx})" title="Ver ficha">🔍</button>
         ${puedeRegistrar ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openModalActuacionDerivada(${intIdx})">${btnLabel}</button>` : ''}
-        ${puedeHacer('crearIntervenciones') ? `<button class="icon-btn" onclick="editIntervencion(${intIdx})" title="Editar directamente">✏️</button>` : ''}
       </div></td>
     </tr>`;
   }).join('');
@@ -262,6 +279,12 @@ function openFichaIntervencion(intIdx) {
   document.getElementById('ficha-int-tipo').innerHTML       = `<span class="badge ${tipoBadge[i.Tipo]||'badge-gray'}">${i.Tipo||'—'}</span>`;
   document.getElementById('ficha-int-estado').innerHTML     = i.Estado ? `<span class="badge ${estadoBadge[i.Estado]||'badge-gray'}">${i.Estado}</span>` : '—';
   document.getElementById('ficha-int-origen').textContent   = i.Origen || '—';
+  // Incidencia vinculada
+  const incVinculada = DATA.incidencias.find(x => x.Intervencion_Generada === i.ID_Intervencion);
+  const elInc = document.getElementById('ficha-int-incidencia');
+  if (elInc) elInc.innerHTML = incVinculada
+    ? `<span class="badge badge-orange" style="cursor:pointer" onclick="closeModal('modal-ficha-intervencion')" title="Incidencia origen">${incVinculada.ID_Incidencia} · ${incVinculada.Impacto}</span>`
+    : '<span style="color:var(--text-muted);font-size:12px">—</span>';
   document.getElementById('ficha-int-fecha-plan').textContent = formatDate(i.Fecha_Planificada) || '—';
   document.getElementById('ficha-int-fecha-real').textContent = formatDate(i.Fecha_Realizacion) || '—';
   const quienRealizo = i.Realizado_Por || (i.Proveedor ? 'SAT: ' + i.Proveedor : '') || i.Tecnico_Externo || '—';

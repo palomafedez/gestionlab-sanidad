@@ -139,6 +139,11 @@ async function loadAllData() {
     DATA.pedidos             = toObj(pedidos,             'pedidos');
     DATA.lineasPedido        = toObj(lineasPedido,        'lineasPedido');
     DATA.ciclosModulos       = toObj(ciclosModulos,       'ciclosModulos');
+    // Propagar Ciclo hacia abajo: en Sheets las celdas "fusionadas" llegan vacías en filas 2..n
+    let ultimoCiclo = '';
+    DATA.ciclosModulos.forEach(cm => {
+      if (cm.Ciclo) { ultimoCiclo = cm.Ciclo; } else { cm.Ciclo = ultimoCiclo; }
+    });
     DATA.materialUbicaciones = toObj(materialUbicaciones, 'materialUbicaciones');
 
     renderAll();

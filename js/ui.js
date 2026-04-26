@@ -85,7 +85,7 @@ const PERMISOS = {
   },
   Profesor: {
     nav: ['dashboard', 'equipos', 'equipo-detalle', 'incidencias', 'material', 'solicitudes', 'proveedores', 'proveedor-detalle', 'ubicaciones'],
-    verIntervenciones: false, editarEquipos: false, crearIntervenciones: false,
+    verIntervenciones: false, editarEquipos: false, crearIntervenciones: true,
     gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: false,
     verMaterial: true, editarMaterial: false, registrarConsumo: false,

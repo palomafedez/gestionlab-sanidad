@@ -122,6 +122,7 @@ function renderFilaMaterial(m) {
         <td onclick="event.stopPropagation()"><div class="row-actions">
           <button class="icon-btn" onclick="openModalConsumoLote('${m.ID_Material}','${l.ID_Ubicacion}')" title="Consumo en esta ubicación">📦</button>
           <button class="icon-btn" onclick="openModalEntradaLote('${m.ID_Material}','${l.ID_Ubicacion}')" title="Entrada en esta ubicación">📥</button>
+          <button class="icon-btn" onclick="openModalTrasladoLote('${m.ID_Material}','${l.ID_Ubicacion}')" title="Trasladar a otra ubicación">🔀</button>
         </div></td>
       </tr>`;
     }).join('');
@@ -751,4 +752,57 @@ async function guardarEntrada() {
 // GESTIÓN AUTOMÁTICA DE STOCK
 // ============================================================
 // toggleGestionAutoStock eliminado — gestión por lote
+
+// ============================================================
+// TRASLADO entre ubicaciones (zona común → laboratorio y viceversa)
+// ============================================================
+function openModalTrasladoLote(matId, idUbicacionOrigen) {
+  const mat = DATA.material.find(m => m.ID_Material === matId);
+  if (!mat) return;
+  sv('traslado-mat-id', matId);
+  sv('traslado-origen', idUbicacionOrigen);
+  sv('traslado-cantidad', '');
+  document.getElementById('traslado-mat-nombre').textContent = mat.Nombre;
+  const stockOrigen = DATA.materialUbicaciones.find(l => l.ID_Material === matId && l.ID_Ubicacion === idUbicacionOrigen);
+  document.getElementById('traslado-stock-origen').textContent =
+    (parseFloat(stockOrigen?.Stock_Local) || 0) + ' ' + (mat.Unidad || '');
+  // Poblar destinos (todas las ubicaciones donde ya existe el material, excepto la origen)
+  const destinos = DATA.materialUbicaciones.filter(l => l.ID_Material === matId && l.ID_Ubicacion !== idUbicacionOrigen);
+  const selDest = document.getElementById('traslado-destino');
+  selDest.innerHTML = '<option value="">Seleccionar destino...</option>' +
+    destinos.map(l => `<option value="${l.ID_Ubicacion}">${getNombreUbicacion(l.ID_Ubicacion)}</option>`).join('');
+  document.getElementById('traslado-origen-label').textContent = getNombreUbicacion(idUbicacionOrigen);
+  openModal('modal-traslado');
+}
+
+async function guardarTraslado() {
+  const matId     = v('traslado-mat-id');
+  const idOrigen  = v('traslado-origen');
+  const idDestino = v('traslado-destino');
+  const cant      = parseFloat(v('traslado-cantidad'));
+  if (!idDestino) { showToast('Selecciona el destino', 'error'); return; }
+  if (!cant || cant <= 0) { showToast('Indica una cantidad válida', 'error'); return; }
+  const mat = DATA.material.find(m => m.ID_Material === matId);
+  if (!mat) return;
+  const loteOrigenIdx  = DATA.materialUbicaciones.findIndex(l => l.ID_Material === matId && l.ID_Ubicacion === idOrigen);
+  const loteDestinoIdx = DATA.materialUbicaciones.findIndex(l => l.ID_Material === matId && l.ID_Ubicacion === idDestino);
+  if (loteOrigenIdx === -1 || loteDestinoIdx === -1) { showToast('Error: ubicación no encontrada', 'error'); return; }
+  const stockOrigen = parseFloat(DATA.materialUbicaciones[loteOrigenIdx].Stock_Local) || 0;
+  if (cant > stockOrigen) { showToast(`Stock insuficiente en origen (${stockOrigen} ${mat.Unidad})`, 'error'); return; }
+  showLoading('Trasladando...');
+  try {
+    await actualizarStockLocal(loteOrigenIdx, stockOrigen - cant);
+    const stockDestino = parseFloat(DATA.materialUbicaciones[loteDestinoIdx].Stock_Local) || 0;
+    await actualizarStockLocal(loteDestinoIdx, stockDestino + cant);
+    // Registrar movimiento de traslado
+    const fecha = new Date().toISOString().split('T')[0];
+    const movRow = [genId('MOV-'), mat.Nombre, 'Traslado',cant, currentUser?.name||'Usuario', fecha,
+      `De: ${getNombreUbicacion(idOrigen)} → ${getNombreUbicacion(idDestino)}`, ''];
+    await sheetsAppend('Movimientos', movRow);
+    DATA.movimientos.push(rowToObj(movRow, 'movimientos'));
+    showToast(`Traslado registrado: ${cant} ${mat.Unidad} → ${getNombreUbicacion(idDestino)}`, 'success');
+    closeModal('modal-traslado'); renderMaterial();
+  } catch(e) { showToast('Error en el traslado', 'error'); console.error(e); }
+  hideLoading();
+}
 

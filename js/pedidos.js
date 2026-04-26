@@ -253,7 +253,20 @@ async function guardarSolicitud() {
     materialNombre = v('sol-material-libre');
     const unidad = v('sol-unidad');
     if (!unidad) { showToast('La unidad es obligatoria para material no catalogado', 'error'); return; }
-    if (materialNombre) materialNombre = materialNombre + ' [' + unidad + ']';
+    // La unidad NO forma parte del nombre: se guarda solo en observaciones para no contaminar el catálogo
+    if (!materialNombre) { showToast('Indica el material', 'error'); return; }
+    const obsBase = urgencia === 'Urgente' ? '⚠️ URGENTE — ' + v('sol-obs') : v('sol-obs');
+    const rowSheet = [id, materialNombre, cant, usuario, fecha, v('sol-motivo') + (fechaNecesidad ? ' · Necesario: ' + fechaNecesidad : ''), v('sol-proveedor'), 'Pendiente', '', '[Unidad: ' + unidad + '] ' + obsBase];
+    showLoading('Guardando...');
+    try {
+      await sheetsAppend('Solicitudes', rowSheet);
+      const objLocal = { ID_Solicitud: id, Material: materialNombre, Cantidad_Solicitada: cant, Solicitante: usuario, Fecha: fecha, Motivo: v('sol-motivo'), Proveedor_Requerido: v('sol-proveedor'), Estado: 'Pendiente', Lista_Pedido: '', Observaciones: rowSheet[9], Urgencia: urgencia };
+      DATA.solicitudes.push(objLocal);
+      showToast('Solicitud enviada', 'success');
+      closeModal('modal-solicitud'); renderSolicitudes(); updateBadges();
+    } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+    hideLoading();
+    return;
   } else {
     materialId = document.getElementById('sol-material-id').value;
     const mat = DATA.material.find(m => m.ID_Material === materialId);
@@ -533,7 +546,13 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
     }
     // Actualizar estado de la solicitud de origen si la línea queda como Recibido
     if (l.Estado_Linea === 'Recibido') {
-      const solOrigen = DATA.solicitudes.find(s => s.Lista_Pedido === pedidoId && (s.Material === l.Material || l.Material.startsWith(s.Material)) && s.Estado !== 'Recibido');
+      // Normalizar nombre quitando sufijos [xxx] para comparación robusta
+      const normNombre = n => (n || '').replace(/\s*\[.*?\]/g, '').trim().toLowerCase();
+      const solOrigen = DATA.solicitudes.find(s =>
+        s.Lista_Pedido === pedidoId &&
+        normNombre(s.Material) === normNombre(l.Material) &&
+        s.Estado !== 'Recibido' && s.Estado !== 'Archivado'
+      );
       if (solOrigen) {
         const solIdx = DATA.solicitudes.indexOf(solOrigen);
         solOrigen.Estado = 'Recibido';
