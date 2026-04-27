@@ -207,14 +207,31 @@ async function guardarEstadoPedido() {
   showLoading('Actualizando...');
   try {
     await sheetsUpdate(`Pedidos!A${idx+2}:M${idx+2}`, row);
-    // Sincronizar estado de las solicitudes vinculadas al pedido
-    if (nuevoEstado === 'Presupuesto aprobado') {
-      const solsVinculadas = DATA.solicitudes.filter(s => s.Lista_Pedido === pedidoId && s.Estado === 'Añadida a pedido');
+
+    // ── Sincronizar estado de las solicitudes vinculadas ────────────────
+    // Mapa pedido → solicitud. Los estados finales (Recibido, Rechazado,
+    // Archivado) los gestiona guardarRecepcionLinea; aquí no los tocamos.
+    const MAPA_SOL = {
+      'Abierto':                'Añadida a pedido',
+      'Presupuesto solicitado': 'Presupuesto solicitado',
+      'Presupuesto aprobado':   'Presupuesto aprobado',
+      'Pedido enviado':         'En camino',
+    };
+    const ESTADOS_FINALES_SOL = ['Recibido', 'Archivado', 'Rechazado'];
+    const nuevoEstadoSol = MAPA_SOL[nuevoEstado];
+    if (nuevoEstadoSol) {
+      const solsVinculadas = DATA.solicitudes.filter(s =>
+        s.Lista_Pedido === pedidoId && !ESTADOS_FINALES_SOL.includes(s.Estado)
+      );
       for (const sol of solsVinculadas) {
         const solIdx = DATA.solicitudes.indexOf(sol);
-        sol.Estado = 'En espera de recepción';
-        const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En espera de recepción', sol.Lista_Pedido, sol.Observaciones];
-        try { await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol); } catch(e) { console.warn('No se pudo actualizar solicitud', e); }
+        sol.Estado = nuevoEstadoSol;
+        const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada,
+          sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido,
+          nuevoEstadoSol, sol.Lista_Pedido, sol.Observaciones];
+        try {
+          await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
+        } catch(e) { console.warn('No se pudo actualizar solicitud', sol.ID_Solicitud, e); }
       }
     }
     showToast('Estado actualizado', 'success');

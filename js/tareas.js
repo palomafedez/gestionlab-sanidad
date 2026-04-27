@@ -12,8 +12,8 @@ function renderTareas() {
 
   const email   = (currentUser?.email || '').toLowerCase();
   const misTareas = DATA.tareas.filter(t => (t.Email || '').toLowerCase() === email);
-  const pending   = misTareas.filter(t => t.Completada !== 'true').sort(_sortTareas);
-  const done      = misTareas.filter(t => t.Completada === 'true').sort(_sortTareas);
+  const pending   = misTareas.filter(t => (t.Completada || '').toLowerCase() !== 'true').sort(_sortTareas);
+  const done      = misTareas.filter(t => (t.Completada || '').toLowerCase() === 'true').sort(_sortTareas);
 
   cont.innerHTML = `
     <div class="card">
@@ -70,7 +70,7 @@ function renderTareas() {
 }
 
 function _renderTarea(t) {
-  const completada = t.Completada === 'true';
+  const completada = (t.Completada || '').toLowerCase() === 'true';
   const fechaColor = _colorFecha(t.Fecha_Limite, completada);
   const fechaTexto = t.Fecha_Limite ? _formatFecha(t.Fecha_Limite) : '';
   const textoStyle = completada ? 'text-decoration:line-through;color:var(--text-muted)' : '';

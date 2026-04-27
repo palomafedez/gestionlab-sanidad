@@ -3,6 +3,19 @@
 // ============================================================
 let _filtroMaterial = '', _filtroMaterialCat = '', _filtroMaterialStock = '', _filtroMaterialUbicacion = '';
 
+/**
+ * Devuelve la etiqueta de precio medio con IVA para mostrar en la tabla.
+ * Usa getHistoricoMaterial (definido en contabilidad.js, mismo scope global).
+ * IVA estándar ES: 21 %.
+ */
+function _precioMedioLabel(m) {
+  if (typeof getHistoricoMaterial !== 'function') return '—';
+  const hist = getHistoricoMaterial(m.Nombre, '');  // sin filtro de proveedor → media global
+  if (!hist.count) return '<span style="color:var(--text-muted)">Sin datos</span>';
+  const conIVA = hist.media * 1.21;
+  return `${conIVA.toFixed(2)} € <span style="font-size:10px;color:var(--text-muted)">(n=${hist.count})</span>`;
+}
+
 function renderMaterial(filtro, cat, stockFiltro, ubicacion) {
   if (filtro    !== undefined) _filtroMaterial         = filtro;
   if (cat       !== undefined) _filtroMaterialCat      = cat;
@@ -91,6 +104,7 @@ function renderFilaMaterial(m) {
       </div>
     </td>
     <td style="font-size:12px;color:var(--text-muted)">${minTot || '—'} / ${opt || '—'}</td>
+    <td style="font-size:12px;color:var(--text-soft);text-align:right;padding-right:4px">${_precioMedioLabel(m)}</td>
     <td onclick="event.stopPropagation()"><div class="row-actions">
       ${!multiUbi ? `<button class="icon-btn" onclick="openModalConsumoMaterial('${m.ID_Material}')" title="Registrar consumo">📦</button>` : ''}
       ${puedeHacer('crearSolicitudes') ? `<button class="icon-btn" onclick="openModalSolicitudMaterial('${m.ID_Material}')" title="Solicitar">📋</button>` : ''}

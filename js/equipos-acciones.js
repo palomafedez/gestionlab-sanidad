@@ -815,7 +815,11 @@ function buscarEquipoIntervencion(query) {
   if (!list) return;
   if (!query || query.length < 1) { list.classList.remove('open'); return; }
   const q = query.toLowerCase();
-  const resultados = DATA.equipos.filter(e =>
+  // Profesor: solo puede intervenir en equipos de los que es responsable
+  const pool = getUserRole() === 'Profesor'
+    ? DATA.equipos.filter(e => esResponsableDeEquipo(e))
+    : DATA.equipos;
+  const resultados = pool.filter(e =>
     e.ID_Activo.toLowerCase().includes(q) ||
     (e.Tipo_Equipo || '').toLowerCase().includes(q) ||
     (e.Marca || '').toLowerCase().includes(q) ||

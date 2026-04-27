@@ -19,19 +19,21 @@ function abrirModalPrecios(pedidoId) {
     const precioAct  = parseFloat(l.Precio_Unitario) || 0;
     const cantNum    = parseFloat(l.Cantidad_Pedida)  || 0;
     const hint = hist.count > 0
-      ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px">Último: ${hist.ultimoPrecio.toFixed(2)} € · Media: ${hist.media.toFixed(2)} € (${hist.count})</div>`
+      ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px">Último: ${hist.ultimoPrecio.toFixed(2)} € · Media: ${hist.media.toFixed(2)} € (${hist.count} registros)</div>`
       : '';
+    const warnId = `warn-precio-${i}`;
     return `<tr>
       <td style="font-size:13px;font-weight:500;padding:8px 6px">${l.Material}</td>
       <td style="text-align:center;font-size:13px;padding:8px 6px">${l.Cantidad_Pedida}</td>
       <td style="padding:8px 6px">
         <input type="number" min="0" step="0.01" class="precio-input"
-          data-linea-id="${l.ID_Linea}" data-cant="${cantNum}"
+          data-linea-id="${l.ID_Linea}" data-cant="${cantNum}" data-media="${hist.media.toFixed(4)}"
           value="${precioAct > 0 ? precioAct.toFixed(2) : ''}"
           placeholder="${hist.count > 0 ? hist.ultimoPrecio.toFixed(2) : '0.00'}"
-          oninput="calcTotalesPrecios()"
+          oninput="calcTotalesPrecios(this, ${i})"
           style="width:90px;text-align:right;padding:5px 8px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
         ${hint}
+        <div id="${warnId}" style="display:none;font-size:11px;color:var(--warning);font-weight:600;margin-top:2px">⚠️ Precio >10% sobre la media</div>
       </td>
       <td style="text-align:right;font-size:13px;font-weight:500;padding:8px 6px;min-width:80px" id="total-linea-${i}">
         ${precioAct > 0 ? (precioAct * cantNum).toFixed(2) + ' \u20AC' : '\u2014'}
@@ -43,7 +45,7 @@ function abrirModalPrecios(pedidoId) {
   openModal('modal-precios');
 }
 
-function calcTotalesPrecios() {
+function calcTotalesPrecios(inputEl, idx) {
   const inputs = document.querySelectorAll('.precio-input');
   let subtotal = 0;
   inputs.forEach((inp, i) => {
@@ -53,6 +55,10 @@ function calcTotalesPrecios() {
     subtotal += total;
     const el = document.getElementById('total-linea-' + i);
     if (el) el.textContent = total > 0 ? total.toFixed(2) + ' \u20AC' : '\u2014';
+    // Aviso 10% sobre la media
+    const warn  = document.getElementById('warn-precio-' + i);
+    const media = parseFloat(inp.dataset.media) || 0;
+    if (warn) warn.style.display = (media > 0 && precio > media * 1.10) ? '' : 'none';
   });
   const iva   = subtotal * 0.21;
   const total = subtotal + iva;
@@ -228,7 +234,15 @@ function _renderContabilidadConAnio(anio) {
       for (const mod of Object.keys(mods).sort()) {
         const d = mods[mod];
         html += `<tr style="border-bottom:1px solid #f5f5f5">
-          <td style="padding:8px 4px">${mod}</td>
+          <td style="padding:8px 4px">
+            <div>${mod}</div>
+            <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">
+              ${d.pedidos.map(p => `<button onclick="verDetallePedido('${p.id}')"
+                style="font-size:11px;padding:2px 8px;border-radius:20px;border:1px solid var(--accent);
+                       background:transparent;color:var(--accent);cursor:pointer;white-space:nowrap"
+                title="${p.nombre}">📋 ${p.id}</button>`).join('')}
+            </div>
+          </td>
           <td style="text-align:right;padding:8px 4px;color:var(--text-soft)">${fmt(d.subtotal)}</td>
           <td style="text-align:right;padding:8px 4px;color:var(--text-muted)">${fmt(d.subtotal * 0.21)}</td>
           <td style="text-align:right;padding:8px 4px;font-weight:600">${fmt(d.subtotal * 1.21)}</td>
