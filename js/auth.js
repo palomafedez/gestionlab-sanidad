@@ -8,6 +8,7 @@ const TOKEN_STORAGE_KEY = 'gestionlab_token';
 const USER_STORAGE_KEY  = 'gestionlab_user';
 
 let tokenClient = null;
+let _expirando   = false;  // evita la tormenta de toasts cuando Promise.all falla en paralelo
 
 // ── Sesión persistente en localStorage ──────────────────────
 
@@ -163,10 +164,13 @@ async function authFetch(url, options = {}) {
   options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
   const r = await fetch(url, options);
   if (r.status === 401) {
-    clearSession();
-    accessToken = null;
-    showToast('Sesión expirada. Vuelve a iniciar sesión.', 'error');
-    setTimeout(() => _mostrarPantallaLogin(), 1500);
+    if (!_expirando) {
+      _expirando = true;
+      clearSession();
+      accessToken = null;
+      showToast('Sesión expirada. Vuelve a iniciar sesión.', 'error');
+      setTimeout(() => { _mostrarPantallaLogin(); _expirando = false; }, 1500);
+    }
     throw new Error('Sesión expirada');
   }
   return r;
