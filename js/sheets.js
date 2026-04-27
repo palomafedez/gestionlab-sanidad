@@ -109,7 +109,7 @@ async function loadAllData() {
   try {
     const [equipos, intervenciones, incidencias, proveedores, ubicaciones, usuarios,
            material, movimientos, solicitudes, pedidos, lineasPedido, ciclosModulos,
-           materialUbicaciones] = await Promise.all([
+           materialUbicaciones, historicoPrecio] = await Promise.all([
       sheetsGet('Equipos!A2:R'),
       sheetsGet('Intervenciones!A2:R'),
       sheetsGet('Incidencias!A2:I'),
@@ -119,10 +119,11 @@ async function loadAllData() {
       sheetsGet('Material!A2:L'),
       sheetsGet('Movimientos!A2:H'),
       sheetsGet('Solicitudes!A2:J'),
-      sheetsGet('Pedidos!A2:M'),
+      sheetsGet('Pedidos!A2:R'),
       sheetsGet('Lineas_Pedido!A2:H'),
       sheetsGet('Ciclos_Modulos!A2:B'),
-      sheetsGet('Material_Ubicaciones!A2:F')
+      sheetsGet('Material_Ubicaciones!A2:F'),
+      sheetsGet('Historico_Precios!A2:F').catch(() => [])
     ]);
 
     const toObj = (rows, type) => rows.filter(r => r.length && r[0]).map(r => rowToObj(r, type));
@@ -147,6 +148,7 @@ async function loadAllData() {
       if (cm.Ciclo) { ultimoCiclo = cm.Ciclo; } else { cm.Ciclo = ultimoCiclo; }
     });
     DATA.materialUbicaciones = toObj(materialUbicaciones, 'materialUbicaciones');
+    DATA.historicoPrecio     = toObj(historicoPrecio || [], 'historicoPrecio');
 
     renderAll();
   } catch(e) {

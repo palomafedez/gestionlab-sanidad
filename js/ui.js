@@ -92,7 +92,7 @@ const PERMISOS = {
     verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
   },
   Gestor: {
-    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
+    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios', 'contabilidad'],
     verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -100,7 +100,7 @@ const PERMISOS = {
     verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
   },
   Administrador: {
-    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios'],
+    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios', 'contabilidad'],
     verIntervenciones: true, editarEquipos: true, crearIntervenciones: true,
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
@@ -129,7 +129,8 @@ function showPage(page) {
     dashboard: 'Panel principal', equipos: 'Inventario de equipos', 'equipo-detalle': 'Ficha de equipo', intervenciones: 'Intervenciones',
     incidencias: 'Incidencias', material: 'Material fungible', movimientos: 'Movimientos de material',
     solicitudes: 'Solicitudes de material', pedidos: 'Pedidos', 'pedido-detalle': 'Detalle del pedido',
-    proveedores: 'Proveedores', 'proveedor-detalle': 'Ficha de proveedor', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios'
+    proveedores: 'Proveedores', 'proveedor-detalle': 'Ficha de proveedor', ubicaciones: 'Ubicaciones', usuarios: 'Usuarios',
+    contabilidad: 'Contabilidad'
   };
   document.getElementById('page-title').textContent = titles[page] || page;
 }
@@ -196,6 +197,7 @@ function renderAll() {
   renderMovimientos();
   renderSolicitudes();
   renderPedidos();
+  renderContabilidad();
   poblarSelects();
   updateBadges();
   aplicarPermisosUI();

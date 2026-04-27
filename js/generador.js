@@ -15,6 +15,13 @@ function abrirGeneradorHoja(pedidoId) {
   selCiclo.innerHTML = '<option value="">Seleccionar...</option>' + ciclos.map(c => `<option value="${c}">${c}</option>`).join('');
   selCiclo.value = '';
 
+  // Pre-rellenar ciclo/módulo si ya están guardados en el pedido
+  if (p && p.Ciclo) {
+    selCiclo.value = p.Ciclo;
+    actualizarModulos();
+    if (p.Modulo) setTimeout(() => sv('gen-modulo', p.Modulo), 50);
+  }
+
   // Pre-rellenar si el pedido ya tiene datos de factura en Sheets
   const p = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);
   if (p) {
@@ -98,6 +105,22 @@ async function generarHojaPedido() {
   }
 
   try {
+    // ── Guardar Ciclo y Módulo en Sheets si cambiaron ──
+    const cicloNuevo  = ciclo;
+    const moduloNuevo = v('gen-modulo');
+    if (pedIdx !== -1) {
+      const cicloActual  = DATA.pedidos[pedIdx].Ciclo  || '';
+      const moduloActual = DATA.pedidos[pedIdx].Modulo || '';
+      if (cicloNuevo !== cicloActual || moduloNuevo !== moduloActual) {
+        try {
+          await sheetsUpdate(`Pedidos!Q${pedIdx+2}:R${pedIdx+2}`, [cicloNuevo, moduloNuevo]);
+          DATA.pedidos[pedIdx].Ciclo  = cicloNuevo;
+          DATA.pedidos[pedIdx].Modulo = moduloNuevo;
+        } catch(e) { console.warn('No se pudo guardar ciclo/módulo', e); }
+      }
+    }
+
+    // ── Construir líneas con precios desde Lineas_Pedido.Precio_Unitario ──
     const lineasConPrecios = lineas.map(l => {
       const mat = DATA.material.find(m => m.Nombre === l.Material || l.Material.startsWith(m.Nombre));
       let unidad = mat?.Unidad || '';
@@ -105,14 +128,28 @@ async function generarHojaPedido() {
         const solIdM = (l.Observaciones || '').match(/Desde solicitud (SOL-\S+)/);
         if (solIdM) {
           const solVinc = DATA.solicitudes.find(s => s.ID_Solicitud === solIdM[1]);
-          const uMatch = (solVinc?.Observaciones || '').match(/\[Unidad:\s*([^\]]+)\]/);
+          const uMatch  = (solVinc?.Observaciones || '').match(/\[Unidad:\s*([^\]]+)\]/);
           if (uMatch) unidad = uMatch[1].trim();
         }
       }
       const concepto = unidad ? l.Material + ', ' + unidad : l.Material;
-      return { concepto, cantidad: l.Cantidad_Pedida, precio: '', total: '' };
+      const precio   = parseFloat(l.Precio_Unitario) || 0;
+      const cant     = parseFloat(l.Cantidad_Pedida) || 0;
+      const total    = precio * cant;
+      return {
+        concepto,
+        cantidad: l.Cantidad_Pedida,
+        precio:   precio > 0 ? precio.toFixed(2) + ' \u20AC' : '',
+        total:    total  > 0 ? total.toFixed(2)  + ' \u20AC' : ''
+      };
     });
-    const importeTotal = '';
+
+    // ── Calcular subtotal, IVA y total ──
+    const subtotal    = lineas.reduce((sum, l) => sum + (parseFloat(l.Precio_Unitario)||0) * (parseFloat(l.Cantidad_Pedida)||0), 0);
+    const ivaAmount   = subtotal * 0.21;
+    const totalConIva = subtotal + ivaAmount;
+    const hayPrecios  = subtotal > 0;
+
     const numFactura = DATA.pedidos[pedIdx]?.Numero_Factura || numFacturaNuevo || '';
     const fechaDoc   = DATA.pedidos[pedIdx]?.Fecha_Factura  || fechaFacturaNuevo
                         || p.Fecha_Recepcion_Completa
@@ -133,16 +170,19 @@ async function generarHojaPedido() {
     const rows   = docXml.match(/<w:tr[ >][\s\S]*?<\/w:tr>/g) || [];
     const mod    = [...rows];
 
-    if (rows[4])  mod[4]  = injectTextIntoRow(rows[4],  [ciclo, v('gen-modulo'), fechaDoc]);
+    if (rows[4])  mod[4]  = injectTextIntoRow(rows[4],  [cicloNuevo, moduloNuevo, fechaDoc]);
     if (rows[6])  mod[6]  = injectTextIntoRow(rows[6],  [p.Proveedor||'', '']);
     if (rows[8])  mod[8]  = injectTextIntoRow(rows[8],  ['', numFactura]);
     for (let i = 0; i < 25 && rows[10+i]; i++) {
       if (i < lineasConPrecios.length) {
-        const l = lineasConPrecios[i];
-        mod[10+i] = injectTextIntoRow(rows[10+i], [String(l.concepto||''), String(l.cantidad||''), String(l.precio||''), String(l.total||'')]);
+        const lp = lineasConPrecios[i];
+        mod[10+i] = injectTextIntoRow(rows[10+i], [String(lp.concepto||''), String(lp.cantidad||''), lp.precio, lp.total]);
+      } else if (hayPrecios && i === lineasConPrecios.length) {
+        // Fila de IVA — siempre en posición fija tras el último ítem (ignorar al leer la hoja de pedido)
+        mod[10+i] = injectTextIntoRow(rows[10+i], ['IVA (21%)', '', '', ivaAmount.toFixed(2) + ' \u20AC']);
       }
     }
-    if (rows[35]) mod[35] = injectTextIntoRow(rows[35], [importeTotal]);
+    if (rows[35]) mod[35] = injectTextIntoRow(rows[35], ['', hayPrecios ? totalConIva.toFixed(2) + ' \u20AC' : '']);
 
     let newXml = docXml;
     rows.forEach((old, i) => { if (mod[i] !== old) newXml = newXml.replace(old, mod[i]); });
