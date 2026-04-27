@@ -343,3 +343,24 @@
     </div>
   </div>
 </div>
+
+<!-- Modal Editar Proveedor del Pedido -->
+<div class="modal-overlay" id="modal-editar-proveedor">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <div class="modal-title">Asignar proveedor</div>
+      <button class="modal-close" onclick="closeModal('modal-editar-proveedor')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-prov-pedido-id">
+      <div class="form-group">
+        <label>Proveedor</label>
+        <select id="edit-prov-select"></select>
+      </div>
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-editar-proveedor')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarProveedorPedido()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
