@@ -27,12 +27,15 @@ function renderSolicitudes(filtroEstado = '') {
     return;
   }
   const estadoBadge = {
-    'Pendiente':'badge-orange',
-    'Añadida a pedido':'badge-blue',
-    'En espera de recepción':'badge-blue',
-    'Recibido':'badge-green',
-    'Rechazado':'badge-red',
-    'Archivado':'badge-gray'
+    'Pendiente':              'badge-orange',
+    'Añadida a pedido':       'badge-blue',
+    'Presupuesto solicitado': 'badge-blue',
+    'Presupuesto aprobado':   'badge-green',
+    'En camino':              'badge-blue',
+    'En espera de recepción': 'badge-blue',  // estado legacy, compatibilidad
+    'Recibido':               'badge-green',
+    'Rechazado':              'badge-red',
+    'Archivado':              'badge-gray'
   };
   const urgenciaBadge = {'Urgente':'badge-red','Normal':'badge-gray'};
   const puedeGestionar = rol === 'Administrador' || rol === 'Gestor';
@@ -49,8 +52,8 @@ function renderSolicitudes(filtroEstado = '') {
     <td style="font-size:12px">${s.Proveedor_Requerido||'—'}</td>
     <td><span class="badge ${estadoBadge[s.Estado]||'badge-gray'}">${s.Estado||'Pendiente'}</span></td>
     <td><div class="row-actions">
-      ${puedeGestionar && s.Estado !== 'Añadida a pedido' && s.Estado !== 'En espera de recepción' && s.Estado !== 'Recibido' && s.Estado !== 'Archivado' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
-      ${(s.Estado === 'Añadida a pedido' || s.Estado === 'En espera de recepción') && s.Lista_Pedido ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
+      ${puedeGestionar && s.Estado === 'Pendiente' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
+      ${s.Lista_Pedido && !['Pendiente','Rechazado','Archivado'].includes(s.Estado) ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
       ${puedeGestionar && s.Estado === 'Pendiente' ? `<button class="icon-btn" title="Rechazar" onclick="rechazarSolicitud('${s.ID_Solicitud}')">✕</button>` : ''}
     </div></td>
   </tr>`).join('');
