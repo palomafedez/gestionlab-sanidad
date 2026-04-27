@@ -1152,6 +1152,7 @@
     z-index: 100; width: 240px;
     transition: left 0.25s ease;
     box-shadow: none;
+    overflow-y: auto;   /* scroll vertical cuando el nav no cabe en ~430px */
   }
   .sidebar.open {
     left: 0;
