@@ -329,7 +329,17 @@
       <div class="form-grid form-grid-2">
         <div class="form-group full" id="int-equipo-group">
           <label>Equipo *</label>
-          <select id="int-equipo"><option value="">Seleccionar...</option></select>
+          <div style="position:relative">
+            <input type="text" id="int-equipo-search" placeholder="Buscar por ID, tipo o marca..."
+              oninput="buscarEquipoIntervencion(this.value)" autocomplete="off"
+              style="width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px">
+            <div class="autocomplete-list" id="int-equipo-autocomplete"></div>
+          </div>
+          <input type="hidden" id="int-equipo">
+          <div id="int-equipo-selected" style="display:none;margin-top:6px;padding:6px 10px;background:var(--accent-light);border-radius:var(--radius-sm);font-size:12px;color:var(--accent);display:flex;align-items:center;justify-content:space-between">
+            <span id="int-equipo-selected-text"></span>
+            <button type="button" onclick="limpiarEquipoIntervencion()" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:14px;padding:0 2px">✕</button>
+          </div>
         </div>
         <div class="form-group">
           <label>Tipo de intervención *</label>
