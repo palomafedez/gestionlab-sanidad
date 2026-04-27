@@ -1,18 +1,19 @@
 // ============================================================
-// GOOGLE AUTH — flujo redirect (no popup)
-// Razón: GitHub Pages envía Cross-Origin-Opener-Policy: same-origin,
-// lo que impide que el popup de Google devuelva el token vía postMessage.
-// Con redirect el token llega en el hash de la URL — sin popups,
-// sin COOP, funciona en escritorio y móvil.
+// GOOGLE AUTH — flujo GIS (popup)
+// El tokenClient.requestAccessToken() de GIS funciona en GitHub Pages
+// a pesar del header COOP:same-origin porque Google gestiona la
+// comunicación internamente, sin depender de window.opener.
 // ============================================================
 const TOKEN_STORAGE_KEY = 'gestionlab_token';
 const USER_STORAGE_KEY  = 'gestionlab_user';
+
+let tokenClient = null;
 
 // ── Sesión persistente en localStorage ──────────────────────
 
 function saveSession(token, user) {
   try {
-    const expires = Date.now() + 55 * 60 * 1000;
+    const expires = Date.now() + 55 * 60 * 1000; // 55 min (token Google dura 60)
     localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({ token, expires }));
     localStorage.setItem(USER_STORAGE_KEY,  JSON.stringify(user));
   } catch(e) {}
@@ -42,38 +43,37 @@ function clearSession() {
   } catch(e) {}
 }
 
-// ── Redirect URI de retorno ──────────────────────────────────
+// ── Carga dinámica del script GIS ────────────────────────────
 
-function getRedirectUri() {
-  return window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
+function _loadGIS() {
+  return new Promise((resolve) => {
+    if (window.google?.accounts?.oauth2) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    s.onerror = () => { console.error('No se pudo cargar GIS'); resolve(); };
+    document.head.appendChild(s);
+  });
 }
 
 // ── initAuth ─────────────────────────────────────────────────
 
 async function initAuth() {
-  // 1) ¿Volvemos de OAuth? Token en hash: #access_token=...
-  const hash = window.location.hash;
-  if (hash && hash.includes('access_token')) {
-    const params = new URLSearchParams(hash.replace(/^#/, ''));
-    const token  = params.get('access_token');
-    history.replaceState(null, '', window.location.pathname);
-    if (token) {
-      accessToken = token;
-      try {
-        await getUserInfo();
-        saveSession(accessToken, currentUser);
-        await loadAllData();
-        showApp();
-        _scheduleTokenRenewal();
-      } catch(e) {
-        console.error('Error tras OAuth redirect:', e);
-        _mostrarPantallaLogin();
-      }
-      return;
-    }
+  await _loadGIS();
+
+  if (!window.google?.accounts?.oauth2) {
+    showToast('Error al cargar la autenticación de Google. Recarga la página.', 'error');
+    _mostrarPantallaLogin();
+    return;
   }
 
-  // 2) ¿Sesión guardada válida?
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope:     SCOPES,
+    callback:  _onTokenReceived
+  });
+
+  // ¿Sesión guardada válida?
   const savedToken = loadSession();
   const savedUser  = loadSavedUser();
   if (savedToken && savedUser) {
@@ -82,38 +82,65 @@ async function initAuth() {
     try {
       await loadAllData();
       showApp();
-      _scheduleTokenRenewal();
+      return;
     } catch(e) {
+      // Si el token ha expirado (401) o hay error de red, limpiamos y pedimos login
       clearSession();
-      _mostrarPantallaLogin();
+      accessToken = null;
+      currentUser = null;
+      // El toast ya fue mostrado por authFetch si fue un 401
     }
-    return;
   }
 
-  // 3) Sin sesión
   _mostrarPantallaLogin();
+}
+
+// ── Callback tras login exitoso con Google ────────────────────
+
+async function _onTokenReceived(response) {
+  if (response.error) {
+    console.error('Error OAuth:', response);
+    // access_denied es cuando el usuario cierra el popup, no es un error real
+    if (response.error !== 'access_denied') {
+      showToast('Error al iniciar sesión: ' + (response.error_description || response.error), 'error');
+    }
+    _mostrarPantallaLogin();
+    return;
+  }
+  accessToken = response.access_token;
+  try {
+    await getUserInfo();
+    saveSession(accessToken, currentUser);
+    await loadAllData();
+    showApp();
+  } catch(e) {
+    console.error('Error tras login:', e);
+    showToast('Error cargando datos. Inténtalo de nuevo.', 'error');
+    clearSession();
+    accessToken = null;
+    currentUser = null;
+    _mostrarPantallaLogin();
+  }
 }
 
 // ── signIn ───────────────────────────────────────────────────
 
 function signIn() {
-  const params = new URLSearchParams({
-    client_id:              CLIENT_ID,
-    redirect_uri:           getRedirectUri(),
-    response_type:          'token',
-    scope:                  SCOPES,
-    include_granted_scopes: 'true',
-    prompt:                 'select_account'
-  });
-  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
+  if (!tokenClient) {
+    initAuth();
+    return;
+  }
+  tokenClient.requestAccessToken({ prompt: 'select_account' });
 }
 
 // ── signOut ──────────────────────────────────────────────────
 
 function signOut() {
+  const tok = accessToken;
   clearSession();
   accessToken = null;
   currentUser = null;
+  if (tok) { try { google.accounts.oauth2.revoke(tok, () => {}); } catch(e) {} }
   _mostrarPantallaLogin();
 }
 
@@ -125,35 +152,24 @@ async function getUserInfo() {
   });
   if (!r.ok) throw new Error('No se pudo obtener información del usuario');
   currentUser = await r.json();
-  saveSession(accessToken, currentUser);
 }
 
 // ── authFetch ────────────────────────────────────────────────
+// IMPORTANTE: solo trata 401 como sesión expirada.
+// Un 403 es un error de permisos en la hoja o en la API,
+// no significa que el token sea inválido — no cierra la sesión.
 
 async function authFetch(url, options = {}) {
   options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
   const r = await fetch(url, options);
-  if (r.status === 401 || r.status === 403) {
+  if (r.status === 401) {
     clearSession();
-    showToast('Sesión expirada. Redirigiendo al login...', 'error');
-    setTimeout(() => signIn(), 1800);
+    accessToken = null;
+    showToast('Sesión expirada. Vuelve a iniciar sesión.', 'error');
+    setTimeout(() => _mostrarPantallaLogin(), 1500);
     throw new Error('Sesión expirada');
   }
   return r;
-}
-
-// ── Renovación programada ────────────────────────────────────
-
-function _scheduleTokenRenewal() {
-  const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
-  if (!raw) return;
-  try {
-    const { expires } = JSON.parse(raw);
-    const msAviso   = expires - Date.now() - 5 * 60 * 1000;
-    const msExpira  = expires - Date.now();
-    if (msAviso  > 0) setTimeout(() => showToast('La sesión expira en 5 minutos. Guarda tu trabajo.', 'warning'), msAviso);
-    if (msExpira > 0) setTimeout(() => { clearSession(); showToast('Sesión expirada. Redirigiendo...', 'error'); setTimeout(() => signIn(), 1800); }, msExpira);
-  } catch(e) {}
 }
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -165,7 +181,12 @@ function _mostrarPantallaLogin() {
   if (auth) auth.style.display = 'flex';
 }
 
-// Stub de compatibilidad (el flujo redirect no usa renovación silenciosa)
+// scheduleTokenRenewal es llamado desde showApp() en ui.js.
+// Con GIS no necesitamos timers: authFetch detecta el 401
+// automáticamente cuando el token expira de verdad.
+function scheduleTokenRenewal() { /* no-op con flujo GIS */ }
+
+// Stub de compatibilidad
 function renewTokenPromise() {
-  return Promise.reject(new Error('Flujo redirect: sin renovación silenciosa'));
+  return Promise.reject(new Error('Usar signIn() para renovar'));
 }
