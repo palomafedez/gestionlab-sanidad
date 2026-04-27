@@ -154,7 +154,7 @@ async function generarHojaPedido() {
     setGenEstado('📝 Generando documento...', 'info');
     let templateBuffer;
     try {
-      const tplResp = await fetch('./assets/templates/Folla_de_Pedido___modelo.docx');
+      const tplResp = await fetch('./assets/templates/Folla%20de%20Pedido%20_%20modelo.docx');
       if (!tplResp.ok) throw new Error('HTTP ' + tplResp.status);
       templateBuffer = await tplResp.arrayBuffer();
     } catch(e) {
