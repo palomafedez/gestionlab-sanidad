@@ -86,7 +86,12 @@ function togglePeriodicidadCustom(val) {
 function openModalIntervencion() {
   editingRow = null; pendingFileBase64 = null; _incidenciaOrigen = null; removeFile();
   document.getElementById('modal-intervencion-title').textContent = 'Nueva intervención';
-  ['int-equipo','int-realizado-por','int-proveedor','int-tecnico-ext','int-fecha-plan','int-fecha-real','int-descripcion','int-observaciones'].forEach(id => sv(id,''));
+  ['int-realizado-por','int-proveedor','int-tecnico-ext','int-fecha-plan','int-fecha-real','int-descripcion','int-observaciones'].forEach(id => sv(id,''));
+  // Limpiar autocomplete de equipo
+  sv('int-equipo', '');
+  const srch = document.getElementById('int-equipo-search'); if (srch) srch.value = '';
+  const sel2 = document.getElementById('int-equipo-selected'); if (sel2) sel2.style.display = 'none';
+  const ac = document.getElementById('int-equipo-autocomplete'); if (ac) ac.classList.remove('open');
   sv('int-tipo','Preventivo'); sv('int-origen','Planificado'); sv('int-resultado','Resuelto');
   sv('int-operativo','Sí'); sv('int-actualiza-preventivo','Sí'); sv('int-estado-manual','Planificada');
   const origenSel = document.getElementById('int-origen');
@@ -101,9 +106,11 @@ function openModalIntervencion() {
 function openModalIntervencionEquipo(equipoId) {
   openModalIntervencion();
   setTimeout(() => {
-    const sel = document.getElementById('int-equipo');
-    const opt = Array.from(sel.options).find(o => o.value.startsWith(equipoId));
-    if (opt) sel.value = opt.value;
+    const e = DATA.equipos.find(eq => eq.ID_Activo === equipoId);
+    if (e) {
+      const label = [e.Tipo_Equipo, e.Marca, e.Modelo].filter(Boolean).join(' ');
+      seleccionarEquipoIntervencion(e.ID_Activo, label);
+    }
     const grp = document.getElementById('int-equipo-group');
     if (grp) grp.style.display = 'none';
   }, 50);
@@ -114,7 +121,19 @@ function editIntervencion(idx) {
   editingRow = { sheet: 'Intervenciones', rowIndex: idx };
   poblarSelects();
   document.getElementById('modal-intervencion-title').textContent = 'Editar intervención';
-  sv('int-equipo',i.Equipo); sv('int-tipo',i.Tipo); sv('int-origen',i.Origen);
+  sv('int-equipo',i.Equipo);
+  // Pre-rellenar el autocomplete visual
+  const eqObj = DATA.equipos.find(e => (i.Equipo||'').startsWith(e.ID_Activo));
+  if (eqObj) {
+    const lbl = [eqObj.Tipo_Equipo, eqObj.Marca, eqObj.Modelo].filter(Boolean).join(' ');
+    seleccionarEquipoIntervencion(eqObj.ID_Activo, lbl);
+  } else if (i.Equipo) {
+    const sel2 = document.getElementById('int-equipo-selected');
+    const txt2 = document.getElementById('int-equipo-selected-text');
+    if (sel2) sel2.style.display = 'flex';
+    if (txt2) txt2.textContent = i.Equipo;
+  }
+  sv('int-tipo',i.Tipo); sv('int-origen',i.Origen);
   sv('int-fecha-plan',i.Fecha_Planificada); sv('int-fecha-real',i.Fecha_Realizacion);
   sv('int-realizado-por',i.Realizado_Por); sv('int-tecnico-ext',i.Tecnico_Externo);
   sv('int-proveedor',i.Proveedor); sv('int-descripcion',i.Descripcion_Actuacion||i.Descripcion_Planificada||'');
@@ -713,4 +732,52 @@ function clearUbicacionEquipo() {
   document.getElementById('eq-ubicacion-search').value = '';
   const sel = document.getElementById('eq-ubicacion-selected');
   if (sel) sel.style.display = 'none';
+}
+
+// ============================================================
+// AUTOCOMPLETE EQUIPO EN INTERVENCIÓN
+// ============================================================
+function buscarEquipoIntervencion(query) {
+  const list = document.getElementById('int-equipo-autocomplete');
+  if (!list) return;
+  if (!query || query.length < 1) { list.classList.remove('open'); return; }
+  const q = query.toLowerCase();
+  const resultados = DATA.equipos.filter(e =>
+    e.ID_Activo.toLowerCase().includes(q) ||
+    (e.Tipo_Equipo || '').toLowerCase().includes(q) ||
+    (e.Marca || '').toLowerCase().includes(q) ||
+    (e.Modelo || '').toLowerCase().includes(q) ||
+    (e.Ubicacion || '').toLowerCase().includes(q)
+  ).slice(0, 8);
+  if (!resultados.length) { list.classList.remove('open'); return; }
+  list.innerHTML = resultados.map(e => {
+    const label = [e.Tipo_Equipo, e.Marca, e.Modelo].filter(Boolean).join(' ');
+    const meta  = e.Ubicacion || '';
+    return `<div class="autocomplete-item" onclick="seleccionarEquipoIntervencion('${e.ID_Activo}','${label.replace(/'/g,"\\'")}')">
+      <div>
+        <div class="autocomplete-item-name">${e.ID_Activo} – ${label}</div>
+        ${meta ? `<div class="autocomplete-item-meta">${meta}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  list.classList.add('open');
+}
+
+function seleccionarEquipoIntervencion(id, label) {
+  document.getElementById('int-equipo').value = id + (label ? ' – ' + label : '');
+  const srch = document.getElementById('int-equipo-search'); if (srch) srch.value = '';
+  const sel  = document.getElementById('int-equipo-selected');
+  const txt  = document.getElementById('int-equipo-selected-text');
+  if (sel) sel.style.display = 'flex';
+  if (txt) txt.textContent = id + (label ? ' – ' + label : '');
+  const list = document.getElementById('int-equipo-autocomplete');
+  if (list) list.classList.remove('open');
+}
+
+function limpiarEquipoIntervencion() {
+  sv('int-equipo', '');
+  const srch = document.getElementById('int-equipo-search'); if (srch) srch.value = '';
+  const sel  = document.getElementById('int-equipo-selected'); if (sel) sel.style.display = 'none';
+  const list = document.getElementById('int-equipo-autocomplete'); if (list) list.classList.remove('open');
+  document.getElementById('int-equipo-search')?.focus();
 }

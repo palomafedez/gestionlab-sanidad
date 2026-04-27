@@ -1,22 +1,20 @@
 // ============================================================
-// GOOGLE AUTH — con sesión persistente
+// GOOGLE AUTH — flujo redirect (no popup)
+// Razón: GitHub Pages envía Cross-Origin-Opener-Policy: same-origin,
+// lo que impide que el popup de Google devuelva el token vía postMessage.
+// Con redirect el token llega en el hash de la URL — sin popups,
+// sin COOP, funciona en escritorio y móvil.
 // ============================================================
 const TOKEN_STORAGE_KEY = 'gestionlab_token';
 const USER_STORAGE_KEY  = 'gestionlab_user';
 
-// Flag para distinguir login inicial de renovación silenciosa
-let _tokenRenewal = false;
-
-// Soporte para renovación reactiva ante errores 401
-let _pendingRenewalResolve = null;
-let _pendingRenewalReject  = null;
-let _renewalTimeout        = null;
+// ── Sesión persistente en localStorage ──────────────────────
 
 function saveSession(token, user) {
   try {
     const expires = Date.now() + 55 * 60 * 1000;
     localStorage.setItem(TOKEN_STORAGE_KEY, JSON.stringify({ token, expires }));
-    localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+    localStorage.setItem(USER_STORAGE_KEY,  JSON.stringify(user));
   } catch(e) {}
 }
 
@@ -44,142 +42,130 @@ function clearSession() {
   } catch(e) {}
 }
 
-function loadGoogleScripts() {
-  return new Promise((resolve, reject) => {
-    if (typeof google !== 'undefined' && google.accounts) { resolve(); return; }
-    const script = document.createElement('script');
-    script.src = 'https://accounts.google.com/gsi/client';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      const check = setInterval(() => {
-        if (typeof google !== 'undefined' && google.accounts) {
-          clearInterval(check); resolve();
-        }
-      }, 50);
-      setTimeout(() => { clearInterval(check); reject(new Error('Timeout')); }, 10000);
-    };
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
+// ── Redirect URI de retorno ──────────────────────────────────
+
+function getRedirectUri() {
+  return window.location.origin + window.location.pathname.replace(/\/$/, '') + '/';
 }
 
+// ── initAuth ─────────────────────────────────────────────────
+
 async function initAuth() {
-  try {
-    await loadGoogleScripts();
-    tokenClient = google.accounts.oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: SCOPES,
-      callback: async (resp) => {
-        if (resp.error) {
-          // Notificar a cualquier petición que estaba esperando renovación
-          if (_pendingRenewalReject) {
-            clearTimeout(_renewalTimeout);
-            const rej = _pendingRenewalReject;
-            _pendingRenewalResolve = null;
-            _pendingRenewalReject  = null;
-            _renewalTimeout        = null;
-            rej(new Error(resp.error));
-          }
-          if (resp.error === 'interaction_required' || resp.error === 'user_cancelled') {
-            document.getElementById('auth-screen').style.display = 'flex';
-            return;
-          }
-          showToast('Error de autenticación: ' + resp.error, 'error'); return;
-        }
-        accessToken = resp.access_token;
-
-        if (_tokenRenewal) {
-          // Renovación (programada o reactiva): actualizar token y notificar
-          _tokenRenewal = false;
-          saveSession(accessToken, currentUser);
-          scheduleTokenRenewal();
-          if (_pendingRenewalResolve) {
-            clearTimeout(_renewalTimeout);
-            const res = _pendingRenewalResolve;
-            _pendingRenewalResolve = null;
-            _pendingRenewalReject  = null;
-            _renewalTimeout        = null;
-            res(accessToken);
-          }
-          return;
-        }
-
-        // Login inicial: cargar datos y mostrar app
+  // 1) ¿Volvemos de OAuth? Token en hash: #access_token=...
+  const hash = window.location.hash;
+  if (hash && hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.replace(/^#/, ''));
+    const token  = params.get('access_token');
+    history.replaceState(null, '', window.location.pathname);
+    if (token) {
+      accessToken = token;
+      try {
         await getUserInfo();
         saveSession(accessToken, currentUser);
         await loadAllData();
         showApp();
+        _scheduleTokenRenewal();
+      } catch(e) {
+        console.error('Error tras OAuth redirect:', e);
+        _mostrarPantallaLogin();
       }
-    });
-
-    const savedToken = loadSession();
-    if (savedToken) {
-      const savedUser = loadSavedUser();
-      if (savedUser) {
-        accessToken = savedToken;
-        currentUser = savedUser;
-        await loadAllData();
-        showApp();
-        scheduleTokenRenewal();
-        return;
-      }
+      return;
     }
-    tokenClient.requestAccessToken({ prompt: '' });
-  } catch(e) {
-    console.error('Error iniciando auth:', e);
-    document.getElementById('auth-screen').style.display = 'flex';
   }
+
+  // 2) ¿Sesión guardada válida?
+  const savedToken = loadSession();
+  const savedUser  = loadSavedUser();
+  if (savedToken && savedUser) {
+    accessToken = savedToken;
+    currentUser = savedUser;
+    try {
+      await loadAllData();
+      showApp();
+      _scheduleTokenRenewal();
+    } catch(e) {
+      clearSession();
+      _mostrarPantallaLogin();
+    }
+    return;
+  }
+
+  // 3) Sin sesión
+  _mostrarPantallaLogin();
 }
 
-// ============================================================
-// RENOVACIÓN REACTIVA — para 401 en llamadas a Sheets API
-// Devuelve una Promise que se resuelve cuando el token se renueva,
-// o se rechaza si el usuario no puede renovar (sesión expirada).
-// ============================================================
-function renewTokenPromise() {
-  return new Promise((resolve, reject) => {
-    _pendingRenewalResolve = resolve;
-    _pendingRenewalReject  = reject;
-    _renewalTimeout = setTimeout(() => {
-      _pendingRenewalResolve = null;
-      _pendingRenewalReject  = null;
-      _renewalTimeout        = null;
-      reject(new Error('Timeout de renovación de token'));
-    }, 15000);
-    _tokenRenewal = true;
-    tokenClient.requestAccessToken({ prompt: '' });
+// ── signIn ───────────────────────────────────────────────────
+
+function signIn() {
+  const params = new URLSearchParams({
+    client_id:              CLIENT_ID,
+    redirect_uri:           getRedirectUri(),
+    response_type:          'token',
+    scope:                  SCOPES,
+    include_granted_scopes: 'true',
+    prompt:                 'select_account'
   });
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
-function scheduleTokenRenewal() {
-  const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
-  if (!raw) return;
-  const { expires } = JSON.parse(raw);
-  const msUntilRenewal = expires - Date.now() - 5 * 60 * 1000;
-  if (msUntilRenewal > 0) {
-    setTimeout(() => {
-      _tokenRenewal = true;
-      tokenClient.requestAccessToken({ prompt: '' });
-    }, msUntilRenewal);
-  }
-}
-
-function signIn() { tokenClient.requestAccessToken({ prompt: 'select_account consent' }); }
+// ── signOut ──────────────────────────────────────────────────
 
 function signOut() {
   clearSession();
-  google.accounts.oauth2.revoke(accessToken, () => {
-    accessToken = null; currentUser = null;
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('auth-screen').style.display = 'flex';
-  });
+  accessToken = null;
+  currentUser = null;
+  _mostrarPantallaLogin();
 }
+
+// ── getUserInfo ──────────────────────────────────────────────
 
 async function getUserInfo() {
   const r = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` }
   });
+  if (!r.ok) throw new Error('No se pudo obtener información del usuario');
   currentUser = await r.json();
   saveSession(accessToken, currentUser);
+}
+
+// ── authFetch ────────────────────────────────────────────────
+
+async function authFetch(url, options = {}) {
+  options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
+  const r = await fetch(url, options);
+  if (r.status === 401 || r.status === 403) {
+    clearSession();
+    showToast('Sesión expirada. Redirigiendo al login...', 'error');
+    setTimeout(() => signIn(), 1800);
+    throw new Error('Sesión expirada');
+  }
+  return r;
+}
+
+// ── Renovación programada ────────────────────────────────────
+
+function _scheduleTokenRenewal() {
+  const raw = localStorage.getItem(TOKEN_STORAGE_KEY);
+  if (!raw) return;
+  try {
+    const { expires } = JSON.parse(raw);
+    const msAviso   = expires - Date.now() - 5 * 60 * 1000;
+    const msExpira  = expires - Date.now();
+    if (msAviso  > 0) setTimeout(() => showToast('La sesión expira en 5 minutos. Guarda tu trabajo.', 'warning'), msAviso);
+    if (msExpira > 0) setTimeout(() => { clearSession(); showToast('Sesión expirada. Redirigiendo...', 'error'); setTimeout(() => signIn(), 1800); }, msExpira);
+  } catch(e) {}
+}
+
+// ── Helpers ──────────────────────────────────────────────────
+
+function _mostrarPantallaLogin() {
+  const app  = document.getElementById('app');
+  const auth = document.getElementById('auth-screen');
+  if (app)  app.style.display  = 'none';
+  if (auth) auth.style.display = 'flex';
+}
+
+// Stub de compatibilidad (el flujo redirect no usa renovación silenciosa)
+function renewTokenPromise() {
+  return Promise.reject(new Error('Flujo redirect: sin renovación silenciosa'));
 }

@@ -114,7 +114,8 @@ function puedeHacer(accion) { return getPermisos()[accion] === true; }
 
 function getUserRole() {
   if (!currentUser?.email) return 'Alumno';
-  const u = DATA.usuarios.find(u => u.Email?.toLowerCase() === currentUser.email?.toLowerCase());
+  const emailNorm = currentUser.email.toLowerCase().trim();
+  const u = DATA.usuarios.find(u => (u.Email || '').toLowerCase().trim() === emailNorm);
   return u?.Rol || 'Alumno';
 }
 
@@ -225,7 +226,7 @@ function poblarSelects() {
   ['eq-responsable'].forEach(id => setOptions(id, usuariosNames));
   ['eq-proveedor-compra', 'eq-proveedor-sat', 'int-proveedor'].forEach(id => setOptions(id, proveedoresNames));
   ['int-realizado-por'].forEach(id => setOptions(id, usuariosNames));
-  ['int-equipo', 'inc-equipo'].forEach(id => setOptions(id, equiposIds));
+  ['int-equipo-dummy', 'inc-equipo'].forEach(id => setOptions(id, equiposIds));
 }
 
 // ============================================================

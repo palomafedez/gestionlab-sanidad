@@ -26,7 +26,14 @@ function renderSolicitudes(filtroEstado = '') {
     tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Sin solicitudes</div></div></td></tr>`;
     return;
   }
-  const estadoBadge   = {'Pendiente':'badge-orange','En pedido':'badge-blue','En camino':'badge-blue','Recibido':'badge-green','Rechazado':'badge-red','Archivado':'badge-gray'};
+  const estadoBadge = {
+    'Pendiente':'badge-orange',
+    'Añadida a pedido':'badge-blue',
+    'En espera de recepción':'badge-blue',
+    'Recibido':'badge-green',
+    'Rechazado':'badge-red',
+    'Archivado':'badge-gray'
+  };
   const urgenciaBadge = {'Urgente':'badge-red','Normal':'badge-gray'};
   const puedeGestionar = rol === 'Administrador' || rol === 'Gestor';
   // Insertar el toggle encima de la tabla
@@ -42,8 +49,8 @@ function renderSolicitudes(filtroEstado = '') {
     <td style="font-size:12px">${s.Proveedor_Requerido||'—'}</td>
     <td><span class="badge ${estadoBadge[s.Estado]||'badge-gray'}">${s.Estado||'Pendiente'}</span></td>
     <td><div class="row-actions">
-      ${puedeGestionar && s.Estado !== 'En pedido' && s.Estado !== 'Recibido' && s.Estado !== 'Archivado' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
-      ${(s.Estado === 'En pedido' || s.Estado === 'En camino') && s.Lista_Pedido ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
+      ${puedeGestionar && s.Estado !== 'Añadida a pedido' && s.Estado !== 'En espera de recepción' && s.Estado !== 'Recibido' && s.Estado !== 'Archivado' ? `<button class="icon-btn" title="Añadir a pedido" onclick="solicitudAPedido('${s.ID_Solicitud}')">🛒</button>` : ''}
+      ${(s.Estado === 'Añadida a pedido' || s.Estado === 'En espera de recepción') && s.Lista_Pedido ? `<button class="icon-btn" title="Ver pedido" onclick="verDetallePedido('${s.Lista_Pedido}')">📋</button>` : ''}
       ${puedeGestionar && s.Estado === 'Pendiente' ? `<button class="icon-btn" title="Rechazar" onclick="rechazarSolicitud('${s.ID_Solicitud}')">✕</button>` : ''}
     </div></td>
   </tr>`).join('');
@@ -119,7 +126,7 @@ function verDetallePedido(pedidoId) {
         </div>
       </div>
       <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
-        <div class="detail-item"><div class="detail-label">Proveedor</div><div class="detail-value" style="display:flex;align-items:center;gap:8px">${p.Proveedor||'—'}${puedeEditar ? `<button class="icon-btn" title="Cambiar proveedor" onclick="openModalEditarProveedor('${p.ID_Pedido}')" style="font-size:12px;padding:2px 6px">✏️</button>` : ''}</div></div>
+        <div class="detail-item"><div class="detail-label">Proveedor</div><div class="detail-value" style="display:flex;align-items:center;gap:8px">${p.Proveedor||'—'}${puedeEditar && !['Presupuesto aprobado','Recepción parcial','Recepción completa'].includes(p.Estado) ? `<button class="icon-btn" title="Cambiar proveedor" onclick="openModalEditarProveedor('${p.ID_Pedido}')" style="font-size:12px;padding:2px 6px">✏️</button>` : ''}</div></div>
         <div class="detail-item"><div class="detail-label">Creado</div><div class="detail-value">${formatDate(p.Fecha_Creacion)||'—'}</div></div>
         <div class="detail-item"><div class="detail-label">Presupuesto</div><div class="detail-value">${formatDate(p.Fecha_Presupuesto)||'—'}</div></div>
         <div class="detail-item"><div class="detail-label">Aprobado</div><div class="detail-value">${formatDate(p.Fecha_Aprobacion)||'—'}</div></div>

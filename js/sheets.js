@@ -10,16 +10,18 @@
 async function authFetch(url, options = {}) {
   options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
   let r = await fetch(url, options);
-  if (r.status === 401) {
+  // Google Sheets devuelve 401 si el token es inválido y 403 si ha expirado
+  // con el cliente GIS moderno — tratamos ambos igual: renovar o relanzar login.
+  if (r.status === 401 || r.status === 403) {
     try {
       await renewTokenPromise();
       options.headers.Authorization = `Bearer ${accessToken}`;
       r = await fetch(url, options);
     } catch(e) {
-      // La renovación falló — sesión expirada, volver al login
       clearSession();
       document.getElementById('app').style.display = 'none';
       document.getElementById('auth-screen').style.display = 'flex';
+      showToast('Sesión expirada. Vuelve a iniciar sesión.', 'error');
       throw new Error('Sesión expirada. Por favor, inicia sesión de nuevo.');
     }
   }

@@ -89,8 +89,8 @@ async function confirmarSolicitudAPedido(pedidoId) {
     await sheetsAppend('Lineas_Pedido', rowLinea);
     DATA.lineasPedido.push(rowToObj(rowLinea, 'lineasPedido'));
     const solIdx = DATA.solicitudes.indexOf(sol);
-    sol.Estado = 'En pedido'; sol.Lista_Pedido = pedidoId;
-    const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En pedido', pedidoId, sol.Observaciones];
+    sol.Estado = 'Añadida a pedido'; sol.Lista_Pedido = pedidoId;
+    const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'Añadida a pedido', pedidoId, sol.Observaciones];
     await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
     showToast(`Añadido a "${pedido.Nombre_Lista}"`, 'success');
     renderAll();
@@ -157,8 +157,8 @@ async function guardarNuevoPedido() {
         const sol = DATA.solicitudes.find(s => s.ID_Solicitud === solId);
         if (sol) {
           const solIdx = DATA.solicitudes.indexOf(sol);
-          sol.Estado = 'En pedido'; sol.Lista_Pedido = id;
-          const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En pedido', id, sol.Observaciones];
+          sol.Estado = 'Añadida a pedido'; sol.Lista_Pedido = id;
+          const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'Añadida a pedido', id, sol.Observaciones];
           await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol);
         }
       }
@@ -208,12 +208,12 @@ async function guardarEstadoPedido() {
   try {
     await sheetsUpdate(`Pedidos!A${idx+2}:M${idx+2}`, row);
     // Sincronizar estado de las solicitudes vinculadas al pedido
-    if (nuevoEstado === 'Pedido enviado') {
-      const solsVinculadas = DATA.solicitudes.filter(s => s.Lista_Pedido === pedidoId && s.Estado === 'En pedido');
+    if (nuevoEstado === 'Presupuesto aprobado') {
+      const solsVinculadas = DATA.solicitudes.filter(s => s.Lista_Pedido === pedidoId && s.Estado === 'Añadida a pedido');
       for (const sol of solsVinculadas) {
         const solIdx = DATA.solicitudes.indexOf(sol);
-        sol.Estado = 'En camino';
-        const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En camino', sol.Lista_Pedido, sol.Observaciones];
+        sol.Estado = 'En espera de recepción';
+        const rowSol = [sol.ID_Solicitud, sol.Material, sol.Cantidad_Solicitada, sol.Solicitante, sol.Fecha, sol.Motivo, sol.Proveedor_Requerido, 'En espera de recepción', sol.Lista_Pedido, sol.Observaciones];
         try { await sheetsUpdate(`Solicitudes!A${solIdx+2}:J${solIdx+2}`, rowSol); } catch(e) { console.warn('No se pudo actualizar solicitud', e); }
       }
     }
@@ -326,7 +326,7 @@ async function _completarRecepcionLinea(idx, l, cantRec, cantPed, pedidoId, mat,
       if (!solOrigen) {
         solOrigen = DATA.solicitudes.find(s =>
           normNombre(s.Material) === normNombre(l.Material) &&
-          (s.Estado === 'En pedido' || s.Estado === 'En camino' || s.Estado === 'Pendiente')
+          (s.Estado === 'Añadida a pedido' || s.Estado === 'En espera de recepción' || s.Estado === 'Pendiente')
         );
       }
       if (solOrigen) {
