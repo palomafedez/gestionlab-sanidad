@@ -7,26 +7,22 @@ function abrirGeneradorHoja(pedidoId) {
   sv('gen-modulo','');
   sv('gen-num-factura',''); sv('gen-fecha-factura','');
 
+  // Resolver el pedido PRIMERO para evitar zona muerta temporal
+  const p = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);
+
   // Poblar ciclos dinámicamente desde DATA.ciclosModulos
   const selCiclo = document.getElementById('gen-ciclo');
   const ciclos = [...new Set(DATA.ciclosModulos.map(cm => (cm.Ciclo||'').normalize('NFC').trim()).filter(Boolean))].sort();
-  // Normalizar también los Ciclos en DATA para que el filtro posterior sea consistente
   DATA.ciclosModulos.forEach(cm => { cm.Ciclo = (cm.Ciclo||'').normalize('NFC').trim(); cm.Modulo = (cm.Modulo||'').normalize('NFC').trim(); });
   selCiclo.innerHTML = '<option value="">Seleccionar...</option>' + ciclos.map(c => `<option value="${c}">${c}</option>`).join('');
   selCiclo.value = '';
 
-  // Pre-rellenar ciclo/módulo si ya están guardados en el pedido
-  if (p && p.Ciclo) {
-    selCiclo.value = p.Ciclo;
-    actualizarModulos();
-    if (p.Modulo) setTimeout(() => sv('gen-modulo', p.Modulo), 50);
-  }
-
-  // Pre-rellenar si el pedido ya tiene datos de factura en Sheets
-  const p = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);
+  // Pre-rellenar ciclo/módulo y datos de factura si ya están guardados
   if (p) {
-    if (p.Numero_Factura) sv('gen-num-factura', p.Numero_Factura);
-    if (p.Fecha_Factura)  sv('gen-fecha-factura', p.Fecha_Factura);
+    if (p.Ciclo)          { selCiclo.value = p.Ciclo; actualizarModulos(); }
+    if (p.Modulo)           setTimeout(() => sv('gen-modulo', p.Modulo), 50);
+    if (p.Numero_Factura)   sv('gen-num-factura', p.Numero_Factura);
+    if (p.Fecha_Factura)    sv('gen-fecha-factura', p.Fecha_Factura);
   }
 
   document.getElementById('gen-estado-container').style.display = 'none';
@@ -158,7 +154,7 @@ async function generarHojaPedido() {
     setGenEstado('📝 Generando documento...', 'info');
     let templateBuffer;
     try {
-      const tplResp = await fetch('./assets/templates/Folla%20de%20Pedido%20_%20modelo.docx');
+      const tplResp = await fetch('./assets/templates/Folla_de_Pedido___modelo.docx');
       if (!tplResp.ok) throw new Error('HTTP ' + tplResp.status);
       templateBuffer = await tplResp.arrayBuffer();
     } catch(e) {

@@ -433,3 +433,34 @@ async function archivarPedido(pedidoId) {
   } catch(e) { showToast('Error archivando', 'error'); p.Estado = 'Recepción completa'; }
   hideLoading();
 }
+
+// ============================================================
+// EDITAR PROVEEDOR DEL PEDIDO
+// ============================================================
+function openModalEditarProveedor(pedidoId) {
+  sv('edit-prov-pedido-id', pedidoId);
+  const p   = DATA.pedidos.find(x => x.ID_Pedido === pedidoId);
+  const sel = document.getElementById('edit-prov-select');
+  sel.innerHTML = '<option value="">Sin asignar</option>' +
+    DATA.proveedores.filter(x => x.Activo !== 'FALSE')
+      .map(x => `<option value="${x.Nombre_Proveedor}"${p?.Proveedor === x.Nombre_Proveedor ? ' selected' : ''}>${x.Nombre_Proveedor}</option>`)
+      .join('');
+  openModal('modal-editar-proveedor');
+}
+
+async function guardarProveedorPedido() {
+  const pedidoId = v('edit-prov-pedido-id');
+  const nuevo    = v('edit-prov-select');
+  const idx      = DATA.pedidos.findIndex(x => x.ID_Pedido === pedidoId);
+  if (idx === -1) return;
+  showLoading('Guardando...');
+  try {
+    await sheetsUpdate(`Pedidos!C${idx + 2}`, [nuevo]);
+    DATA.pedidos[idx].Proveedor = nuevo;
+    showToast('Proveedor actualizado', 'success');
+    closeModal('modal-editar-proveedor');
+    verDetallePedido(pedidoId);
+    renderPedidos();
+  } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
+  hideLoading();
+}
