@@ -8,7 +8,6 @@ const TOKEN_STORAGE_KEY = 'gestionlab_token';
 const USER_STORAGE_KEY  = 'gestionlab_user';
 
 let tokenClient = null;
-let _expirando   = false;  // evita la tormenta de toasts cuando Promise.all falla en paralelo
 
 // ── Sesión persistente en localStorage ──────────────────────
 
@@ -153,27 +152,6 @@ async function getUserInfo() {
   });
   if (!r.ok) throw new Error('No se pudo obtener información del usuario');
   currentUser = await r.json();
-}
-
-// ── authFetch ────────────────────────────────────────────────
-// IMPORTANTE: solo trata 401 como sesión expirada.
-// Un 403 es un error de permisos en la hoja o en la API,
-// no significa que el token sea inválido — no cierra la sesión.
-
-async function authFetch(url, options = {}) {
-  options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
-  const r = await fetch(url, options);
-  if (r.status === 401) {
-    if (!_expirando) {
-      _expirando = true;
-      clearSession();
-      accessToken = null;
-      showToast('Sesión expirada. Vuelve a iniciar sesión.', 'error');
-      setTimeout(() => { _mostrarPantallaLogin(); _expirando = false; }, 1500);
-    }
-    throw new Error('Sesión expirada');
-  }
-  return r;
 }
 
 // ── Helpers ──────────────────────────────────────────────────

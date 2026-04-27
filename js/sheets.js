@@ -7,23 +7,33 @@
 // Inyecta el Bearer token, y si recibe un 401 intenta renovar el
 // token una vez antes de rendirse y redirigir al login.
 // ----------------------------------------------------------------
+// ----------------------------------------------------------------
+// authFetch — wrapper central para todas las llamadas a la API.
+// Google Sheets devuelve 401 o 403 cuando el token ha expirado.
+// Con el flujo GIS no hay renovación silenciosa posible:
+// limpiamos sesión, mostramos UN toast y enviamos al login.
+// El flag _sessionExpired evita la tormenta de mensajes cuando
+// Promise.all lanza varias peticiones en paralelo.
+// ----------------------------------------------------------------
+let _sessionExpired = false;
+
 async function authFetch(url, options = {}) {
   options.headers = { ...options.headers, Authorization: `Bearer ${accessToken}` };
-  let r = await fetch(url, options);
-  // Google Sheets devuelve 401 si el token es inválido y 403 si ha expirado
-  // con el cliente GIS moderno — tratamos ambos igual: renovar o relanzar login.
+  const r = await fetch(url, options);
+
   if (r.status === 401 || r.status === 403) {
-    try {
-      await renewTokenPromise();
-      options.headers.Authorization = `Bearer ${accessToken}`;
-      r = await fetch(url, options);
-    } catch(e) {
+    if (!_sessionExpired) {
+      _sessionExpired = true;
       clearSession();
-      document.getElementById('app').style.display = 'none';
-      document.getElementById('auth-screen').style.display = 'flex';
+      accessToken = null;
       showToast('Sesión expirada. Vuelve a iniciar sesión.', 'error');
-      throw new Error('Sesión expirada. Por favor, inicia sesión de nuevo.');
+      setTimeout(() => {
+        _sessionExpired = false;
+        document.getElementById('app').style.display  = 'none';
+        document.getElementById('auth-screen').style.display = 'flex';
+      }, 1500);
     }
+    throw new Error('Sesión expirada');
   }
   return r;
 }
