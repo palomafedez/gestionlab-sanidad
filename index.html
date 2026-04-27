@@ -74,6 +74,9 @@
       <div class="nav-item" onclick="showPage('pedidos')" id="nav-pedidos">
         <span class="nav-icon">🛒</span> Pedidos
       </div>
+      <div class="nav-item" onclick="showPage('contabilidad')" id="nav-contabilidad">
+        <span class="nav-icon">📊</span> Contabilidad
+      </div>
       <div class="nav-section-label" style="margin-top:12px" id="label-catalogo">Catálogo</div>
       <div class="nav-item" onclick="showPage('proveedores')" id="nav-proveedores">
         <span class="nav-icon">🏢</span> Proveedores
@@ -232,6 +235,11 @@
           <button class="btn btn-secondary" onclick="showPage('pedidos')">← Volver a pedidos</button>
         </div>
         <div id="pedido-detalle-contenido"></div>
+      </div>
+
+      <!-- CONTABILIDAD -->
+      <div class="page" id="page-contabilidad">
+        <div id="contabilidad-contenido"></div>
       </div>
 
       <!-- MATERIAL FUNGIBLE -->
@@ -523,8 +531,10 @@
 <script src="js/equipos-acciones.js"></script>
 <script src="js/material.js"></script>
 <script src="js/ubicaciones.js"></script>
-<script src="js/pedidos.js"></script>
+<script src="js/pedidos-render.js"></script>
+<script src="js/pedidos-acciones.js"></script>
 <script src="js/generador.js"></script>
+<script src="js/contabilidad.js"></script>
 <script>
   loadModales().then(initAuth);
 </script>
