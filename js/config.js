@@ -21,7 +21,7 @@ let DATA = {
   proveedores: [], ubicaciones: [], usuarios: [],
   material: [], movimientos: [], solicitudes: [],
   pedidos: [], lineasPedido: [], ciclosModulos: [],
-  materialUbicaciones: [], historicoPrecio: []
+  materialUbicaciones: [], historicoPrecio: [], tareas: []
 };
 
 // ============================================================
@@ -41,7 +41,8 @@ const COLS = {
   lineasPedido:       ['ID_Linea','Pedido','Material','Cantidad_Pedida','Cantidad_Recibida','Estado_Linea','Observaciones','Precio_Unitario'],
   ciclosModulos:      ['Ciclo','Modulo'],
   materialUbicaciones:['ID','ID_Material','ID_Ubicacion','Stock_Local','Stock_Minimo_Local','Stock_Optimo_Local'],
-  historicoPrecio:    ['ID_Historico','Nombre_Material','ID_Pedido','Proveedor','Fecha','Precio_Unitario']
+  historicoPrecio:    ['ID_Historico','Nombre_Material','ID_Pedido','Proveedor','Fecha','Precio_Unitario'],
+  tareas:             ['ID_Tarea','Email','Texto','Fecha_Limite','Completada','Fecha_Creacion']
 };
 
 function rowToObj(row, type) {

@@ -89,7 +89,7 @@ const PERMISOS = {
     gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: false,
     verMaterial: true, editarMaterial: false, registrarConsumo: false,
-    verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
+    verPedidos: false, gestionarPedidos: false, crearSolicitudes: true, verTareas: true,
   },
   Gestor: {
     nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios', 'contabilidad'],
@@ -97,7 +97,7 @@ const PERMISOS = {
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
     verMaterial: true, editarMaterial: true, registrarConsumo: true,
-    verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
+    verPedidos: true, gestionarPedidos: true, crearSolicitudes: true, verTareas: true,
   },
   Administrador: {
     nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios', 'contabilidad'],
@@ -105,7 +105,7 @@ const PERMISOS = {
     gestionarIncidencias: true, configuracion: true, usuarios: true, dashboard: true,
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
     verMaterial: true, editarMaterial: true, registrarConsumo: true,
-    verPedidos: true, gestionarPedidos: true, crearSolicitudes: true,
+    verPedidos: true, gestionarPedidos: true, crearSolicitudes: true, verTareas: true,
   }
 };
 
@@ -187,6 +187,7 @@ function aplicarPermisosUI() {
 // ============================================================
 function renderAll() {
   renderDashboard();
+  renderTareas();
   renderEquipos();
   renderIntervenciones();
   renderIncidencias();
