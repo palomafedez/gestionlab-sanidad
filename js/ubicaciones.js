@@ -174,14 +174,18 @@ function renderDetalleProveedor(p) {
 function renderUsuarios() {
   const tbody = document.getElementById('tabla-usuarios');
   if (!DATA.usuarios.length) { tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">👥</div><div class="empty-state-title">Sin usuarios registrados</div></div></td></tr>`; return; }
-  const rolBadge = {'Administrador':'badge-red','Gestor':'badge-orange','Profesor':'badge-blue','Alumno':'badge-gray'};
-  tbody.innerHTML = DATA.usuarios.map(u => `<tr>
+  const rolActual  = getUserRole();
+  const rolBadge   = {'Administrador':'badge-red','Gestor':'badge-orange','Profesor':'badge-blue','Alumno':'badge-gray'};
+  tbody.innerHTML = DATA.usuarios.map(u => {
+    // Profesor: solo puede editar cuentas con rol Alumno
+    const puedeEditarEsteUser = rolActual !== 'Profesor' || u.Rol === 'Alumno';
+    return `<tr>
     <td><strong>${u.Nombre||'—'}</strong></td>
     <td>${u.Email||'—'}</td>
     <td><span class="badge ${rolBadge[u.Rol]||'badge-gray'}">${u.Rol||'—'}</span></td>
     <td>${u.Activo !== 'FALSE' ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-gray">Inactivo</span>'}</td>
-    <td><div class="row-actions"><button class="icon-btn" onclick="editUsuario(${DATA.usuarios.indexOf(u)})">✏️</button></div></td>
-  </tr>`).join('');
+    <td><div class="row-actions">${puedeEditarEsteUser ? `<button class="icon-btn" onclick="editUsuario(${DATA.usuarios.indexOf(u)})">✏️</button>` : ''}</div></td>
+  </tr>`; }).join('');
 }
 
 // ============================================================
@@ -207,8 +211,15 @@ function editUbicacion(idx) {
 }
 function editUsuario(idx) {
   const u = DATA.usuarios[idx];
+  if (getUserRole() === 'Profesor' && u.Rol !== 'Alumno') {
+    showToast('Solo puedes modificar usuarios con rol Alumno', 'error');
+    return;
+  }
   editingRow = { sheet: 'Usuarios', rowIndex: idx };
-  sv('usr-nombre',u.Nombre); sv('usr-email',u.Email); sv('usr-rol',u.Rol);
+  sv('usr-nombre', u.Nombre); sv('usr-email', u.Email); sv('usr-rol', u.Rol);
+  // Profesor no puede cambiar el rol: bloqueamos el select
+  const selRol = document.getElementById('usr-rol');
+  if (selRol) selRol.disabled = (getUserRole() === 'Profesor');
   openModal('modal-usuario');
 }
 
@@ -274,8 +285,21 @@ async function guardarUbicacion() {
 async function guardarUsuario() {
   const nombre = v('usr-nombre'), email = v('usr-email');
   if (!nombre || !email) { showToast('Nombre y email son obligatorios', 'error'); return; }
+
+  // Restricción para Profesor: solo puede editar Alumnos, y el rol queda fijo
+  if (getUserRole() === 'Profesor') {
+    if (editingRow) {
+      const uExist = DATA.usuarios[editingRow.rowIndex];
+      if (uExist?.Rol !== 'Alumno') { showToast('No tienes permiso para modificar este usuario', 'error'); return; }
+    } else {
+      showToast('No tienes permiso para crear nuevos usuarios', 'error'); return;
+    }
+    sv('usr-rol', 'Alumno'); // forzar rol aunque alguien manipule el select
+  }
+
   const id = genId('USR-');
-  const row = [id, nombre, email, v('usr-rol'), 'TRUE'];
+  const rol = v('usr-rol') || 'Alumno';
+  const row = [id, nombre, email, rol, 'TRUE'];
   showLoading('Guardando...');
   try {
     if (editingRow && editingRow.sheet === 'Usuarios') {

@@ -8,7 +8,7 @@ const SCOPES    = 'https://www.googleapis.com/auth/spreadsheets https://www.goog
 // ============================================================
 // ESTADO GLOBAL
 // ============================================================
-let tokenClient, accessToken;
+let accessToken;  // tokenClient se declara en auth.js
 let currentUser  = null;
 let editingRow   = null;
 let pendingFileBase64   = null;
@@ -105,6 +105,18 @@ function esZonaComun(idUbicacion) {
   if (!u) return false;
   const texto = [u.Laboratorio_Aula, u.Zona, u.Subzona, u.Descripcion_Completa].join(' ').toLowerCase();
   return ZONA_COMUN_KEYWORDS.some(k => texto.includes(k));
+}
+
+/**
+ * True si el usuario actual (currentUser.name) figura como responsable del equipo.
+ * El campo Responsable admite varios nombres separados por comas.
+ */
+function esResponsableDeEquipo(equipo) {
+  if (!currentUser) return false;
+  const miNombre = (currentUser.name || '').toLowerCase().trim();
+  if (!miNombre) return false;
+  const responsables = (equipo.Responsable || '').split(',').map(r => r.trim().toLowerCase());
+  return responsables.some(r => r === miNombre);
 }
 
 /** Devuelve los lotes de zona común de un material cuyo stock está bajo el mínimo local */

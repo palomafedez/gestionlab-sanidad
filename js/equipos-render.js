@@ -8,9 +8,9 @@ function renderDashboard() {
   const en30 = new Date(); en30.setDate(hoy.getDate() + 30);
   const miNombre = currentUser?.name || '';
   const esProfesor = getUserRole() === 'Profesor';
-  // Profesor solo ve sus propios equipos en el dashboard de preventivos
+  // Profesor solo ve sus propios equipos en el dashboard de preventivos (multi-responsable)
   const misEquipos = esProfesor
-    ? DATA.equipos.filter(e => e.Responsable === miNombre)
+    ? DATA.equipos.filter(e => esResponsableDeEquipo(e))
     : DATA.equipos;
   const preventivos = misEquipos.filter(e => e.Fecha_Proximo_Preventivo && new Date(e.Fecha_Proximo_Preventivo) <= en30);
   setText('stat-preventivos', preventivos.length);
@@ -130,8 +130,11 @@ function renderEquipos(filtro, filtroEstado) {
     })() : '<span class="text-muted">—</span>';
     const expandId = 'eq-expand-' + e.ID_Activo.replace(/[^a-zA-Z0-9]/g,'_');
     const manualLink = e.Manual_Ficha_Tecnica ? `<a href="${e.Manual_Ficha_Tecnica}" target="_blank" class="icon-btn" title="Ver manual">📄</a>` : '';
+    // Profesor puede editar e intervenir solo en equipos donde es responsable
+    const puedeEditarEste   = puedeHacer('editarEquipos') ||
+      (getUserRole() === 'Profesor' && esResponsableDeEquipo(e));
     const puedeIntervenir = puedeHacer('crearIntervenciones') &&
-      (getUserRole() !== 'Profesor' || e.Responsable === (currentUser?.name || ''));
+      (getUserRole() !== 'Profesor' || esResponsableDeEquipo(e));
     return `<tr style="cursor:pointer" onclick="toggleEquipoExpand('${expandId}')">
       <td><strong>${e.ID_Activo}</strong></td>
       <td>${e.Tipo_Equipo||'—'}</td>
@@ -142,7 +145,7 @@ function renderEquipos(filtro, filtroEstado) {
       <td>${proxPreventivo}</td>
       <td onclick="event.stopPropagation()"><div class="row-actions">
         ${manualLink}
-        ${puedeHacer('editarEquipos') ? `<button class="icon-btn" onclick="editEquipo(${DATA.equipos.indexOf(e)})" title="Editar">✏️</button>` : ''}
+        ${puedeEditarEste ? `<button class="icon-btn" onclick="editEquipo(${DATA.equipos.indexOf(e)})" title="Editar">✏️</button>` : ''}
         ${puedeIntervenir ? `<button class="icon-btn" onclick="openModalIntervencionEquipo('${e.ID_Activo}')" title="Nueva intervención">🔧</button>` : ''}
         <button class="icon-btn" onclick="openModalIncidenciaEquipo('${e.ID_Activo}')" title="Reportar incidencia">⚠️</button>
       </div></td>
@@ -165,7 +168,7 @@ function buildIntervencionesEquipo(equipoId) {
     ${ints.map(i => {
       const intIdx = DATA.intervenciones.indexOf(i);
       const puedeRegistrar = puedeHacer('crearIntervenciones') &&
-        (getUserRole() !== 'Profesor' || DATA.equipos.find(eq => eq.ID_Activo === equipoId)?.Responsable === (currentUser?.name || '')) &&
+        (getUserRole() !== 'Profesor' || esResponsableDeEquipo(DATA.equipos.find(eq => eq.ID_Activo === equipoId) || {})) &&
         (i.Estado === 'Planificada' || i.Estado === 'En gestión' || !i.Estado) &&
         i.Resultado !== 'Resuelto';
       const btnLabel = i.Estado === 'Planificada' ? '🔧 Ejecutar' : '📋 Añadir actuación';
@@ -189,6 +192,18 @@ function filtrarEquiposEstado(val) { renderEquipos(undefined, val); }
 function renderIntervenciones(filtroTipo = '') {
   const tbody = document.getElementById('tabla-intervenciones');
   let items = DATA.intervenciones;
+  const rol = getUserRole();
+  // Profesor: solo ve las intervenciones que él mismo creó (Realizado_Por)
+  // sobre equipos de los que es responsable
+  if (rol === 'Profesor') {
+    const miNombre = (currentUser?.name || '').toLowerCase().trim();
+    items = items.filter(i => {
+      const creadaPorMi = (i.Realizado_Por || '').toLowerCase().trim() === miNombre;
+      const equipo = DATA.equipos.find(e => i.Equipo && i.Equipo.startsWith(e.ID_Activo));
+      const esDesuEquipo = equipo ? esResponsableDeEquipo(equipo) : false;
+      return creadaPorMi && esDesuEquipo;
+    });
+  }
   if (filtroTipo) items = items.filter(i => i.Tipo === filtroTipo);
   items = [...items].sort((a,b) => new Date(b.Fecha_Realizacion||b.Fecha_Planificada) - new Date(a.Fecha_Realizacion||a.Fecha_Planificada));
   if (!items.length) { tbody.innerHTML = `<tr><td colspan="10"><div class="empty-state"><div class="empty-state-icon">🔧</div><div class="empty-state-title">Sin intervenciones registradas</div></div></td></tr>`; return; }

@@ -5,6 +5,78 @@ let _pendingActFileBase64 = null;  // para modal-registrar-actuacion
 let _incidenciaOrigen     = null;  // ID incidencia al crear intervención desde ella
 
 // ============================================================
+// MULTI-TAG — RESPONSABLE(S) DEL EQUIPO
+// Almacena nombres en array y sincroniza con el input oculto #eq-responsable
+// ============================================================
+let _responsablesSelec = [];
+
+const _ROLES_RESPONSABLE = ['Administrador', 'Gestor', 'Profesor'];
+
+function _syncResponsablesHidden() {
+  const hidden = document.getElementById('eq-responsable');
+  if (hidden) hidden.value = _responsablesSelec.join(', ');
+}
+
+function _renderResponsableTags() {
+  const container = document.getElementById('responsable-tags');
+  if (!container) return;
+  container.innerHTML = _responsablesSelec.map(nombre =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--accent-light);color:var(--accent);border-radius:20px;font-size:12px;font-weight:500">
+      ${nombre}
+      <span style="cursor:pointer;font-size:14px;line-height:1" onclick="_quitarResponsable('${nombre.replace(/'/g, "\\'")}')">×</span>
+    </span>`
+  ).join('');
+  _syncResponsablesHidden();
+}
+
+function _quitarResponsable(nombre) {
+  _responsablesSelec = _responsablesSelec.filter(n => n !== nombre);
+  _renderResponsableTags();
+}
+
+function _agregarResponsable(nombre) {
+  if (!_responsablesSelec.includes(nombre)) {
+    _responsablesSelec.push(nombre);
+    _renderResponsableTags();
+  }
+  const srch = document.getElementById('responsable-search');
+  if (srch) { srch.value = ''; }
+  const ac = document.getElementById('responsable-autocomplete');
+  if (ac) ac.classList.remove('open');
+}
+
+function filtrarResponsables(val) {
+  const ac = document.getElementById('responsable-autocomplete');
+  if (!ac) return;
+  const q = (val || '').toLowerCase().trim();
+  const candidatos = DATA.usuarios.filter(u =>
+    u.Activo !== 'FALSE' &&
+    _ROLES_RESPONSABLE.includes(u.Rol) &&
+    !_responsablesSelec.includes(u.Nombre) &&
+    (!q || (u.Nombre || '').toLowerCase().includes(q))
+  );
+  if (!candidatos.length) { ac.classList.remove('open'); return; }
+  ac.innerHTML = candidatos.map(u =>
+    `<div class="autocomplete-item" onclick="_agregarResponsable('${u.Nombre.replace(/'/g, "\\'")}')">
+      <div>
+        <div class="autocomplete-item-name">${u.Nombre}</div>
+        <div class="autocomplete-item-meta">${u.Rol}</div>
+      </div>
+    </div>`
+  ).join('');
+  ac.classList.add('open');
+}
+
+function _initResponsables(valor) {
+  _responsablesSelec = (valor || '').split(',').map(s => s.trim()).filter(Boolean);
+  _renderResponsableTags();
+  const srch = document.getElementById('responsable-search');
+  if (srch) srch.value = '';
+}
+
+
+
+// ============================================================
 // HELPER — Actualiza Estado_Operativo del equipo en Sheets y DATA
 // equipoStr: string del campo Equipo ("ID – Nombre" o solo "ID")
 // nuevoEstado: 'Operativo' | 'En mantenimiento' | 'Averiado' | 'Fuera de servicio'
@@ -31,7 +103,8 @@ function openModalEquipo() {
   editingRow = null; pendingEqFileBase64 = null;
   document.getElementById('modal-equipo-title').textContent = 'Nuevo equipo';
   ['eq-id','eq-marca','eq-modelo','eq-serie','eq-fecha-adq','eq-ultimo-preventivo','eq-observaciones','eq-periodicidad-custom'].forEach(id => sv(id,''));
-  ['eq-tipo','eq-responsable','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id,''));
+  ['eq-tipo','eq-financiacion','eq-proveedor-compra','eq-proveedor-sat'].forEach(id => sv(id,''));
+  _initResponsables(''); // limpia tags responsable
   sv('eq-estado','Operativo'); sv('eq-periodicidad','Anual'); sv('eq-pdf-url','');
   document.getElementById('eq-pdf-preview').style.display = 'none';
   document.getElementById('eq-pdf-name').textContent = '';
@@ -50,7 +123,7 @@ function editEquipo(idx) {
   poblarSelects();
   sv('eq-id',e.ID_Activo); sv('eq-tipo',e.Tipo_Equipo); sv('eq-marca',e.Marca);
   sv('eq-modelo',e.Modelo); sv('eq-serie',e.Numero_Serie); sv('eq-ubicacion',e.Ubicacion);
-  sv('eq-responsable',e.Responsable); sv('eq-fecha-adq',e.Fecha_Adquisicion);
+  _initResponsables(e.Responsable); sv('eq-fecha-adq',e.Fecha_Adquisicion);
   sv('eq-financiacion',e.Origen_Financiacion); sv('eq-proveedor-compra',e.Proveedor_Compra);
   sv('eq-proveedor-sat',e.Proveedor_Servicio_Tecnico); sv('eq-estado',e.Estado_Operativo);
   sv('eq-periodicidad',e.Periodicidad_Mantenimiento); sv('eq-periodicidad-custom',e.Periodicidad_Custom||'');

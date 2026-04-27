@@ -84,12 +84,24 @@ const PERMISOS = {
     verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
   },
   Profesor: {
-    nav: ['dashboard', 'equipos', 'equipo-detalle', 'incidencias', 'material', 'solicitudes', 'proveedores', 'proveedor-detalle', 'ubicaciones'],
-    verIntervenciones: false, editarEquipos: false, crearIntervenciones: true,
-    gestionarIncidencias: false, configuracion: false, usuarios: false, dashboard: true,
-    verProveedores: true, verUbicaciones: true, crearProveedores: false,
-    verMaterial: true, editarMaterial: false, registrarConsumo: false,
-    verPedidos: false, gestionarPedidos: false, crearSolicitudes: true, verTareas: true,
+    // Páginas visibles
+    nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias',
+          'material', 'movimientos', 'solicitudes', 'proveedores', 'proveedor-detalle',
+          'ubicaciones', 'usuarios'],
+    // Equipos: ve todos, pero solo edita e interviene en los suyos (comprobado en render)
+    editarEquipos: false,       // controla el botón "Nuevo equipo"
+    crearIntervenciones: true,  // permitido, pero filtrado por esResponsableDeEquipo()
+    verIntervenciones: true,
+    // Incidencias: solo ve y crea las suyas (filtrado en renderIncidencias)
+    gestionarIncidencias: false,
+    // Material: ve todo, consume/traslada, no edita catálogo ni crea pedidos
+    verMaterial: true, editarMaterial: false, registrarConsumo: true,
+    verPedidos: false, gestionarPedidos: false, crearSolicitudes: true,
+    // Proveedores: igual que Gestor
+    verProveedores: true, verUbicaciones: true, crearProveedores: true,
+    // Usuarios: ve todos; edita/borra solo Alumnos (comprobado en ubicaciones.js)
+    usuarios: true, crearUsuarios: false,
+    configuracion: false, dashboard: true, verTareas: true,
   },
   Gestor: {
     nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios', 'contabilidad'],
@@ -98,6 +110,7 @@ const PERMISOS = {
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
     verMaterial: true, editarMaterial: true, registrarConsumo: true,
     verPedidos: true, gestionarPedidos: true, crearSolicitudes: true, verTareas: true,
+    usuarios: true, crearUsuarios: true,
   },
   Administrador: {
     nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias', 'material', 'solicitudes', 'pedidos', 'pedido-detalle', 'proveedores', 'proveedor-detalle', 'ubicaciones', 'usuarios', 'contabilidad'],
@@ -106,6 +119,7 @@ const PERMISOS = {
     verProveedores: true, verUbicaciones: true, crearProveedores: true,
     verMaterial: true, editarMaterial: true, registrarConsumo: true,
     verPedidos: true, gestionarPedidos: true, crearSolicitudes: true, verTareas: true,
+    usuarios: true, crearUsuarios: true,
   }
 };
 
@@ -180,6 +194,8 @@ function aplicarPermisosUI() {
   if (btnEntradaMov) btnEntradaMov.style.display = p.editarMaterial ? '' : 'none';
   const btnNuevoPedido = document.querySelector('#page-pedidos .btn-primary');
   if (btnNuevoPedido) btnNuevoPedido.style.display = p.gestionarPedidos ? '' : 'none';
+  const btnNuevoUser = document.querySelector('#page-usuarios .btn-primary');
+  if (btnNuevoUser) btnNuevoUser.style.display = p.crearUsuarios ? '' : 'none';
   renderUbicaciones();
 }
 
@@ -222,8 +238,7 @@ function poblarSelects() {
   const proveedoresNames = DATA.proveedores.filter(p => p.Activo !== 'FALSE').map(p => p.Nombre_Proveedor);
   const equiposIds   = DATA.equipos.map(e => e.ID_Activo + (e.Tipo_Equipo ? ' – ' + e.Tipo_Equipo : '') + (e.Marca ? ' ' + e.Marca : ''));
 
-  // eq-ubicacion es autocomplete, no select estático
-  ['eq-responsable'].forEach(id => setOptions(id, usuariosNames));
+  // eq-ubicacion y eq-responsable son autocompletes, no selects estáticos
   ['eq-proveedor-compra', 'eq-proveedor-sat', 'int-proveedor'].forEach(id => setOptions(id, proveedoresNames));
   ['int-realizado-por'].forEach(id => setOptions(id, usuariosNames));
   ['int-equipo-dummy', 'inc-equipo'].forEach(id => setOptions(id, equiposIds));
