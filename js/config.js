@@ -3,7 +3,7 @@
 // ============================================================
 const CLIENT_ID = '617390713769-milqb8jfdk9l6bd63bh52bbronivablb.apps.googleusercontent.com';
 const SHEET_ID  = '1YeoIPn3UqvcljptbgJIX-1CdrDLwIiT_3vcOy8k2Acg';
-const SCOPES    = 'https://www.googleapis.com/auth/spreadsheets profile email';
+const SCOPES    = 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file profile email';
 
 // ============================================================
 // ESTADO GLOBAL
