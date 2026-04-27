@@ -1135,3 +1135,110 @@
   input, select, textarea { font-size: 16px !important; }
   label { font-size: 13px; }
 }
+
+/* ══════════════════════════════════════════════════════════
+   TELÉFONO EN HORIZONTAL  —  max-height: 500px + landscape
+   Los móviles en landscape tienen anchura similar a tablets
+   pero se distinguen por su ALTURA baja (≤430px).
+   Sin esta query caen en el modo tablet-landscape (sidebar
+   de iconos) pero no tienen las correcciones de contenido.
+   ══════════════════════════════════════════════════════════ */
+@media (max-height: 500px) and (orientation: landscape) {
+
+  /* ── Sidebar: igual que en móvil portrait (drawer oculto) ── */
+  .sidebar {
+    position: fixed;
+    left: -260px; top: 0; bottom: 0;
+    z-index: 100; width: 240px;
+    transition: left 0.25s ease;
+    box-shadow: none;
+  }
+  .sidebar.open {
+    left: 0;
+    box-shadow: 4px 0 20px rgba(0,0,0,0.18);
+  }
+  /* Restaurar textos que la tablet-landscape ocultaba */
+  .sidebar-logo-text, .sidebar-subtitle,
+  .nav-section-label, .user-info, .btn-signout { display: revert; }
+  .nav-item span:not(.nav-icon):not(.nav-badge)  { display: revert; }
+  .nav-item { justify-content: flex-start; padding: 6px 16px; }
+  .sidebar-footer { padding: 8px 16px; }
+  .user-chip { justify-content: flex-start; padding: 6px 8px; }
+  /* Nav más compacto verticalmente para que quepan todos los items */
+  .sidebar-nav { padding: 6px 8px; }
+  .nav-item { font-size: 13px; }
+  .nav-icon  { font-size: 15px; }
+  .nav-badge { top: 2px; right: 2px; padding: 1px 4px; font-size: 9px; }
+
+  .main { margin-left: 0; }
+
+  /* ── Topbar ── */
+  .topbar {
+    position: sticky; top: 0; z-index: 90;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 12px; gap: 8px;
+  }
+  .sidebar-toggle { display: flex; align-items: center; }
+
+  /* ── Contenido más compacto ── */
+  .content { padding: 8px 12px; }
+
+  /* ── Tablas: scroll horizontal ──
+     El selector específico evita conflictos con .card { overflow:hidden }.
+     white-space en td/th (no en table) para que las celdas no colapsen. */
+  .card > table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .card > table td,
+  .card > table th { white-space: nowrap; }
+
+  /* ── Card header: título + controles en fila que rompe si no cabe ── */
+  .card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 12px;
+    align-items: flex-start;
+  }
+  .card-title {
+    font-size: 13px;
+    white-space: nowrap;   /* evita que el título ocupe 3 líneas */
+  }
+  .card-actions {
+    flex-wrap: wrap;
+    flex: 1 1 100%;        /* ocupa fila completa si no cabe junto al título */
+    gap: 6px;
+  }
+  .card-actions .search-input { flex: 2 1 140px; min-width: 0; }
+  .card-actions select        { flex: 1 1 110px; min-width: 0; font-size: 13px; padding: 5px 6px; }
+  .card-actions .btn          { flex: 0 0 auto; font-size: 12px; padding: 5px 10px; }
+
+  /* ── Stats: 4 columnas ── */
+  .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .stat-card  { padding: 10px; }
+  .stat-value { font-size: 18px; }
+  .stat-label { font-size: 10px; }
+
+  /* ── Formularios: 2 columnas ── */
+  .form-grid-2 { grid-template-columns: 1fr 1fr; }
+
+  /* ── Modales: sheet baja, altura contenida ── */
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal {
+    border-radius: var(--radius) var(--radius) 0 0 !important;
+    max-width: 100% !important; width: 100%;
+    max-height: 80vh; overflow-y: auto;
+  }
+
+  /* ── Footer: en fila ── */
+  .form-footer { flex-direction: row; }
+  .form-footer .btn { flex: 1; justify-content: center; }
+
+  /* ── Row actions: siempre visibles ── */
+  .row-actions { opacity: 1 !important; }
+
+  /* ── iOS: evitar zoom al enfocar inputs ── */
+  input, select, textarea { font-size: 16px !important; }
+}
