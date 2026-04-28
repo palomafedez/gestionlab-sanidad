@@ -108,7 +108,7 @@ function renderFilaMaterial(m) {
     <td onclick="event.stopPropagation()"><div class="row-actions">
       ${!multiUbi ? `<button class="icon-btn" onclick="openModalConsumoMaterial('${m.ID_Material}')" title="Registrar consumo">📦</button>` : ''}
       ${puedeHacer('crearSolicitudes') ? `<button class="icon-btn" onclick="openModalSolicitudMaterial('${m.ID_Material}')" title="Solicitar">📋</button>` : ''}
-      <button class="icon-btn" onclick="editMaterial(${idx})" title="Editar">✏️</button>
+      ${puedeHacer('editarMaterial') ? `<button class="icon-btn" onclick="editMaterial(${idx})" title="Editar">✏️</button>` : ''}
     </div></td>
   </tr>`;
 

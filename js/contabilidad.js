@@ -36,7 +36,7 @@ function abrirModalPrecios(pedidoId) {
         <div id="${warnId}" style="display:none;font-size:11px;color:var(--warning);font-weight:600;margin-top:2px">⚠️ Precio >10% sobre la media</div>
       </td>
       <td style="text-align:right;font-size:13px;font-weight:500;padding:8px 6px;min-width:80px" id="total-linea-${i}">
-        ${precioAct > 0 ? (precioAct * cantNum).toFixed(2) + ' \u20AC' : '\u2014'}
+        ${precioAct > 0 ? (precioAct * cantNum * 1.21).toFixed(2) + ' \u20AC' : '\u2014'}
       </td>
     </tr>`;
   }).join('');
@@ -51,22 +51,18 @@ function calcTotalesPrecios(inputEl, idx) {
   inputs.forEach((inp, i) => {
     const precio = parseFloat(inp.value) || 0;
     const cant   = parseFloat(inp.dataset.cant) || 0;
-    const total  = precio * cant;
-    subtotal += total;
+    const totalConIVA = precio * cant * 1.21;
+    subtotal += precio * cant;
     const el = document.getElementById('total-linea-' + i);
-    if (el) el.textContent = total > 0 ? total.toFixed(2) + ' \u20AC' : '\u2014';
+    if (el) el.textContent = totalConIVA > 0 ? totalConIVA.toFixed(2) + ' \u20AC' : '\u2014';
     // Aviso 10% sobre la media
     const warn  = document.getElementById('warn-precio-' + i);
     const media = parseFloat(inp.dataset.media) || 0;
     if (warn) warn.style.display = (media > 0 && precio > media * 1.10) ? '' : 'none';
   });
-  const iva   = subtotal * 0.21;
-  const total = subtotal + iva;
-  const fmt   = n => n.toFixed(2).replace('.', ',') + ' \u20AC';
-  const el = id => document.getElementById(id);
-  if (el('precios-subtotal')) el('precios-subtotal').textContent = fmt(subtotal);
-  if (el('precios-iva'))      el('precios-iva').textContent      = fmt(iva);
-  if (el('precios-total'))    el('precios-total').textContent    = fmt(total);
+  const fmt = n => n.toFixed(2).replace('.', ',') + ' \u20AC';
+  const el  = id => document.getElementById(id);
+  if (el('precios-total')) el('precios-total').textContent = fmt(subtotal * 1.21);
 }
 
 async function guardarPrecios() {

@@ -252,7 +252,8 @@ function renderIncidencias(filtroEstado = '') {
     const incIdx = DATA.incidencias.indexOf(i);
     // Botón contextual según estado e intervención enlazada
     let btnAccion = '';
-    if (puedeHacer('crearIntervenciones')) {
+    const esProfesor = getUserRole() === 'Profesor';
+    if (puedeHacer('crearIntervenciones') && !esProfesor) {
       if (i.Estado === 'Abierta') {
         btnAccion = `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="abrirPlanificacion('${i.ID_Incidencia}','${i.Equipo}')">Responder</button>`;
       } else if ((i.Estado === 'En gestión') && i.Intervencion_Generada) {

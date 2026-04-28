@@ -442,73 +442,94 @@ async function guardarActuacion() {
 
   showLoading('Guardando actuación...');
   try {
+    // ── Guardar datos de la actuación en la intervención actual ────────────
     await sheetsUpdate(`Intervenciones!A${intIdx + 2}:R${intIdx + 2}`, updatedRow);
     DATA.intervenciones[intIdx] = rowToObj(updatedRow, 'intervenciones');
 
-    // Actualizar incidencia vinculada si existe
-    const incId  = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
-    if (incId !== -1 && (nuevoEstadoInc === 'Resuelta' || nuevoEstadoInc === 'En gestión')) {
-      const inc = DATA.incidencias[incId];
-      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada' && inc.Estado !== 'Archivada') {
-        inc.Estado = nuevoEstadoInc;
-        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, inc.Estado, inc.Intervencion_Generada];
-        await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
-        // Auto-archivar si queda Resuelta
-        if (nuevoEstadoInc === 'Resuelta') {
-          inc.Estado = 'Archivada';
-          const incRowArch = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, 'Archivada', inc.Intervencion_Generada];
-          await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRowArch);
-        }
-      }
+    // ── Estado operativo del equipo según resultado ────────────────────────
+    const equipoId = i.Equipo.split(' – ')[0];
+    if (resultado === 'Resuelto' && operativo === 'Sí') {
+      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn(e); }
+    } else if (resultado === 'Resuelto' && operativo === 'No') {
+      try { await actualizarEstadoEquipo(i.Equipo, 'No operativo'); } catch(e) { console.warn(e); }
+    } else if (resultado === 'Pendiente' || resultado === 'Resuelto parcialmente') {
+      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo con fallos'); } catch(e) { console.warn(e); }
     }
 
-    // Actualizar preventivo si Preventivo + resuelto
+    // ── Actualizar preventivo si Preventivo + Resuelto ─────────────────────
     if (resultado === 'Resuelto' && i.Tipo === 'Preventivo') {
-      const equipoId = i.Equipo.split(' – ')[0];
       const eqIdx = DATA.equipos.findIndex(e => e.ID_Activo === equipoId);
       if (eqIdx !== -1) {
-        const eq = DATA.equipos[eqIdx];
+        const eq  = DATA.equipos[eqIdx];
         const nuevo = calcProximoPreventivo(fechaReal, eq.Periodicidad_Mantenimiento);
         if (nuevo) {
-          eq.Fecha_Ultimo_Preventivo = fechaReal; eq.Fecha_Proximo_Preventivo = nuevo;
+          eq.Fecha_Ultimo_Preventivo  = fechaReal;
+          eq.Fecha_Proximo_Preventivo = nuevo;
           const eqRow = [eq.ID_Activo, eq.Tipo_Equipo, eq.Marca, eq.Modelo, eq.Numero_Serie, eq.Ubicacion, eq.Responsable, eq.Fecha_Adquisicion, eq.Origen_Financiacion, eq.Proveedor_Compra, eq.Proveedor_Servicio_Tecnico, eq.Estado_Operativo, eq.Periodicidad_Mantenimiento, eq.Periodicidad_Custom, eq.Fecha_Ultimo_Preventivo, eq.Fecha_Proximo_Preventivo, eq.Manual_Ficha_Tecnica, eq.Observaciones];
           await sheetsUpdate(`Equipos!A${eqIdx + 2}:R${eqIdx + 2}`, eqRow);
         }
       }
     }
 
-    // Restaurar estado Operativo si resultado=Resuelto y equipo operativo=Sí
-    // (se aplica tanto a intervenciones Cerradas como a Pendiente factura)
-    if (resultado === 'Resuelto' && operativo === 'Sí') {
-      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn('No se pudo restaurar estado equipo', e); }
-      // Archivar incidencia vinculada si no estaba ya archivada
-      const incIdBadge = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
-      if (incIdBadge !== -1) {
-        const incB = DATA.incidencias[incIdBadge];
-        if (incB.Estado !== 'Archivada' && incB.Estado !== 'Cerrada') {
-          incB.Estado = 'Archivada';
-          const rB = [incB.ID_Incidencia, incB.Equipo, incB.Reportado_Por, incB.Fecha_Hora, incB.Descripcion_Problema, incB.Impacto, incB.Urgencia, 'Archivada', incB.Intervencion_Generada];
-          try { await sheetsUpdate(`Incidencias!A${incIdBadge + 2}:I${incIdBadge + 2}`, rB); } catch(e) { console.warn(e); }
-        }
+    // ── Si el resultado NO es definitivo: crear nueva intervención de seguimiento ──
+    // Así cada actuación queda como registro histórico independiente y la cadena
+    // es trazable. La incidencia apunta siempre a la última intervención activa.
+    if (resultado === 'Pendiente' || resultado === 'Resuelto parcialmente') {
+      const nuevaId  = genId('INT-');
+      const nuevaRow = [
+        nuevaId,                          // A ID
+        i.Equipo,                         // B Equipo
+        i.Tipo,                           // C Tipo
+        'Seguimiento de ' + i.ID_Intervencion, // D Origen
+        '',                               // E Fecha_Planificada
+        '', '', '', '',                   // F-I vacíos
+        '',                               // J Descripción
+        '', '', '', '', '',               // K-O
+        '',                               // P Observaciones
+        '',                               // Q Nombre_Adjunto
+        'En gestión'                      // R Estado
+      ];
+      await sheetsAppend('Intervenciones', nuevaRow);
+      const nuevaObj = rowToObj(nuevaRow, 'intervenciones');
+      DATA.intervenciones.push(nuevaObj);
+
+      // Actualizar incidencia vinculada → apuntar a la nueva intervención
+      const incId = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
+      if (incId !== -1) {
+        const inc = DATA.incidencias[incId];
+        inc.Intervencion_Generada = nuevaId;
+        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, 'En gestión', nuevaId];
+        await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
       }
-    } else if (nuevoEstadoInt === 'Cerrada' && operativo === 'Sí') {
-      // Fallback: cerrada sin resultado explícito Resuelto
-      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn('No se pudo restaurar estado equipo', e); }
+
+      closeModal('modal-registrar-actuacion');
+      const msg = resultado === 'Resuelto parcialmente'
+        ? `Actuación guardada. Creada nueva intervención de seguimiento (${nuevaId}).`
+        : `Actuación guardada como pendiente. Creada nueva intervención (${nuevaId}).`;
+      showToast(msg, 'success');
+      renderAll();
+      hideLoading();
+      return;
+    }
+
+    // ── Resultado definitivo (Resuelto): cerrar incidencia ─────────────────
+    const incId = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
+    if (incId !== -1) {
+      const inc = DATA.incidencias[incId];
+      if (!['Resuelta','Cerrada','Archivada'].includes(inc.Estado)) {
+        const nuevoEstadoInc = nuevoEstadoInt === 'Cerrada' ? 'Archivada' : 'En gestión';
+        inc.Estado = nuevoEstadoInc;
+        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, nuevoEstadoInc, inc.Intervencion_Generada];
+        await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
+      }
     }
 
     closeModal('modal-registrar-actuacion');
-
-    // Paso 3b: resolución parcial → preguntar
-    if (resultado === 'Resuelto parcialmente') {
-      sv('rp-int-idx', String(intIdx));
-      openModal('modal-resolucion-parcial');
-    } else {
-      const msg = nuevoEstadoInt === 'Pendiente factura'
-        ? 'Actuación registrada. Intervención queda "Pendiente factura"'
-        : `Actuación registrada. Intervención → ${nuevoEstadoInt}`;
-      showToast(msg, 'success');
-      renderAll();
-    }
+    const msgFinal = nuevoEstadoInt === 'Pendiente factura'
+      ? 'Actuación registrada. Intervención queda "Pendiente factura"'
+      : `Actuación registrada. Intervención → ${nuevoEstadoInt}`;
+    showToast(msgFinal, 'success');
+    renderAll();
   } catch(e) { showToast('Error guardando', 'error'); console.error(e); }
   hideLoading();
 }
@@ -516,44 +537,11 @@ async function guardarActuacion() {
 // ============================================================
 // FLUJO PASO 3b — Resolución parcial
 // ============================================================
-async function resolverParcialSeguir() {
-  // Sigue En gestión — ya está guardado, solo cerrar modal
-  closeModal('modal-resolucion-parcial');
-  showToast('Intervención en gestión. Puedes registrar más actuaciones.', 'success');
-  renderAll();
-}
-
-async function resolverParcialCerrar() {
-  const intIdx = parseInt(v('rp-int-idx'));
-  const i = DATA.intervenciones[intIdx];
-  if (!i) { closeModal('modal-resolucion-parcial'); return; }
-
-  showLoading('Cerrando intervención...');
-  try {
-    // Cambiar estado a Cerrada
-    i.Estado = 'Cerrada';
-    await sheetsUpdate(`Intervenciones!R${intIdx + 2}`, ['Cerrada']);
-
-    // Cerrar incidencia vinculada y auto-archivar
-    const incId = DATA.incidencias.findIndex(x => x.Intervencion_Generada === i.ID_Intervencion);
-    if (incId !== -1) {
-      const inc = DATA.incidencias[incId];
-      if (inc.Estado !== 'Resuelta' && inc.Estado !== 'Cerrada' && inc.Estado !== 'Archivada') {
-        inc.Estado = 'Archivada';
-        const incRow = [inc.ID_Incidencia, inc.Equipo, inc.Reportado_Por, inc.Fecha_Hora, inc.Descripcion_Problema, inc.Impacto, inc.Urgencia, 'Archivada', inc.Intervencion_Generada];
-        await sheetsUpdate(`Incidencias!A${incId + 2}:I${incId + 2}`, incRow);
-      }
-    }
-    // Restaurar estado Operativo si el técnico indicó equipo operativo=Sí
-    if (i.Equipo_Operativo_Tras_Intervencion === 'Sí') {
-      try { await actualizarEstadoEquipo(i.Equipo, 'Operativo'); } catch(e) { console.warn('No se pudo restaurar estado equipo', e); }
-    }
-    showToast('Intervención cerrada. Incidencia → Resuelta', 'success');
-  } catch(e) { showToast('Error cerrando', 'error'); console.error(e); }
-  hideLoading();
-  closeModal('modal-resolucion-parcial');
-  renderAll();
-}
+// resolverParcialSeguir / resolverParcialCerrar ya no se usan:
+// el nuevo flujo crea directamente una intervención de seguimiento en guardarActuacion().
+// Se mantienen como stubs para evitar errores si el modal antiguo sigue en el HTML.
+function resolverParcialSeguir() { closeModal('modal-resolucion-parcial'); renderAll(); }
+function resolverParcialCerrar() { closeModal('modal-resolucion-parcial'); renderAll(); }
 
 // ============================================================
 // ADJUNTOS — INTERVENCIÓN MANUAL
