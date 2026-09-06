@@ -3,9 +3,10 @@
 // abiertas a cualquier sesión válida — ver los botones sin gating de rol en
 // renderResiduosContenedores/renderResiduosGuia (js/residuos.js). El resto
 // (tipos de residuo) es Admin/Gestor, y los contenedores (crear/editar/cerrar/
-// eliminar/recogida) son Admin/Gestor/Profesor (canEdit en
-// renderResiduosContenedores). "resolver_consulta" es Admin/Gestor.
-import { requireValidSession, requireStaff, requireAdminOrGestor, jsonError, jsonOk, handleCorsPreflight } from "../_shared/auth.ts";
+// eliminar/recogida) también son Admin/Gestor (canEdit en
+// renderResiduosContenedores; el Profesor solo puede "+ Añadir residuo").
+// "resolver_consulta" es Admin/Gestor.
+import { requireValidSession, requireAdminOrGestor, jsonError, jsonOk, handleCorsPreflight } from "../_shared/auth.ts";
 
 function generarId(prefijo: string): string {
   return prefijo + Date.now().toString(36).toUpperCase().slice(-6);
@@ -480,9 +481,9 @@ Deno.serve(async (req) => {
     return jsonOk({ consulta: data });
   }
 
-  // ── Contenedores: crear/editar/cerrar/eliminar/recogida (Admin/Gestor/Profesor) ──
+  // ── Contenedores: crear/editar/cerrar/eliminar/recogida (Admin/Gestor) ──
   if (["crear_contenedor", "actualizar_contenedor", "cerrar_contenedor", "eliminar_contenedor", "registrar_recogida"].includes(accion)) {
-    const { error: authError, supabaseAdmin } = await requireStaff(req);
+    const { error: authError, supabaseAdmin } = await requireAdminOrGestor(req);
     if (authError) return authError;
     const usuario = String(body.usuario || "").trim() || null;
     const fecha = hoy();

@@ -94,10 +94,13 @@ function updateBadges() {
 function _updateBadgeResiduos() {
   const badge = document.getElementById('badge-residuos');
   if (!badge) return;
+  // Los "pendientes de recogida" (estado cerrado) solo cuentan para Gestor/Admin,
+  // que son quienes los ven y gestionan; el Profesor solo ve los niveles altos.
+  const verRecogida = ['Administrador', 'Gestor'].includes(getUserRole());
   const nContenedores = DATA.contenedoresResiduo.filter(c =>
-    c.Estado === 'cerrado' || c.Nivel === '75%' || c.Nivel === 'lleno'
+    (verRecogida && c.Estado === 'cerrado') || c.Nivel === '75%' || c.Nivel === 'lleno'
   ).length;
-  const nConsultas = DATA.consultasResiduo.filter(c => c.Estado === 'Pendiente').length;
+  const nConsultas = verRecogida ? DATA.consultasResiduo.filter(c => c.Estado === 'Pendiente').length : 0;
   const n = nContenedores + nConsultas;
   badge.textContent = n;
   badge.style.display = n > 0 ? '' : 'none';
@@ -357,6 +360,9 @@ function showApp() {
 
   const navPedidos = document.getElementById('nav-pedidos');
   if (navPedidos) navPedidos.style.display = p.verPedidos ? '' : 'none';
+
+  const labelCompras = document.getElementById('label-compras');
+  if (labelCompras) labelCompras.style.display = (p.verPedidos || p.nav.includes('contabilidad')) ? '' : 'none';
 
   showPage(p.dashboard ? 'dashboard' : (p.nav[0] || 'equipos'));
   _checkPendingNfcAction();

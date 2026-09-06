@@ -238,9 +238,12 @@ function renderResiduosContenedores() {
   const el = document.getElementById('page-residuos-contenedores');
   if (!el) return;
 
-  const canEdit = ['Administrador', 'Gestor', 'Profesor'].includes(getUserRole());
+  // Crear/editar/cerrar/eliminar contenedores y ver los pendientes de recogida:
+  // solo Gestor/Admin. El Profesor solo puede "+ Añadir residuo" a los activos.
+  const canEdit = ['Administrador', 'Gestor'].includes(getUserRole());
   const activos  = DATA.contenedoresResiduo.filter(c => (c.Estado || 'activo') === 'activo');
   const cerrados = DATA.contenedoresResiduo.filter(c => c.Estado === 'cerrado');
+  if (!canEdit) _tabContenedor = 'activos';
 
   const tabBtn = (id, label, count, badge) => {
     const isActive = _tabContenedor === id;
@@ -261,7 +264,7 @@ function renderResiduosContenedores() {
       <div style="font-size:13px;color:var(--text-muted)">
         ${alertasNivel > 0
           ? `<span style="color:#f97316;font-weight:600">${alertasNivel} contenedor${alertasNivel > 1 ? 'es' : ''} cerca del límite</span>`
-          : cerrados.length > 0
+          : (canEdit && cerrados.length > 0)
             ? `<span style="color:#ef4444;font-weight:600">${cerrados.length} contenedor${cerrados.length > 1 ? 'es' : ''} pendiente${cerrados.length > 1 ? 's' : ''} de recogida</span>`
             : '<span style="color:var(--text-muted)">Todo en orden</span>'}
       </div>
@@ -269,10 +272,10 @@ function renderResiduosContenedores() {
     </div>
     <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px">
       ${tabBtn('activos', 'Activos', activos.length, alertasNivel || null)}
-      ${tabBtn('recogida', 'Pendientes de recogida', cerrados.length, cerrados.length || null)}
+      ${canEdit ? tabBtn('recogida', 'Pendientes de recogida', cerrados.length, cerrados.length || null) : ''}
     </div>
     <div id="cont-tab-activos">${_renderContenedoresActivos(activos, canEdit)}</div>
-    <div id="cont-tab-recogida" style="display:none">${_renderContenedoresCerrados(cerrados, canEdit)}</div>
+    ${canEdit ? `<div id="cont-tab-recogida" style="display:none">${_renderContenedoresCerrados(cerrados, canEdit)}</div>` : ''}
   `;
   _switchTabContenedor(_tabContenedor);
 }
