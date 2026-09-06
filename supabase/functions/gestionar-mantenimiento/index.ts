@@ -132,6 +132,79 @@ Deno.serve(async (req) => {
     return jsonOk({ registro: data });
   }
 
+  // ── Marcar un periodo programado como 'no_aplica' o 'aplazado' ────────
+  // Ambos exigen motivo (se guarda en observaciones). 'aplazado' guarda además
+  // el mes destino (aplazado_a). "revertir_periodo" borra el marcador y el
+  // periodo vuelve a estar pendiente. Lo puede hacer todo el personal
+  // (requireStaff), igual que finalizar.
+  if (accion === "marcar_periodo" || accion === "revertir_periodo") {
+    const { error: authError, user, supabaseAdmin } = await requireStaff(req);
+    if (authError) return authError;
+
+    if (accion === "revertir_periodo") {
+      const idRegistro = String(body.id_registro || "").trim();
+      if (!idRegistro) return jsonError("id_registro es obligatorio", 400);
+      const { error } = await supabaseAdmin.from("registro_mantenimientos")
+        .delete().eq("id_registro", idRegistro).in("estado", ["no_aplica", "aplazado"]);
+      if (error) return jsonError(`No se pudo revertir el marcador: ${error.message}`, 400);
+      return jsonOk({ revertido: idRegistro });
+    }
+
+    const idPlan = String(body.id_plan || "").trim();
+    const idEquipo = String(body.id_equipo || "").trim();
+    if (!idPlan || !idEquipo) return jsonError("id_plan e id_equipo son obligatorios", 400);
+    const curso = body.curso_academico ? String(body.curso_academico) : null;
+    const periodo = body.periodo ? String(body.periodo) : null;
+    const tipo = String(body.tipo || "").trim();
+    if (tipo !== "no_aplica" && tipo !== "aplazado") {
+      return jsonError("tipo debe ser 'no_aplica' o 'aplazado'", 400);
+    }
+    const motivo = String(body.motivo || "").trim();
+    if (!motivo) return jsonError("El motivo es obligatorio", 400);
+    let aplazadoA: string | null = null;
+    if (tipo === "aplazado") {
+      aplazadoA = String(body.aplazado_a || "").trim();
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(aplazadoA)) {
+        return jsonError("aplazado_a debe ser una fecha (YYYY-MM-DD) para aplazar", 400);
+      }
+    }
+
+    // Si el periodo ya está registrado como realizado, no se puede marcar.
+    {
+      let q = supabaseAdmin.from("registro_mantenimientos").select("id_registro")
+        .eq("id_plan", idPlan).eq("estado", "finalizado");
+      q = curso === null ? q.is("curso_academico", null) : q.eq("curso_academico", curso);
+      q = periodo === null ? q.is("periodo", null) : q.eq("periodo", periodo);
+      const { data } = await q.limit(1);
+      if (data && data[0]) {
+        return jsonError("Este periodo ya está registrado como realizado; no se puede marcar como no aplica ni aplazar.", 400);
+      }
+    }
+
+    // Sustituye cualquier ejecución a medias o marcador previo del mismo periodo.
+    {
+      let d = supabaseAdmin.from("registro_mantenimientos").delete()
+        .eq("id_plan", idPlan).in("estado", ["en_curso", "no_aplica", "aplazado"]);
+      d = curso === null ? d.is("curso_academico", null) : d.eq("curso_academico", curso);
+      d = periodo === null ? d.is("periodo", null) : d.eq("periodo", periodo);
+      await d;
+    }
+
+    const ahora = new Date().toISOString();
+    const datos = {
+      id_registro: generarIdRegistro(), id_plan: idPlan, id_equipo: idEquipo,
+      curso_academico: curso, periodo,
+      estado: tipo, observaciones: motivo, aplazado_a: aplazadoA,
+      fecha_inicio: ahora.slice(0, 10),
+      iniciado_por: body.marcado_por ? String(body.marcado_por) : (user.nombre || null),
+      actualizado_en: ahora,
+    };
+    const { data, error } = await supabaseAdmin.from("registro_mantenimientos")
+      .insert(datos).select().single();
+    if (error) return jsonError(`No se pudo marcar el periodo: ${error.message}`, 400);
+    return jsonOk({ registro: data });
+  }
+
   // ── Corregir un mantenimiento YA finalizado ──────────────────────────
   if (accion === "editar_registro") {
     const { error: authError, supabaseAdmin } = await requireAdminOrGestor(req);
@@ -155,7 +228,7 @@ Deno.serve(async (req) => {
     if (pasosEd) upd.pasos = pasosEd;
 
     const { data, error } = await supabaseAdmin.from("registro_mantenimientos")
-      .update(upd).eq("id_registro", idRegistro).neq("estado", "en_curso").select().single();
+      .update(upd).eq("id_registro", idRegistro).eq("estado", "finalizado").select().single();
     if (error) return jsonError(`No se pudo actualizar el registro: ${error.message}`, 400);
     if (!data) return jsonError(`No se encontró un mantenimiento finalizado "${idRegistro}"`, 404);
     return jsonOk({ registro: data });
@@ -243,5 +316,5 @@ Deno.serve(async (req) => {
     return jsonOk({ eliminado: idPlan });
   }
 
-  return jsonError("accion debe ser 'guardar_progreso', 'finalizar', 'registrar', 'descartar_ejecucion', 'editar_registro', 'crear_plan', 'actualizar_plan' o 'eliminar_plan'", 400);
+  return jsonError("accion debe ser 'guardar_progreso', 'finalizar', 'registrar', 'descartar_ejecucion', 'marcar_periodo', 'revertir_periodo', 'editar_registro', 'crear_plan', 'actualizar_plan' o 'eliminar_plan'", 400);
 });

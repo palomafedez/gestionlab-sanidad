@@ -51,7 +51,7 @@ function _esCursoDebidoMultianual(plan, cursoAcademico) {
   const n = _CICLO_ANIOS[plan.Periodicidad];
   if (!n) return true; // Anual u otra: sin restricción de ciclo
   const cursosRealizados = DATA.registroMantenimientos
-    .filter(r => r.ID_Plan === plan.ID_Plan && r.Estado !== 'en_curso')
+    .filter(r => r.ID_Plan === plan.ID_Plan && r.Estado === 'finalizado')
     .map(r => _añoInicioCurso(r.Curso_Academico));
   if (!cursosRealizados.length) return true;
   const ultimoAño = Math.max(...cursosRealizados);
@@ -104,11 +104,11 @@ function getPeriodosEsperados(plan, equipo, cursoAcademico) {
 }
 
 // Registro FINALIZADO (mantenimiento dado por hecho). Las ejecuciones a medias
-// (estado 'en_curso') NO cuentan aquí: para eso está getEjecucionMant().
+// (estado 'en_curso') y los marcadores 'no_aplica'/'aplazado' NO cuentan aquí.
 function getRegistroMant(idPlan, cursoAcademico, periodo) {
   return DATA.registroMantenimientos.find(r =>
     r.ID_Plan === idPlan && r.Curso_Academico === cursoAcademico &&
-    r.Periodo === periodo && r.Estado !== 'en_curso'
+    r.Periodo === periodo && r.Estado === 'finalizado'
   );
 }
 
@@ -118,6 +118,51 @@ function getEjecucionMant(idPlan, cursoAcademico, periodo) {
     r.ID_Plan === idPlan && r.Curso_Academico === cursoAcademico &&
     r.Periodo === periodo && r.Estado === 'en_curso'
   );
+}
+
+// Marcador "no aplica" / "aplazado" de un periodo concreto (no es un registro
+// realizado: solo deja constancia con motivo de por qué no se hizo o se pospuso).
+function getMarcadorMant(idPlan, cursoAcademico, periodo) {
+  return DATA.registroMantenimientos.find(r =>
+    r.ID_Plan === idPlan && r.Curso_Academico === cursoAcademico &&
+    r.Periodo === periodo && (r.Estado === 'no_aplica' || r.Estado === 'aplazado')
+  );
+}
+
+// Un aplazamiento "vence" cuando llega el mes destino: el periodo vuelve a pendiente.
+function _aplazamientoVencido(marcador) {
+  if (!marcador || marcador.Estado !== 'aplazado') return true;
+  if (!marcador.Aplazado_A) return true;
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  return new Date(marcador.Aplazado_A) <= hoy;
+}
+
+// Estado consolidado de un periodo programado:
+//  'finalizado' | 'en_curso' | 'no_aplica'
+//  | 'aplazado_futuro'  (oculto hasta que llegue su mes destino)
+//  | 'aplazado_vencido' (el mes destino ya llegó → vuelve a pendiente)
+//  | 'pendiente'
+function estadoPeriodoMant(idPlan, curso, periodo) {
+  const reg = getRegistroMant(idPlan, curso, periodo);
+  if (reg) return { tipo: 'finalizado', registro: reg };
+  const marc = getMarcadorMant(idPlan, curso, periodo);
+  if (marc) {
+    if (marc.Estado === 'no_aplica') return { tipo: 'no_aplica', marcador: marc };
+    return _aplazamientoVencido(marc)
+      ? { tipo: 'aplazado_vencido', marcador: marc }
+      : { tipo: 'aplazado_futuro', marcador: marc };
+  }
+  const eje = getEjecucionMant(idPlan, curso, periodo);
+  if (eje) return { tipo: 'en_curso', ejecucion: eje };
+  return { tipo: 'pendiente' };
+}
+
+// "Marzo de 2026" a partir de una fecha YYYY-MM-DD (para etiquetas de aplazamiento).
+function labelMesAnyo(fechaIso) {
+  if (!fechaIso) return '—';
+  try {
+    return new Date(fechaIso).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  } catch { return fechaIso; }
 }
 
 // Convierte el texto de "Instrucciones" del plan (una línea = un paso) en items de
@@ -147,8 +192,16 @@ function getPlanStatusParaEquipo(equipoId) {
   for (const plan of planes) {
     const periodos = getPeriodosEsperados(plan, equipo, curso);
     for (const periodo of periodos) {
-      const reg = getRegistroMant(plan.ID_Plan, curso, periodo);
-      resultado.push({ plan, periodo, curso, hecho: !!reg, registro: reg || null });
+      const est = estadoPeriodoMant(plan.ID_Plan, curso, periodo);
+      // 'no aplica' y aplazamientos aún no vencidos no cuentan como pendientes.
+      if (est.tipo === 'no_aplica' || est.tipo === 'aplazado_futuro') continue;
+      resultado.push({
+        plan, periodo, curso,
+        hecho: est.tipo === 'finalizado',
+        registro: est.registro || null,
+        marcador: est.marcador || null,
+        aplazadoVencido: est.tipo === 'aplazado_vencido',
+      });
     }
   }
   return resultado;
@@ -227,22 +280,40 @@ function buildMantenimientoEquipo(equipoId) {
               </div>`;
             }
             return periodos.map(periodo => {
-              const reg = getRegistroMant(plan.ID_Plan, curso, periodo);
-              const hecho = !!reg;
-              const eje = hecho ? null : getEjecucionMant(plan.ID_Plan, curso, periodo);
+              const est = estadoPeriodoMant(plan.ID_Plan, curso, periodo);
+              const reg = est.registro || null;
+              const hecho = est.tipo === 'finalizado';
+              const marc = est.marcador || null;
+              const eje = est.ejecucion || null;
               const ejeN = eje && Array.isArray(eje.Pasos) ? eje.Pasos.filter(p => p.hecho).length : 0;
               const ejeTot = eje && Array.isArray(eje.Pasos) ? eje.Pasos.length : 0;
-              const abrirEjec = `event.stopPropagation();openModalRegistrarMant('${plan.ID_Plan}','${equipoId.replace(/'/g,"\\'")}','${periodo}','${curso}')`;
+              const argsMarc = `'${plan.ID_Plan}','${equipoId.replace(/'/g,"\\'")}','${periodo}','${curso}'`;
+              const abrirEjec = `event.stopPropagation();openModalRegistrarMant(${argsMarc})`;
+              const abrirMarc = `event.stopPropagation();openModalMarcarMant(${argsMarc})`;
+              const btnMarc = canLog
+                ? `<button class="btn btn-secondary" style="padding:2px 6px;font-size:11px;white-space:nowrap" title="No aplica / aplazar" onclick="${abrirMarc}">⋯</button>`
+                : '';
+              const btnRevert = canLog && marc
+                ? `<button class="btn btn-secondary" style="padding:2px 6px;font-size:11px;white-space:nowrap" title="Revertir: volver a pendiente" onclick="event.stopPropagation();revertirMarcadorMant('${marc.ID_Registro}')">↩</button>`
+                : '';
               let badge;
               if (hecho) {
                 badge = `<span class="badge badge-green" style="font-size:10px">✓ ${formatDate(reg.Fecha_Realizacion)||'Hecho'}</span>`;
+              } else if (est.tipo === 'no_aplica') {
+                badge = `<span class="badge badge-gray" style="font-size:10px" title="${marc.Observaciones||''}">🚫 No aplica</span>${btnRevert}`;
+              } else if (est.tipo === 'aplazado_futuro') {
+                badge = `<span class="badge badge-gray" style="font-size:10px" title="${marc.Observaciones||''}">📅 Aplazado a ${labelMesAnyo(marc.Aplazado_A)}</span>${btnRevert}`;
               } else if (eje) {
                 badge = canLog
-                  ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;white-space:nowrap" onclick="${abrirEjec}">Continuar <span style="opacity:.65">${ejeN}/${ejeTot}</span></button>`
+                  ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;white-space:nowrap" onclick="${abrirEjec}">Continuar <span style="opacity:.65">${ejeN}/${ejeTot}</span></button>${btnMarc}`
                   : `<span class="badge badge-orange" style="font-size:10px">En curso ${ejeN}/${ejeTot}</span>`;
+              } else if (est.tipo === 'aplazado_vencido') {
+                badge = canLog
+                  ? `<span class="badge badge-orange" style="font-size:10px" title="${marc.Observaciones||''}">📅 Aplazado (previsto ${labelMesAnyo(marc.Aplazado_A)})</span><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;white-space:nowrap" onclick="${abrirEjec}">Registrar</button>${btnMarc}`
+                  : `<span class="badge badge-orange" style="font-size:10px">Pendiente (aplazado)</span>`;
               } else {
                 badge = canLog
-                  ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;white-space:nowrap" onclick="${abrirEjec}">Registrar</button>`
+                  ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;white-space:nowrap" onclick="${abrirEjec}">Registrar</button>${btnMarc}`
                   : `<span class="badge badge-orange" style="font-size:10px">Pendiente</span>`;
               }
               const tipoBadge = plan.Tipo_Intervencion === 'Externo' ? 'badge-blue' : 'badge-gray';
@@ -291,6 +362,8 @@ function _resetModalMantUI() {
   if (ay) ay.style.display = '';
   const bpr = document.getElementById('mant-btn-principal');
   if (bpr) bpr.textContent = 'Finalizar';
+  const rpHint = document.getElementById('mant-realizado-hint');
+  if (rpHint) rpHint.textContent = '';
 }
 
 // El botón primario del modal: finaliza una ejecución o guarda la edición de un
@@ -332,9 +405,22 @@ function openModalRegistrarMant(idPlan, idEquipo, periodo, curso) {
 
   document.getElementById('mant-fecha').value = new Date().toISOString().split('T')[0];
 
-  const emailNorm = (currentUser?.email || '').toLowerCase().trim();
-  const u = DATA.usuarios.find(u => (u.Email || '').toLowerCase().trim() === emailNorm);
-  document.getElementById('mant-realizado-por').value = u?.Nombre || currentUser?.name || '';
+  // En mantenimientos externos "Realizado por" es la empresa que lo hizo:
+  // se precarga con el Proveedor SAT del equipo (editable). En los internos,
+  // el nombre de quien está registrando.
+  const rp = document.getElementById('mant-realizado-por');
+  const esExterno = plan.Tipo_Intervencion === 'Externo';
+  if (esExterno) {
+    rp.value = enCurso?.Realizado_Por || equipo.Proveedor_Servicio_Tecnico || '';
+    rp.placeholder = 'Empresa que realizó el mantenimiento';
+  } else {
+    const emailNorm = (currentUser?.email || '').toLowerCase().trim();
+    const u = DATA.usuarios.find(u => (u.Email || '').toLowerCase().trim() === emailNorm);
+    rp.value = u?.Nombre || currentUser?.name || '';
+    rp.placeholder = 'Nombre del responsable';
+  }
+  const rpHint = document.getElementById('mant-realizado-hint');
+  if (rpHint) rpHint.textContent = esExterno ? '(empresa)' : '';
   document.getElementById('mant-supervisado-por').value = '';
   document.getElementById('mant-observaciones').value   = enCurso?.Observaciones || '';
 
@@ -519,6 +605,97 @@ async function guardarEdicionMant() {
     _refrescarTrasMant();
   } catch (e) {
     showToast('Error al guardar los cambios', 'error');
+    console.error(e);
+  }
+  hideLoading();
+}
+
+// ============================================================
+// MODAL "NO APLICA / APLAZAR" un periodo programado
+// ============================================================
+let _marcarMantActual = null; // { idPlan, idEquipo, periodo, curso }
+
+function _toggleMarcarMant() {
+  const tipo = document.querySelector('input[name="marcar-tipo"]:checked')?.value;
+  const wrap = document.getElementById('marcar-mes-wrap');
+  if (wrap) wrap.style.display = tipo === 'aplazado' ? '' : 'none';
+}
+
+function openModalMarcarMant(idPlan, idEquipo, periodo, curso) {
+  const plan   = DATA.planesMantenimiento.find(p => p.ID_Plan === idPlan);
+  const equipo = DATA.equipos.find(e => e.ID_Activo === idEquipo);
+  if (!plan || !equipo) return;
+
+  _marcarMantActual = { idPlan, idEquipo, periodo, curso };
+  const marc = getMarcadorMant(idPlan, curso, periodo);
+
+  const nombreEquipo = `${equipo.ID_Activo} – ${equipo.Tipo_Equipo || ''} ${equipo.Marca || ''}`.trim();
+  document.getElementById('marcar-mant-info').innerHTML = `
+    <div><strong>Equipo:</strong> ${nombreEquipo}</div>
+    <div><strong>Operación:</strong> ${plan.Operacion || '—'}</div>
+    <div><strong>Periodo:</strong> ${plan.Tipo_Intervencion || '—'} · ${plan.Periodicidad || '—'} · ${labelPeriodo(periodo)}</div>`;
+
+  document.getElementById('marcar-id-plan').value   = idPlan;
+  document.getElementById('marcar-id-equipo').value = idEquipo;
+  document.getElementById('marcar-periodo').value   = periodo;
+  document.getElementById('marcar-curso').value     = curso;
+
+  const tipo = marc?.Estado === 'aplazado' ? 'aplazado' : 'no_aplica';
+  document.querySelectorAll('input[name="marcar-tipo"]').forEach(r => { r.checked = r.value === tipo; });
+  document.getElementById('marcar-mes').value = marc?.Aplazado_A ? String(marc.Aplazado_A).slice(0, 7) : '';
+  document.getElementById('marcar-motivo').value = marc?.Observaciones || '';
+  _toggleMarcarMant();
+
+  openModal('modal-marcar-mant');
+}
+
+async function guardarMarcarMant() {
+  if (!_marcarMantActual) return;
+  const { idPlan, idEquipo, periodo, curso } = _marcarMantActual;
+  const tipo = document.querySelector('input[name="marcar-tipo"]:checked')?.value || 'no_aplica';
+  const motivo = document.getElementById('marcar-motivo').value.trim();
+  if (!motivo) { showToast('Explica el motivo', 'error'); return; }
+  let aplazadoA = null;
+  if (tipo === 'aplazado') {
+    const mes = document.getElementById('marcar-mes').value; // "YYYY-MM"
+    if (!/^\d{4}-\d{2}$/.test(mes)) { showToast('Elige el mes al que se aplaza', 'error'); return; }
+    aplazadoA = `${mes}-01`;
+  }
+
+  showLoading('Guardando...');
+  try {
+    const { registro } = await callEdgeFunction('gestionar-mantenimiento', {
+      accion: 'marcar_periodo',
+      id_plan: idPlan, id_equipo: idEquipo, curso_academico: curso, periodo,
+      tipo, motivo, aplazado_a: aplazadoA, marcado_por: _nombreUsuarioActual(),
+    });
+    // El servidor pudo borrar una ejecución a medias del mismo periodo.
+    DATA.registroMantenimientos = DATA.registroMantenimientos.filter(r =>
+      !(r.ID_Plan === idPlan && r.Curso_Academico === curso && r.Periodo === periodo &&
+        (r.Estado === 'en_curso' || r.Estado === 'no_aplica' || r.Estado === 'aplazado')));
+    _upsertRegistroMant(_registroMantSbToObj(registro));
+    closeModal('modal-marcar-mant');
+    showToast(tipo === 'aplazado' ? 'Mantenimiento aplazado' : 'Marcado como "no aplica"', 'success');
+    _refrescarTrasMant();
+  } catch (e) {
+    showToast('Error al guardar', 'error');
+    console.error(e);
+  }
+  hideLoading();
+}
+
+async function revertirMarcadorMant(idRegistro) {
+  if (!idRegistro) return;
+  if (!confirm('¿Quitar la marca y volver a dejar este mantenimiento como pendiente?')) return;
+  showLoading('Revirtiendo...');
+  try {
+    await callEdgeFunction('gestionar-mantenimiento', { accion: 'revertir_periodo', id_registro: idRegistro });
+    const i = DATA.registroMantenimientos.findIndex(r => r.ID_Registro === idRegistro);
+    if (i >= 0) DATA.registroMantenimientos.splice(i, 1);
+    showToast('Vuelve a estar pendiente', 'success');
+    _refrescarTrasMant();
+  } catch (e) {
+    showToast('Error al revertir', 'error');
     console.error(e);
   }
   hideLoading();
@@ -758,12 +935,31 @@ function renderMantenimiento() {
     planes.forEach(plan => {
       const periodos = getPeriodosEsperados(plan, eq, curso);
       periodos.forEach(periodo => {
-        const reg = getRegistroMant(plan.ID_Plan, curso, periodo);
-        const eje = reg ? null : getEjecucionMant(plan.ID_Plan, curso, periodo);
-        todoStatus.push({ equipo: eq, plan, periodo, curso, hecho: !!reg, registro: reg || null, ejecucion: eje || null });
+        const est = estadoPeriodoMant(plan.ID_Plan, curso, periodo);
+        // 'no aplica' y aplazamientos no vencidos no cuentan como esperados.
+        if (est.tipo === 'no_aplica' || est.tipo === 'aplazado_futuro') return;
+        todoStatus.push({
+          equipo: eq, plan, periodo, curso,
+          hecho: est.tipo === 'finalizado',
+          registro: est.registro || null,
+          ejecucion: est.ejecucion || null,
+          marcador: est.marcador || null,
+        });
       });
     });
   });
+
+  // Marcadores del curso (no aplica / aplazados) — para el bloque de revisión.
+  const esScopeCompleto = equiposScope === DATA.equipos;
+  const marcadoresList = DATA.registroMantenimientos
+    .filter(r => r.Curso_Academico === curso && (r.Estado === 'no_aplica' || r.Estado === 'aplazado'))
+    .filter(r => esScopeCompleto || equiposScope.some(e => e.ID_Activo === r.ID_Equipo))
+    .map(r => ({
+      reg: r,
+      equipo: DATA.equipos.find(e => e.ID_Activo === r.ID_Equipo) || null,
+      plan:   DATA.planesMantenimiento.find(p => p.ID_Plan === r.ID_Plan) || null,
+    }))
+    .sort((a, b) => (a.reg.Periodo || '').localeCompare(b.reg.Periodo || ''));
 
   const total     = todoStatus.length;
   const hechos    = todoStatus.filter(s => s.hecho).length;
@@ -779,7 +975,7 @@ function renderMantenimiento() {
   // Realizados del curso (finalizados) — solo Admin/Gestor los ve/edita.
   _realizadosCache = puedeRealizados
     ? DATA.registroMantenimientos
-        .filter(r => r.Curso_Academico === curso && r.Estado !== 'en_curso')
+        .filter(r => r.Curso_Academico === curso && r.Estado === 'finalizado')
         .map(r => {
           const equipo = DATA.equipos.find(e => e.ID_Activo === r.ID_Equipo) || null;
           const plan   = DATA.planesMantenimiento.find(p => p.ID_Plan === r.ID_Plan) || null;
@@ -851,6 +1047,17 @@ function renderMantenimiento() {
         </table>
         <div id="pend-empty" style="display:none;padding:20px;text-align:center;color:var(--text-muted)">✅ Sin mantenimientos pendientes con estos filtros.</div>
       </div>
+      ${canLog && marcadoresList.length ? `
+      <details class="card" style="margin-top:16px">
+        <summary style="cursor:pointer;font-weight:600;font-size:13px">
+          No aplica / aplazados — Curso ${curso}
+          <span style="font-size:11px;background:var(--border);color:var(--text-muted);border-radius:99px;padding:1px 7px;margin-left:4px">${marcadoresList.length}</span>
+        </summary>
+        <table style="margin-top:12px">
+          <thead><tr><th>Equipo</th><th>Operación</th><th>Período</th><th>Estado</th><th>Motivo</th><th></th></tr></thead>
+          <tbody>${_renderFilasMarcadores(marcadoresList)}</tbody>
+        </table>
+      </details>` : ''}
     </div>
 
     <!-- Tab: Realizados (solo Admin/Gestor) -->
@@ -977,18 +1184,48 @@ function _renderFilasPendientes(lista, canLog) {
     const ejeBadge = eje
       ? `<span class="badge badge-orange" style="font-size:10px;margin-left:4px">▶ En curso ${ejeN}/${ejeTot}</span>`
       : '';
+    const aplazado = s.marcador && s.marcador.Estado === 'aplazado' ? s.marcador : null;
+    const aplBadge = aplazado
+      ? `<span class="badge badge-orange" style="font-size:10px;margin-left:4px" title="${aplazado.Observaciones||''}">📅 Aplazado (previsto ${labelMesAnyo(aplazado.Aplazado_A)})</span>`
+      : '';
+    const args = `'${s.plan.ID_Plan}','${s.equipo.ID_Activo}','${s.periodo}','${s.curso}'`;
     return `<tr>
       <td><strong>${s.equipo.ID_Activo}</strong><br><span style="font-size:11px;color:var(--text-muted)">${s.equipo.Tipo_Equipo||''} ${s.equipo.Marca||''}</span></td>
-      <td><span class="badge ${tipoBadge}" style="font-size:10px">${s.plan.Tipo_Intervencion}</span>${alumBadge}${ejeBadge}</td>
+      <td><span class="badge ${tipoBadge}" style="font-size:10px">${s.plan.Tipo_Intervencion}</span>${alumBadge}${ejeBadge}${aplBadge}</td>
       <td>${s.plan.Periodicidad}</td>
       <td>${labelPeriodo(s.periodo)}</td>
       <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${s.plan.Operacion}">${s.plan.Operacion}</td>
       <td style="white-space:nowrap">
         ${comoTexto ? `<button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" onclick="toggleMantInstr('${instrKey}')">▸ Cómo</button>` : ''}
         ${canLog ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px"
-            onclick="openModalRegistrarMant('${s.plan.ID_Plan}','${s.equipo.ID_Activo}','${s.periodo}','${s.curso}')">${eje ? `Continuar ${ejeN}/${ejeTot}` : 'Registrar'}</button>` : ''}
+            onclick="openModalRegistrarMant(${args})">${eje ? `Continuar ${ejeN}/${ejeTot}` : 'Registrar'}</button>
+          <button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" title="No aplica / aplazar" onclick="openModalMarcarMant(${args})">⋯</button>` : ''}
       </td>
     </tr>${instrRow}`;
+  }).join('');
+}
+
+function _renderFilasMarcadores(lista) {
+  if (!lista.length) return '';
+  return lista.map(({ reg, equipo, plan }) => {
+    const eqTxt = equipo
+      ? `<strong>${equipo.ID_Activo}</strong><br><span style="font-size:11px;color:var(--text-muted)">${equipo.Tipo_Equipo||''} ${equipo.Marca||''}</span>`
+      : `<strong>${reg.ID_Equipo}</strong>`;
+    const oper = (plan && plan.Operacion) || '—';
+    const estadoTxt = reg.Estado === 'aplazado'
+      ? `<span class="badge badge-orange" style="font-size:10px">📅 Aplazado a ${labelMesAnyo(reg.Aplazado_A)}</span>`
+      : `<span class="badge badge-gray" style="font-size:10px">🚫 No aplica</span>`;
+    return `<tr>
+      <td>${eqTxt}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${oper}">${oper}</td>
+      <td>${labelPeriodo(reg.Periodo)}</td>
+      <td style="white-space:nowrap">${estadoTxt}</td>
+      <td style="max-width:260px;white-space:pre-line">${reg.Observaciones||'—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" title="Editar" onclick="openModalMarcarMant('${reg.ID_Plan}','${reg.ID_Equipo}','${reg.Periodo}','${reg.Curso_Academico}')">✏️</button>
+        <button class="btn btn-secondary" style="padding:2px 6px;font-size:11px" title="Revertir a pendiente" onclick="revertirMarcadorMant('${reg.ID_Registro}')">↩</button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
@@ -1050,7 +1287,14 @@ function toggleMantInstr(key) {
 // ============================================================
 async function exportarModeloCalidad(cursoAcademico) {
   const curso = cursoAcademico || getCursoAcademico();
-  const registros = DATA.registroMantenimientos.filter(r => r.Curso_Academico === curso && r.Estado !== 'en_curso');
+  const registros = DATA.registroMantenimientos.filter(r => r.Curso_Academico === curso && r.Estado === 'finalizado');
+
+  // "01/2026" para la fecha destino de un aplazamiento (YYYY-MM-DD → MM/YYYY).
+  function _mesAnyoCorto(fechaIso) {
+    if (!fechaIso) return '';
+    const [y, m] = String(fechaIso).split('-');
+    return m && y ? `${m}/${y}` : fechaIso;
+  }
   const planesActivos = DATA.planesMantenimiento.filter(p => p.Activo !== 'FALSE');
 
   // Devuelve TODOS los periodos del curso (incluidos futuros), para el documento anual
@@ -1126,10 +1370,20 @@ async function exportarModeloCalidad(cursoAcademico) {
       if (!periodosUnicos.length) return;
 
       const previstas  = periodosUnicos.map(p => periodoAFecha(p, eq)).join(', ');
+      // Nota "no aplica"/"aplazado" por periodo, para volcarla a observaciones (col. J).
+      const notasMarcador = [];
       const realizadas = periodosUnicos
         .map(p => {
           const reg = getRegistroMant(plan.ID_Plan, curso, p);
-          return reg ? formatDate(reg.Fecha_Realizacion) : '';
+          if (reg) return formatDate(reg.Fecha_Realizacion);
+          const m = getMarcadorMant(plan.ID_Plan, curso, p);
+          if (!m) return '';
+          if (m.Estado === 'aplazado') {
+            notasMarcador.push(`${labelPeriodo(p)}: aplazado a ${_mesAnyoCorto(m.Aplazado_A)}${m.Observaciones ? ' — ' + m.Observaciones : ''}`);
+            return `Aplazado a ${_mesAnyoCorto(m.Aplazado_A)}`;
+          }
+          notasMarcador.push(`${labelPeriodo(p)}: no aplica${m.Observaciones ? ' — ' + m.Observaciones : ''}`);
+          return 'No aplica';
         })
         .filter(Boolean)
         .join(', ');
@@ -1138,9 +1392,10 @@ async function exportarModeloCalidad(cursoAcademico) {
         (inc.Estado === 'Abierta' || inc.Estado === 'En gestión') &&
         inc.Equipo && (inc.Equipo === eq.ID_Activo || inc.Equipo.startsWith(eq.ID_Activo + ' '))
       );
-      const observaciones = incAbierta
-        ? (incAbierta.Descripcion_Problema || '') + ' (' + incAbierta.ID_Incidencia + ')'
-        : '';
+      const observaciones = [
+        incAbierta ? (incAbierta.Descripcion_Problema || '') + ' (' + incAbierta.ID_Incidencia + ')' : '',
+        ...notasMarcador,
+      ].filter(Boolean).join(' · ');
 
       porLab[hoja].push({
         eq, plan, tipo,

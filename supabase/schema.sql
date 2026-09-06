@@ -227,10 +227,11 @@ create table registro_mantenimientos (
   realizado_por       text,
   supervisado_por     text,
   observaciones       text,
-  estado              text not null default 'finalizado',  -- 'en_curso' | 'finalizado'
+  estado              text not null default 'finalizado',  -- 'en_curso' | 'finalizado' | 'no_aplica' | 'aplazado'
   pasos               jsonb,                                -- [{texto, hecho}] checklist de la ejecución
   fecha_inicio        date,                                 -- cuándo se empezó (ejecución a medias)
   iniciado_por        text,
+  aplazado_a          date,                                 -- estado 'aplazado': mes destino (día 1)
   actualizado_en      timestamptz not null default now()
 );
 
@@ -242,6 +243,13 @@ alter table registro_mantenimientos add column if not exists pasos jsonb;
 alter table registro_mantenimientos add column if not exists fecha_inicio date;
 alter table registro_mantenimientos add column if not exists iniciado_por text;
 alter table registro_mantenimientos add column if not exists actualizado_en timestamptz not null default now();
+
+-- Migración: un periodo programado puede marcarse 'no_aplica' (no procede este periodo,
+-- p. ej. el equipo no se usó) o 'aplazado' (se pospone a otro mes). Ambos exigen motivo,
+-- que se guarda en `observaciones` y se vuelca a la columna de observaciones del Excel
+-- del modelo de calidad. 'aplazado' guarda además el mes destino en `aplazado_a`; el
+-- periodo vuelve a figurar como pendiente cuando se alcanza esa fecha.
+alter table registro_mantenimientos add column if not exists aplazado_a date;
 
 -- ============================================================
 -- 4. RESIDUOS

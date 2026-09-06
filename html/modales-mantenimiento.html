@@ -30,7 +30,7 @@
           <input id="mant-fecha" type="date">
         </div>
         <div class="form-group">
-          <label>Realizado por *</label>
+          <label>Realizado por * <span id="mant-realizado-hint" style="font-weight:400;color:var(--text-muted);font-size:11px"></span></label>
           <input id="mant-realizado-por" placeholder="Nombre del responsable">
         </div>
         <div class="form-group">
@@ -46,6 +46,50 @@
         <button class="btn btn-secondary" onclick="closeModal('modal-registrar-mant')">Cancelar</button>
         <button class="btn btn-secondary" id="mant-btn-progreso" onclick="guardarProgresoMant()">💾 Guardar progreso</button>
         <button class="btn btn-primary" id="mant-btn-principal" onclick="_mantGuardarPrincipal()">Finalizar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Marcar periodo: No aplica / Aplazar -->
+<div class="modal-overlay" id="modal-marcar-mant">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <div class="modal-title">No aplica / aplazar mantenimiento</div>
+      <button class="modal-close" onclick="closeModal('modal-marcar-mant')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="marcar-mant-info" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:1.6"></div>
+      <input type="hidden" id="marcar-id-plan">
+      <input type="hidden" id="marcar-id-equipo">
+      <input type="hidden" id="marcar-periodo">
+      <input type="hidden" id="marcar-curso">
+
+      <div class="form-group full" style="margin-bottom:12px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500">
+          <input type="radio" name="marcar-tipo" value="no_aplica" checked onchange="_toggleMarcarMant()">
+          No aplica este periodo <span style="font-weight:400;color:var(--text-muted)">— no procede (p. ej. el equipo no se usó)</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:500;margin-top:8px">
+          <input type="radio" name="marcar-tipo" value="aplazado" onchange="_toggleMarcarMant()">
+          Aplazar a otro mes <span style="font-weight:400;color:var(--text-muted)">— se hará más adelante</span>
+        </label>
+      </div>
+
+      <div class="form-group full" id="marcar-mes-wrap" style="display:none;margin-bottom:12px">
+        <label>Aplazar hasta *</label>
+        <input id="marcar-mes" type="month">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Volverá a figurar como pendiente cuando llegue ese mes.</div>
+      </div>
+
+      <div class="form-group full">
+        <label>Motivo *</label>
+        <textarea id="marcar-motivo" rows="3" placeholder="Explica por qué no aplica o por qué se aplaza. Aparecerá en la columna de observaciones del Excel de mantenimientos."></textarea>
+      </div>
+
+      <div class="form-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-marcar-mant')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarMarcarMant()">Guardar</button>
       </div>
     </div>
   </div>

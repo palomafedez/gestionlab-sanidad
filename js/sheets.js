@@ -197,6 +197,7 @@ function _registroMantSbToObj(r) {
     Pasos: Array.isArray(r.pasos) ? r.pasos : null,
     Fecha_Inicio: r.fecha_inicio || '',
     Iniciado_Por: r.iniciado_por || '',
+    Aplazado_A: r.aplazado_a || '',
     Actualizado_En: r.actualizado_en || '',
   };
 }
