@@ -33,6 +33,39 @@ del equipo es solo lectura + ejecutar.
 | **Protocolo de uso** | Modal de editar equipo (se muestra en la sección de mantenimiento de la tarjeta). |
 | **Ejecutar** un mantenimiento (checklist) | Tarjeta del equipo o `Mantenimiento → Pendientes` (mismo modal `modal-registrar-mant`). |
 | **Corregir un mantenimiento ya finalizado** | `Mantenimiento → Realizados` (pestaña solo Admin/Gestor) → ✏️ Editar → `modal-registrar-mant` en modo edición (título "✏️ Editar mantenimiento", sin "Guardar progreso"). Acción `editar_registro` en `gestionar-mantenimiento`. |
+| **Marcar un periodo "no aplica" o aplazarlo** | Botón `⋯` en la fila de Pendientes y en la tarjeta del equipo → `modal-marcar-mant`. Bloque desplegable "No aplica / aplazados" bajo la tabla de Pendientes (revertir / editar). Acciones `marcar_periodo` / `revertir_periodo`. |
+
+## "Realizado por" en mantenimientos externos
+
+En los planes con `Tipo_Intervencion = 'Externo'`, el campo **"Realizado por"** del modal
+de ejecución es la **empresa** que hizo el trabajo: se precarga con
+`equipos.proveedor_servicio_tecnico` (Proveedor SAT), es editable, y el label muestra
+"(empresa)". En los internos sigue precargándose con el nombre de quien registra.
+
+## "No aplica" / aplazar un periodo programado (2026-09-06)
+
+Un periodo esperado que no toca hacer o que se pospone se marca en vez de dejarse pendiente
+indefinidamente. Fila en `registro_mantenimientos` con `estado` `'no_aplica'` o `'aplazado'`:
+
+- **Motivo obligatorio** → se guarda en `observaciones`.
+- `'aplazado'` guarda además el **mes destino** en la columna nueva `aplazado_a` (día 1).
+  El periodo original deja de contar como pendiente y **reaparece** (badge "aplazado,
+  previsto MM/AAAA") cuando `aplazado_a <= hoy` (`estadoPeriodoMant` → `aplazado_vencido`).
+- `'no_aplica'` oculta el periodo de pendientes de ese curso, sin más.
+- Permiso: `requireStaff` (Admin/Gestor/Profesor), igual que finalizar.
+- Al marcar se borra cualquier ejecución a medias (`en_curso`) o marcador previo del mismo
+  periodo. No se puede marcar un periodo ya `finalizado`.
+- **Revertir** (`revertir_periodo`): borra el marcador y el periodo vuelve a pendiente.
+
+⚠ `getRegistroMant` / `_esCursoDebidoMultianual` / la lista de "Realizados" filtran ahora
+`estado === 'finalizado'` **explícito** (antes `!== 'en_curso'`), para no confundir un
+marcador `no_aplica`/`aplazado` con un mantenimiento hecho.
+
+### Reflejo en el Excel del modelo de calidad (`exportarModeloCalidad`)
+- Columna **H** (fechas de realización): para ese periodo, en vez de vacío, `No aplica` o
+  `Aplazado a MM/AAAA`.
+- Columna **J** (observaciones): se añade `<Periodo>: no aplica — <motivo>` /
+  `<Periodo>: aplazado a MM/AAAA — <motivo>` (concatenado con la incidencia abierta si la hay).
 
 ### Permisos por rol en la sección Mantenimiento
 - **Admin/Gestor**: todo (Pendientes, Realizados, Planes configurados, exportar Excel).
