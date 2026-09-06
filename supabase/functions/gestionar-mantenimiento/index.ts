@@ -92,6 +92,14 @@ Deno.serve(async (req) => {
         if (error) return jsonError(`No se pudo guardar el progreso: ${error.message}`, 400);
         return jsonOk({ registro: data });
       }
+      // Empezar a ejecutar deja sin efecto un marcador no_aplica/aplazado previo.
+      {
+        let d = supabaseAdmin.from("registro_mantenimientos").delete()
+          .eq("id_plan", idPlan).in("estado", ["no_aplica", "aplazado"]);
+        d = curso === null ? d.is("curso_academico", null) : d.eq("curso_academico", curso);
+        d = periodo === null ? d.is("periodo", null) : d.eq("periodo", periodo);
+        await d;
+      }
       const datos = {
         id_registro: generarIdRegistro(), id_plan: idPlan, id_equipo: idEquipo,
         curso_academico: curso, periodo,
@@ -120,6 +128,17 @@ Deno.serve(async (req) => {
       actualizado_en: new Date().toISOString(),
     };
     if (pasos) comun.pasos = pasos;
+
+    // Un marcador 'no_aplica'/'aplazado' del mismo periodo deja de tener sentido
+    // en cuanto se registra como hecho: se elimina.
+    {
+      let d = supabaseAdmin.from("registro_mantenimientos").delete()
+        .eq("id_plan", idPlan).in("estado", ["no_aplica", "aplazado"]);
+      d = curso === null ? d.is("curso_academico", null) : d.eq("curso_academico", curso);
+      d = periodo === null ? d.is("periodo", null) : d.eq("periodo", periodo);
+      await d;
+    }
+
     if (enCurso) {
       const { data, error } = await supabaseAdmin.from("registro_mantenimientos")
         .update(comun).eq("id_registro", enCurso.id_registro as string).select().single();

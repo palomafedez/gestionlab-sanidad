@@ -475,6 +475,9 @@ async function guardarProgresoMant() {
       id_plan: idPlan, id_equipo: idEquipo, curso_academico: curso, periodo,
       pasos: _leerChecklist(), iniciado_por: _nombreUsuarioActual(),
     });
+    DATA.registroMantenimientos = DATA.registroMantenimientos.filter(r =>
+      !(r.ID_Plan === idPlan && r.Curso_Academico === curso && r.Periodo === periodo &&
+        (r.Estado === 'no_aplica' || r.Estado === 'aplazado')));
     _upsertRegistroMant(_registroMantSbToObj(registro));
     closeModal('modal-registrar-mant');
     showToast('Progreso guardado — puedes retomarlo más adelante', 'success');
@@ -527,6 +530,10 @@ async function finalizarMant() {
       supervisado_por: document.getElementById('mant-supervisado-por').value.trim(),
       observaciones: document.getElementById('mant-observaciones').value.trim(),
     });
+    // El servidor borra cualquier marcador no_aplica/aplazado del mismo periodo.
+    DATA.registroMantenimientos = DATA.registroMantenimientos.filter(r =>
+      !(r.ID_Plan === idPlan && r.Curso_Academico === curso && r.Periodo === periodo &&
+        (r.Estado === 'no_aplica' || r.Estado === 'aplazado')));
     _upsertRegistroMant(_registroMantSbToObj(registro));
     closeModal('modal-registrar-mant');
     showToast('Mantenimiento finalizado', 'success');
