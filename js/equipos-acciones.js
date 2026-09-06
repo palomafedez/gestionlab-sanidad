@@ -171,7 +171,7 @@ function openModalEquipo() {
   _initResponsables(''); // limpia tags responsable
   _initModulosResponsables(''); // limpia tags módulos responsables
   sv('eq-estado','Operativo'); sv('eq-pdf-url','');
-  sv('eq-protocolo-uso',''); sv('eq-mes-inicio',''); sv('eq-mes-fin','');
+  sv('eq-protocolo-uso','');
   document.getElementById('eq-pdf-preview').style.display = 'none';
   document.getElementById('eq-pdf-name').textContent = '';
   if (document.getElementById('eq-pdf-input')) document.getElementById('eq-pdf-input').value = '';
@@ -204,8 +204,6 @@ function editEquipo(idx) {
   sv('eq-coste', e.Coste||'');
   sv('eq-pdf-url', e.Manual_Ficha_Tecnica||'');
   sv('eq-protocolo-uso', e.Protocolo_Uso||'');
-  sv('eq-mes-inicio', e.Mes_Inicio_Temporada||'');
-  sv('eq-mes-fin', e.Mes_Fin_Temporada||'');
   // Restaurar autocomplete de ubicación
   document.getElementById('eq-ubicacion').value = e.Ubicacion || '';
   document.getElementById('eq-ubicacion-search').value = '';
@@ -1019,6 +1017,8 @@ async function guardarEquipo() {
   // Periodicidad_Mantenimiento/Periodicidad_Custom/Fecha_Ultimo_Preventivo/Fecha_Proximo_Preventivo
   // (legado) gestionadas ahora por Planes_Mantenimiento + Registro_Mantenimientos — no se envían.
   // Tipo_Mantenimiento eliminado del modal — tampoco se envía, se queda vacío.
+  // Mes_Inicio_Temporada / Mes_Fin_Temporada: se editan desde el modal del plan
+  // (solo planes Pretemporada/Posttemporada), no aquí — gestionar-equipo ya no los toca.
   const datos = {
     id_activo: id, tipo_equipo: tipo, marca,
     modelo: v('eq-modelo'), numero_serie: v('eq-serie'), ubicacion: v('eq-ubicacion'),
@@ -1027,7 +1027,6 @@ async function guardarEquipo() {
     proveedor_servicio_tecnico: v('eq-proveedor-sat'), estado_operativo: v('eq-estado'),
     manual_ficha_tecnica: manualUrl, observaciones: v('eq-observaciones'),
     coste: v('eq-coste'), protocolo_uso: v('eq-protocolo-uso'),
-    mes_inicio_temporada: v('eq-mes-inicio'), mes_fin_temporada: v('eq-mes-fin'),
   };
 
   const cambioId = editingRow && editingRow.sheet === 'Equipos' && idOriginal && id !== idOriginal;

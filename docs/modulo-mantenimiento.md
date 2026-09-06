@@ -20,6 +20,29 @@
 - Pretemporada: "pretemporada-YYYY-YYYY" (si hoy ≥ Mes_Inicio_Temporada)
 - Posttemporada: "posttemporada-YYYY-YYYY" (si hoy ≥ Mes_Fin_Temporada)
 
+## Dónde se gestiona cada cosa (centralizado 2026-09-06)
+
+Toda la **configuración** de mantenimiento vive en la sección **Mantenimiento**; la tarjeta
+del equipo es solo lectura + ejecutar.
+
+| Cosa | Dónde se hace |
+|---|---|
+| Alta / edición / borrado de un **plan** | `Mantenimiento → Planes configurados` (botón "+ Plan" con selector de equipo; ✏️/🗑️ por fila). Ya **no** se crean desde la tarjeta del equipo. |
+| **Meses de temporada** (`Mes_Inicio_Temporada` / `Mes_Fin_Temporada`) | Dentro del modal del plan, bloque "Temporada del equipo", visible solo si la periodicidad es Pretemporada/Posttemporada. Se **siguen guardando en la tabla `equipos`** (los escribe `gestionar-mantenimiento` en `crear_plan`/`actualizar_plan`); `gestionar-equipo` ya no los toca. Se quitaron del modal de editar equipo. |
+| **Responsable / Módulos responsables / Proveedor SAT** | Modal de editar equipo (no se movió: también gobierna permisos de intervenciones). El plan no tiene responsable propio; lo que cuenta es `realizado_por` al registrar. |
+| **Protocolo de uso** | Modal de editar equipo (se muestra en la sección de mantenimiento de la tarjeta). |
+| **Ejecutar** un mantenimiento (checklist) | Tarjeta del equipo o `Mantenimiento → Pendientes` (mismo modal `modal-registrar-mant`). |
+| **Corregir un mantenimiento ya finalizado** | `Mantenimiento → Realizados` (pestaña solo Admin/Gestor) → ✏️ Editar → `modal-registrar-mant` en modo edición (título "✏️ Editar mantenimiento", sin "Guardar progreso"). Acción `editar_registro` en `gestionar-mantenimiento`. |
+
+### Permisos por rol en la sección Mantenimiento
+- **Admin/Gestor**: todo (Pendientes, Realizados, Planes configurados, exportar Excel).
+- **Profesor**: entra en la sección, pero **todo acotado a los equipos de los que es
+  responsable** (`esResponsableDeEquipo`): ve/ejecuta Pendientes de sus equipos y
+  crea/edita/borra Planes de sus equipos. **No** ve la pestaña Realizados ni los botones de
+  exportar. El servidor (`gestionar-mantenimiento`) revalida: `requireStaff` + el nombre del
+  profesor debe estar en `equipos.responsable`.
+- **Alumno**: solo Pendientes marcados `Con_Alumnado` y en su período (oct–may), como antes.
+
 ## Datos
 - 410 planes activos en `planes_mantenimiento` (2026-08-22; el número crece con el tiempo,
   no usar como referencia fija). Distribución de periodicidad: Anual 172, Semestral 78,

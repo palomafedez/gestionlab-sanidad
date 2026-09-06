@@ -15,7 +15,7 @@ La app se sirve directamente desde `main` en GitHub Pages — sin commit y push,
 ## Documentación de módulos
 
 Ver `docs/` para detalles de módulos completados y patrones de implementación:
-- `docs/modulo-mantenimiento.md` — hojas Planes_Mantenimiento / Registro_Mantenimientos, lógica de periodos
+- `docs/modulo-mantenimiento.md` — Planes_Mantenimiento / Registro_Mantenimientos, lógica de periodos, **dónde se gestiona cada cosa** (todo centralizado en la sección Mantenimiento desde 2026-09-06) y permisos por rol
 - `docs/modulo-incidencias.md` — flujo Incidencia → Intervención (visita) → Tarea, estados derivados, visitas de seguimiento
 - `docs/modulo-residuos.md` — GHS, ciclo de vida de contenedores, consultas, NFC/QR
 - `docs/modulo-reservas.md` — políticas BLOCK/COMPATIBLE, estados, 23 equipos configurados
@@ -206,6 +206,12 @@ id_activo, tipo_equipo, marca, modelo, numero_serie, ubicacion, responsable,
 modulos_responsables, fecha_adquisicion, origen_financiacion, proveedor_compra,
 proveedor_servicio_tecnico, estado_operativo, manual_ficha_tecnica, observaciones, coste,
 protocolo_uso, tipo_mantenimiento, mes_inicio_temporada, mes_fin_temporada.
+
+`mes_inicio_temporada` / `mes_fin_temporada` siguen en esta tabla, pero desde 2026-09-06 se
+editan **solo desde el modal del plan** (`Mantenimiento → Planes configurados`, planes
+Pretemporada/Posttemporada) — los escribe la Edge Function `gestionar-mantenimiento`.
+`gestionar-equipo` ya no los toca y se quitaron del modal de editar equipo. `tipo_mantenimiento`
+sigue sin uso (nunca se rellena). Ver `docs/modulo-mantenimiento.md`.
 
 `modulos_responsables` (añadido 2026-08-22): nombres de módulo separados por coma, texto
 libre, igual que `responsable`. De qué módulo(s) depende el equipo — se usa al importar

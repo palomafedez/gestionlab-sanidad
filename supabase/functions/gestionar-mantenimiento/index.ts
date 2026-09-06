@@ -1,9 +1,24 @@
 // Módulo Mantenimiento. "registrar" (dejar constancia de que se hizo un
 // mantenimiento) lo puede hacer también el Profesor responsable del equipo
 // (mismo permiso que crearIntervenciones, ver js/mantenimiento.js `canLog`).
-// "crear_plan"/"actualizar_plan"/"eliminar_plan" quedan solo para Admin/Gestor
-// (comentario "MODAL GESTIONAR PLANES (Admin/Gestor)" en el código original).
+// "crear_plan"/"actualizar_plan"/"eliminar_plan": Admin/Gestor cualquier equipo,
+// Profesor solo los equipos de los que es responsable (campo `responsable`).
+// "editar_registro" (corregir un mantenimiento ya finalizado): solo Admin/Gestor.
 import { requireStaff, requireAdminOrGestor, jsonError, jsonOk, handleCorsPreflight } from "../_shared/auth.ts";
+
+// Parsea el checklist [{texto, hecho}] recibido en el cuerpo.
+function parsePasos(v: unknown): { texto: string; hecho: boolean }[] | null {
+  if (!Array.isArray(v)) return null;
+  return v.map((p) => {
+    const o = (p ?? {}) as Record<string, unknown>;
+    return { texto: String(o.texto ?? ""), hecho: o.hecho === true };
+  });
+}
+
+// Meses de temporada: "" o ausente → null; si no, número.
+function numOrNull(v: unknown): number | null {
+  return (v === "" || v === null || v === undefined) ? null : Number(v);
+}
 
 function generarIdRegistro(): string {
   return "RM" + Date.now().toString(36).toUpperCase().slice(-6);
@@ -117,13 +132,52 @@ Deno.serve(async (req) => {
     return jsonOk({ registro: data });
   }
 
-  const { error: authError, supabaseAdmin } = await requireAdminOrGestor(req);
+  // ── Corregir un mantenimiento YA finalizado ──────────────────────────
+  if (accion === "editar_registro") {
+    const { error: authError, supabaseAdmin } = await requireAdminOrGestor(req);
+    if (authError) return authError;
+
+    const idRegistro = String(body.id_registro || "").trim();
+    if (!idRegistro) return jsonError("id_registro es obligatorio", 400);
+    const fecha = String(body.fecha_realizacion || "").trim();
+    const realizadoPor = String(body.realizado_por || "").trim();
+    if (!fecha || !realizadoPor) {
+      return jsonError("fecha_realizacion y realizado_por son obligatorios", 400);
+    }
+    const upd: Record<string, unknown> = {
+      fecha_realizacion: fecha,
+      realizado_por: realizadoPor,
+      supervisado_por: body.supervisado_por ? String(body.supervisado_por) : null,
+      observaciones: body.observaciones ? String(body.observaciones) : null,
+      actualizado_en: new Date().toISOString(),
+    };
+    const pasosEd = parsePasos(body.pasos);
+    if (pasosEd) upd.pasos = pasosEd;
+
+    const { data, error } = await supabaseAdmin.from("registro_mantenimientos")
+      .update(upd).eq("id_registro", idRegistro).neq("estado", "en_curso").select().single();
+    if (error) return jsonError(`No se pudo actualizar el registro: ${error.message}`, 400);
+    if (!data) return jsonError(`No se encontró un mantenimiento finalizado "${idRegistro}"`, 404);
+    return jsonOk({ registro: data });
+  }
+
+  // ── Alta / edición / borrado de planes ───────────────────────────────
+  const { error: authError, user, supabaseAdmin } = await requireStaff(req);
   if (authError) return authError;
 
+  // El Profesor solo puede tocar planes de equipos de los que es responsable.
+  async function profesorAutorizado(idEquipo: string): Promise<boolean> {
+    if (user.rol !== "Profesor") return true;
+    const miNombre = String(user.nombre || "").toLowerCase().trim();
+    if (!miNombre) return false;
+    const { data } = await supabaseAdmin.from("equipos")
+      .select("responsable").eq("id_activo", idEquipo).maybeSingle();
+    return String(data?.responsable || "").toLowerCase()
+      .split(",").map((r) => r.trim()).includes(miNombre);
+  }
+
   if (accion === "crear_plan" || accion === "actualizar_plan") {
-    const idEquipo = String(body.id_equipo || "").trim();
     const operacion = String(body.operacion || "").trim();
-    if (!idEquipo) return jsonError("id_equipo es obligatorio", 400);
     if (!operacion) return jsonError("El título de la operación es obligatorio", 400);
     const datos = {
       tipo_intervencion: body.tipo_intervencion ? String(body.tipo_intervencion) : null,
@@ -132,18 +186,45 @@ Deno.serve(async (req) => {
       instrucciones: body.instrucciones ? String(body.instrucciones) : null,
       con_alumnado: body.con_alumnado === true || body.con_alumnado === "Sí",
     };
+    // Meses de temporada: se guardan en el equipo, no en el plan (llegan solo
+    // cuando la periodicidad es Pretemporada/Posttemporada).
+    const tocaTemporada = body.mes_inicio_temporada !== undefined || body.mes_fin_temporada !== undefined;
+
     if (accion === "crear_plan") {
+      const idEquipo = String(body.id_equipo || "").trim();
+      if (!idEquipo) return jsonError("id_equipo es obligatorio", 400);
+      if (!(await profesorAutorizado(idEquipo))) {
+        return jsonError("Solo puedes crear planes de equipos de los que eres responsable", 403);
+      }
       const { data, error } = await supabaseAdmin.from("planes_mantenimiento")
         .insert({ id_plan: generarIdPlan(), id_equipo: idEquipo, activo: true, ...datos }).select().single();
       if (error) return jsonError(`No se pudo crear el plan: ${error.message}`, 400);
+      if (tocaTemporada) {
+        await supabaseAdmin.from("equipos").update({
+          mes_inicio_temporada: numOrNull(body.mes_inicio_temporada),
+          mes_fin_temporada: numOrNull(body.mes_fin_temporada),
+        }).eq("id_activo", idEquipo);
+      }
       return jsonOk({ plan: data });
     } else {
       const idPlan = String(body.id_plan || "").trim();
       if (!idPlan) return jsonError("id_plan es obligatorio para actualizar", 400);
+      const { data: planExistente } = await supabaseAdmin.from("planes_mantenimiento")
+        .select("id_equipo").eq("id_plan", idPlan).maybeSingle();
+      if (!planExistente) return jsonError(`No se encontró el plan "${idPlan}"`, 404);
+      const idEquipo = String(planExistente.id_equipo);
+      if (!(await profesorAutorizado(idEquipo))) {
+        return jsonError("Solo puedes editar planes de equipos de los que eres responsable", 403);
+      }
       const { data, error } = await supabaseAdmin.from("planes_mantenimiento")
         .update(datos).eq("id_plan", idPlan).select().single();
       if (error) return jsonError(`No se pudo actualizar el plan: ${error.message}`, 400);
-      if (!data) return jsonError(`No se encontró el plan "${idPlan}"`, 404);
+      if (tocaTemporada) {
+        await supabaseAdmin.from("equipos").update({
+          mes_inicio_temporada: numOrNull(body.mes_inicio_temporada),
+          mes_fin_temporada: numOrNull(body.mes_fin_temporada),
+        }).eq("id_activo", idEquipo);
+      }
       return jsonOk({ plan: data });
     }
   }
@@ -151,10 +232,16 @@ Deno.serve(async (req) => {
   if (accion === "eliminar_plan") {
     const idPlan = String(body.id_plan || "").trim();
     if (!idPlan) return jsonError("id_plan es obligatorio", 400);
+    const { data: planExistente } = await supabaseAdmin.from("planes_mantenimiento")
+      .select("id_equipo").eq("id_plan", idPlan).maybeSingle();
+    if (!planExistente) return jsonOk({ eliminado: idPlan }); // ya no existe
+    if (!(await profesorAutorizado(String(planExistente.id_equipo)))) {
+      return jsonError("Solo puedes eliminar planes de equipos de los que eres responsable", 403);
+    }
     const { error } = await supabaseAdmin.from("planes_mantenimiento").delete().eq("id_plan", idPlan);
     if (error) return jsonError(`No se pudo eliminar: ${error.message}`, 400);
     return jsonOk({ eliminado: idPlan });
   }
 
-  return jsonError("accion debe ser 'guardar_progreso', 'finalizar', 'registrar', 'descartar_ejecucion', 'crear_plan', 'actualizar_plan' o 'eliminar_plan'", 400);
+  return jsonError("accion debe ser 'guardar_progreso', 'finalizar', 'registrar', 'descartar_ejecucion', 'editar_registro', 'crear_plan', 'actualizar_plan' o 'eliminar_plan'", 400);
 });

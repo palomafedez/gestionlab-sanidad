@@ -148,7 +148,7 @@ const PERMISOS = {
   Profesor: {
     // Páginas visibles
     nav: ['dashboard', 'equipos', 'equipo-detalle', 'intervenciones', 'incidencias',
-          'material', 'solicitudes', 'proveedores', 'proveedor-detalle',
+          'mantenimiento', 'material', 'solicitudes', 'proveedores', 'proveedor-detalle',
           'ubicaciones', 'usuarios', 'residuos-guia', 'residuos-contenedores', 'reservas', 'registros-uso', 'perfil'],
     // Equipos: ve todos, pero solo edita e interviene en los suyos (comprobado en render)
     editarEquipos: false,       // controla el botón "Nuevo equipo"

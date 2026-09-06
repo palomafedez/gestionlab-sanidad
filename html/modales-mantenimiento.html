@@ -2,7 +2,7 @@
 <div class="modal-overlay" id="modal-registrar-mant">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Ejecutar mantenimiento</div>
+      <div class="modal-title" id="mant-modal-title">Ejecutar mantenimiento</div>
       <button class="modal-close" onclick="closeModal('modal-registrar-mant')">✕</button>
     </div>
     <div class="modal-body">
@@ -18,7 +18,7 @@
           <span id="mant-checklist-progreso" style="font-weight:400;color:var(--text-muted);font-size:12px"></span>
         </label>
         <div id="mant-checklist" class="mant-checklist"></div>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:6px">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px" id="mant-checklist-ayuda">
           Marca los pasos según los completes. Puedes <strong>guardar el progreso</strong> y retomarlo en otra sesión;
           cuando esté todo hecho, pulsa <strong>Finalizar</strong>.
         </div>
@@ -44,8 +44,8 @@
       </div>
       <div class="form-footer">
         <button class="btn btn-secondary" onclick="closeModal('modal-registrar-mant')">Cancelar</button>
-        <button class="btn btn-secondary" onclick="guardarProgresoMant()">💾 Guardar progreso</button>
-        <button class="btn btn-primary" onclick="finalizarMant()">Finalizar</button>
+        <button class="btn btn-secondary" id="mant-btn-progreso" onclick="guardarProgresoMant()">💾 Guardar progreso</button>
+        <button class="btn btn-primary" id="mant-btn-principal" onclick="_mantGuardarPrincipal()">Finalizar</button>
       </div>
     </div>
   </div>
@@ -59,7 +59,11 @@
       <button class="modal-close" onclick="closeModal('modal-gestionar-plan')">✕</button>
     </div>
     <div class="modal-body">
-      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">
+      <div class="form-group full" id="plan-equipo-selector-wrap" style="display:none;margin-bottom:14px">
+        <label>Equipo *</label>
+        <select id="plan-equipo-select"><option value="">Seleccionar equipo…</option></select>
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px" id="plan-equipo-nombre-wrap">
         Equipo: <strong id="modal-plan-equipo-nombre"></strong>
       </div>
       <div class="form-grid form-grid-2">
@@ -72,7 +76,7 @@
         </div>
         <div class="form-group">
           <label>Periodicidad</label>
-          <select id="plan-periodicidad">
+          <select id="plan-periodicidad" onchange="_togglePlanTemporada()">
             <option>Mensual</option>
             <option>Trimestral</option>
             <option>Semestral</option>
@@ -82,6 +86,19 @@
             <option>Pretemporada</option>
             <option>Posttemporada</option>
           </select>
+        </div>
+        <div class="form-group full" id="plan-temporada-wrap" style="display:none">
+          <label>Temporada del equipo <span class="label-hint" style="display:inline;font-style:normal;color:var(--text-muted)">— meses en que el equipo está en uso; define cuándo vence este plan. Se guarda en el equipo y afecta a todos sus planes estacionales.</span></label>
+          <div style="display:flex;gap:8px;align-items:flex-end">
+            <div style="flex:1">
+              <label style="font-size:11px;color:var(--text-muted)">Mes inicio (1-12)</label>
+              <input id="plan-mes-inicio" type="number" min="1" max="12" placeholder="Ej: 9 (sep)">
+            </div>
+            <div style="flex:1">
+              <label style="font-size:11px;color:var(--text-muted)">Mes fin (1-12)</label>
+              <input id="plan-mes-fin" type="number" min="1" max="12" placeholder="Ej: 5 (may)">
+            </div>
+          </div>
         </div>
         <div class="form-group full">
           <label>Título de la operación *</label>

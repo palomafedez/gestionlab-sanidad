@@ -171,8 +171,8 @@ function buildMantenimientoEquipo(equipoId) {
   const equipo = DATA.equipos.find(e => e.ID_Activo === equipoId);
   if (!equipo) return '';
 
-  const canEdit = puedeHacer('editarEquipos') ||
-    (getUserRole() === 'Profesor' && esResponsableDeEquipo(equipo));
+  // La configuración de planes (alta/edición/borrado) vive ahora solo en la
+  // sección Mantenimiento; aquí la tarjeta es informativa + ejecutar.
   const canLog  = puedeHacer('crearIntervenciones') ||
     (getUserRole() === 'Profesor' && esResponsableDeEquipo(equipo));
 
@@ -192,14 +192,11 @@ function buildMantenimientoEquipo(equipoId) {
   // Planes de mantenimiento
   const planes = DATA.planesMantenimiento.filter(p => p.ID_Equipo === equipoId && p.Activo !== 'FALSE');
   if (!planes.length) {
-    if (canEdit) {
+    if (canLog) {
       secciones.push(`
         <div style="margin-bottom:14px">
           <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Plan de mantenimiento</div>
-          <div style="font-size:12px;color:var(--text-muted);padding:8px 0">Sin planes configurados.
-            <button class="btn btn-secondary" style="padding:2px 8px;font-size:11px;margin-left:8px"
-              onclick="event.stopPropagation();openModalPlan('${equipoId.replace(/'/g, "\\'")}')">+ Añadir plan</button>
-          </div>
+          <div style="font-size:12px;color:var(--text-muted);padding:8px 0">Sin planes configurados. Se dan de alta en la sección <strong>Mantenimiento → Planes configurados</strong>.</div>
         </div>`);
     }
   } else {
@@ -217,8 +214,6 @@ function buildMantenimientoEquipo(equipoId) {
               ${hechos.length}/${statusList.length} completados
             </span>
           </div>
-          ${canEdit ? `<button class="btn btn-secondary" style="padding:2px 8px;font-size:11px"
-            onclick="event.stopPropagation();openModalPlan('${equipoId.replace(/'/g, "\\'")}')">+ Plan</button>` : ''}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           ${planes.map(plan => {
@@ -283,11 +278,33 @@ function buildMantenimientoEquipo(equipoId) {
 // ============================================================
 let _mantEjecActual = null;   // { idPlan, idEquipo, periodo, curso }
 let _mantPasosActual = [];     // [{ texto, hecho }] — fuente de verdad de los textos
+let _mantEditRegistroId = null; // si no es null, el modal está editando un registro ya finalizado
+
+// Deja el modal en modo "ejecutar" (checklist + guardar progreso + finalizar).
+function _resetModalMantUI() {
+  _mantEditRegistroId = null;
+  const t = document.getElementById('mant-modal-title');
+  if (t) t.textContent = 'Ejecutar mantenimiento';
+  const bp = document.getElementById('mant-btn-progreso');
+  if (bp) bp.style.display = '';
+  const ay = document.getElementById('mant-checklist-ayuda');
+  if (ay) ay.style.display = '';
+  const bpr = document.getElementById('mant-btn-principal');
+  if (bpr) bpr.textContent = 'Finalizar';
+}
+
+// El botón primario del modal: finaliza una ejecución o guarda la edición de un
+// registro ya finalizado, según el modo en que se abrió.
+function _mantGuardarPrincipal() {
+  return _mantEditRegistroId ? guardarEdicionMant() : finalizarMant();
+}
 
 function openModalRegistrarMant(idPlan, idEquipo, periodo, curso) {
   const plan   = DATA.planesMantenimiento.find(p => p.ID_Plan === idPlan);
   const equipo = DATA.equipos.find(e => e.ID_Activo === idEquipo);
   if (!plan || !equipo) return;
+
+  _resetModalMantUI();
 
   const enCurso = getEjecucionMant(idPlan, curso, periodo);
   const pasos = enCurso && Array.isArray(enCurso.Pasos) && enCurso.Pasos.length
@@ -435,29 +452,164 @@ async function finalizarMant() {
   hideLoading();
 }
 
+// ── Editar un mantenimiento YA finalizado (solo desde Mantenimiento → Realizados) ──
+function openModalEditarRegistroMant(idRegistro) {
+  const reg = DATA.registroMantenimientos.find(r => r.ID_Registro === idRegistro && r.Estado !== 'en_curso');
+  if (!reg) { showToast('No se encontró el registro', 'error'); return; }
+  const plan   = DATA.planesMantenimiento.find(p => p.ID_Plan === reg.ID_Plan);
+  const equipo = DATA.equipos.find(e => e.ID_Activo === reg.ID_Equipo);
+
+  _resetModalMantUI();
+  _mantEditRegistroId = idRegistro;
+  _mantEjecActual = { idPlan: reg.ID_Plan, idEquipo: reg.ID_Equipo, periodo: reg.Periodo, curso: reg.Curso_Academico };
+
+  const nombreEquipo = equipo
+    ? `${equipo.ID_Activo} – ${equipo.Tipo_Equipo || ''} ${equipo.Marca || ''}`.trim()
+    : reg.ID_Equipo;
+  document.getElementById('mant-info-plan').innerHTML = `
+    <div style="background:var(--warning-light,#fff3cd);border:1px solid var(--warning,#e0a800);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:14px;font-size:12px;line-height:1.6;color:var(--warning-dark,#8a6d00)">
+      <div><strong>✏️ Editando un mantenimiento ya finalizado.</strong> Corrige lo que haga falta; no se crea un registro nuevo.</div>
+      <div style="margin-top:4px"><strong>Equipo:</strong> ${nombreEquipo}</div>
+      <div><strong>Operación:</strong> ${plan?.Operacion || '—'}</div>
+      <div><strong>Tipo:</strong> ${plan?.Tipo_Intervencion || '—'} · ${plan?.Periodicidad || '—'} · ${labelPeriodo(reg.Periodo)}</div>
+    </div>`;
+
+  const pasos = Array.isArray(reg.Pasos) && reg.Pasos.length
+    ? reg.Pasos.map(p => ({ texto: String(p.texto || ''), hecho: p.hecho === true }))
+    : (plan ? _pasosDesdePlan(plan) : []);
+  _renderMantChecklist(pasos);
+
+  document.getElementById('mant-id-plan').value   = reg.ID_Plan;
+  document.getElementById('mant-id-equipo').value = reg.ID_Equipo;
+  document.getElementById('mant-periodo').value   = reg.Periodo;
+  document.getElementById('mant-curso').value     = reg.Curso_Academico;
+  document.getElementById('mant-fecha').value          = reg.Fecha_Realizacion || '';
+  document.getElementById('mant-realizado-por').value  = reg.Realizado_Por || '';
+  document.getElementById('mant-supervisado-por').value= reg.Supervisado_Por || '';
+  document.getElementById('mant-observaciones').value  = reg.Observaciones || '';
+
+  document.getElementById('mant-modal-title').textContent = '✏️ Editar mantenimiento';
+  const bp = document.getElementById('mant-btn-progreso'); if (bp) bp.style.display = 'none';
+  const ay = document.getElementById('mant-checklist-ayuda'); if (ay) ay.style.display = 'none';
+  document.getElementById('mant-btn-principal').textContent = 'Guardar cambios';
+
+  openModal('modal-registrar-mant');
+}
+
+async function guardarEdicionMant() {
+  if (!_mantEditRegistroId) return;
+  const fecha = document.getElementById('mant-fecha').value;
+  const quien = document.getElementById('mant-realizado-por').value.trim();
+  if (!fecha) { showToast('Indica la fecha de realización', 'error'); return; }
+  if (!quien) { showToast('Indica quién realizó el mantenimiento', 'error'); return; }
+
+  showLoading('Guardando cambios...');
+  try {
+    const { registro } = await callEdgeFunction('gestionar-mantenimiento', {
+      accion: 'editar_registro',
+      id_registro: _mantEditRegistroId,
+      fecha_realizacion: fecha, realizado_por: quien,
+      supervisado_por: document.getElementById('mant-supervisado-por').value.trim(),
+      observaciones: document.getElementById('mant-observaciones').value.trim(),
+      pasos: _leerChecklist(),
+    });
+    _upsertRegistroMant(_registroMantSbToObj(registro));
+    closeModal('modal-registrar-mant');
+    showToast('Mantenimiento actualizado', 'success');
+    _refrescarTrasMant();
+  } catch (e) {
+    showToast('Error al guardar los cambios', 'error');
+    console.error(e);
+  }
+  hideLoading();
+}
+
 // ============================================================
-// MODAL GESTIONAR PLANES (Admin/Gestor)
+// MODAL GESTIONAR PLANES — alta/edición/borrado solo desde la
+// sección Mantenimiento. Admin/Gestor: cualquier equipo.
+// Profesor: solo equipos de los que es responsable.
 // ============================================================
 let _planEditingId = null;
 let _planEditingEquipoId = null;
 
-function openModalPlan(equipoId, idPlan = null) {
-  _planEditingEquipoId = equipoId;
+const _PERIODICIDADES_ESTACIONALES = ['Pretemporada', 'Posttemporada'];
+
+// Equipos sobre los que el usuario actual puede gestionar planes.
+function _equiposGestionablesPlan() {
+  if (puedeHacer('editarEquipos')) return DATA.equipos;
+  if (getUserRole() === 'Profesor') return DATA.equipos.filter(e => esResponsableDeEquipo(e));
+  return [];
+}
+
+// Muestra/oculta el bloque de meses de temporada según la periodicidad elegida
+// y, si procede, precarga los meses del equipo seleccionado.
+function _togglePlanTemporada() {
+  const period = document.getElementById('plan-periodicidad').value;
+  const wrap = document.getElementById('plan-temporada-wrap');
+  const estacional = _PERIODICIDADES_ESTACIONALES.includes(period);
+  if (wrap) wrap.style.display = estacional ? '' : 'none';
+  if (estacional) _cargarMesesTemporadaEnPlan();
+}
+
+function _equipoActualPlan() {
+  const id = _planEditingEquipoId ||
+    (document.getElementById('plan-equipo-select')?.value || '');
+  return DATA.equipos.find(e => e.ID_Activo === id) || null;
+}
+
+function _cargarMesesTemporadaEnPlan() {
+  const eq = _equipoActualPlan();
+  const mi = document.getElementById('plan-mes-inicio');
+  const mf = document.getElementById('plan-mes-fin');
+  if (mi) mi.value = eq?.Mes_Inicio_Temporada || '';
+  if (mf) mf.value = eq?.Mes_Fin_Temporada || '';
+}
+
+// Al cambiar el equipo en el selector (solo en alta), recargar los meses.
+function _onCambioEquipoPlan() {
+  _planEditingEquipoId = document.getElementById('plan-equipo-select')?.value || null;
+  _togglePlanTemporada();
+}
+
+function openModalPlan(equipoId = null, idPlan = null) {
   _planEditingId = idPlan;
 
-  const equipo = DATA.equipos.find(e => e.ID_Activo === equipoId);
-  const titulo = equipo ? `${equipo.ID_Activo} – ${equipo.Tipo_Equipo || ''} ${equipo.Marca || ''}`.trim() : equipoId;
-  document.getElementById('modal-plan-equipo-nombre').textContent = titulo;
+  const plan = idPlan ? DATA.planesMantenimiento.find(p => p.ID_Plan === idPlan) : null;
+  // En edición, el equipo lo fija el plan; en alta, el argumento o el selector.
+  _planEditingEquipoId = plan ? plan.ID_Equipo : (equipoId || null);
 
-  if (idPlan) {
-    const plan = DATA.planesMantenimiento.find(p => p.ID_Plan === idPlan);
-    if (plan) {
-      document.getElementById('plan-tipo-int').value      = plan.Tipo_Intervencion;
-      document.getElementById('plan-periodicidad').value  = plan.Periodicidad;
-      document.getElementById('plan-operacion').value     = plan.Operacion;
-      document.getElementById('plan-instrucciones').value = plan.Instrucciones || '';
-      document.getElementById('plan-con-alumnado').checked = _esConAlumnado(plan);
-    }
+  const selWrap  = document.getElementById('plan-equipo-selector-wrap');
+  const nomWrap  = document.getElementById('plan-equipo-nombre-wrap');
+  const select   = document.getElementById('plan-equipo-select');
+  const usarSelector = !plan && !equipoId;
+
+  if (usarSelector) {
+    const opts = _equiposGestionablesPlan()
+      .slice()
+      .sort((a, b) => (a.ID_Activo || '').localeCompare(b.ID_Activo || '', 'es'))
+      .map(e => `<option value="${e.ID_Activo}">${e.ID_Activo} – ${[e.Tipo_Equipo, e.Marca].filter(Boolean).join(' ')}</option>`)
+      .join('');
+    select.innerHTML = `<option value="">Seleccionar equipo…</option>${opts}`;
+    select.value = '';
+    select.onchange = _onCambioEquipoPlan;
+    if (selWrap) selWrap.style.display = '';
+    if (nomWrap) nomWrap.style.display = 'none';
+  } else {
+    const equipo = DATA.equipos.find(e => e.ID_Activo === _planEditingEquipoId);
+    const titulo = equipo
+      ? `${equipo.ID_Activo} – ${equipo.Tipo_Equipo || ''} ${equipo.Marca || ''}`.trim()
+      : (_planEditingEquipoId || '');
+    document.getElementById('modal-plan-equipo-nombre').textContent = titulo;
+    if (selWrap) selWrap.style.display = 'none';
+    if (nomWrap) nomWrap.style.display = '';
+  }
+
+  if (plan) {
+    document.getElementById('plan-tipo-int').value      = plan.Tipo_Intervencion;
+    document.getElementById('plan-periodicidad').value  = plan.Periodicidad;
+    document.getElementById('plan-operacion').value     = plan.Operacion;
+    document.getElementById('plan-instrucciones').value = plan.Instrucciones || '';
+    document.getElementById('plan-con-alumnado').checked = _esConAlumnado(plan);
   } else {
     document.getElementById('plan-tipo-int').value      = 'Interno';
     document.getElementById('plan-periodicidad').value  = 'Anual';
@@ -465,6 +617,8 @@ function openModalPlan(equipoId, idPlan = null) {
     document.getElementById('plan-instrucciones').value = '';
     document.getElementById('plan-con-alumnado').checked = false;
   }
+
+  _togglePlanTemporada();
   openModal('modal-gestionar-plan');
 }
 
@@ -474,25 +628,44 @@ async function guardarPlan() {
   const operacion    = document.getElementById('plan-operacion').value.trim();
   const instrucciones= document.getElementById('plan-instrucciones').value.trim();
   const conAlumnado  = document.getElementById('plan-con-alumnado').checked ? 'Sí' : 'No';
+
+  const idEquipo = _planEditingEquipoId ||
+    (document.getElementById('plan-equipo-select')?.value || '');
+  if (!idEquipo) { showToast('Elige el equipo del plan', 'error'); return; }
   if (!operacion) { showToast('Escribe el título de la operación', 'error'); return; }
+
+  const payload = {
+    id_equipo: idEquipo,
+    tipo_intervencion: tipo, periodicidad: period, operacion, instrucciones, con_alumnado: conAlumnado,
+  };
+  const estacional = _PERIODICIDADES_ESTACIONALES.includes(period);
+  if (estacional) {
+    payload.mes_inicio_temporada = document.getElementById('plan-mes-inicio').value.trim();
+    payload.mes_fin_temporada    = document.getElementById('plan-mes-fin').value.trim();
+  }
 
   showLoading('Guardando...');
   try {
     if (_planEditingId) {
       const idx = DATA.planesMantenimiento.findIndex(p => p.ID_Plan === _planEditingId);
-      if (idx !== -1) {
-        const { plan } = await callEdgeFunction('gestionar-mantenimiento', {
-          accion: 'actualizar_plan', id_plan: _planEditingId, id_equipo: _planEditingEquipoId,
-          tipo_intervencion: tipo, periodicidad: period, operacion, instrucciones, con_alumnado: conAlumnado,
-        });
-        DATA.planesMantenimiento[idx] = _planMantenimientoSbToObj(plan);
-      }
+      const { plan } = await callEdgeFunction('gestionar-mantenimiento', {
+        accion: 'actualizar_plan', id_plan: _planEditingId, ...payload,
+      });
+      if (idx !== -1) DATA.planesMantenimiento[idx] = _planMantenimientoSbToObj(plan);
     } else {
       const { plan } = await callEdgeFunction('gestionar-mantenimiento', {
-        accion: 'crear_plan', id_equipo: _planEditingEquipoId,
-        tipo_intervencion: tipo, periodicidad: period, operacion, instrucciones, con_alumnado: conAlumnado,
+        accion: 'crear_plan', ...payload,
       });
       DATA.planesMantenimiento.push(_planMantenimientoSbToObj(plan));
+    }
+    // Los meses de temporada se guardan en el equipo: reflejarlo en memoria
+    // para que el cálculo de periodos no espere a un recargado completo.
+    if (estacional) {
+      const eq = DATA.equipos.find(e => e.ID_Activo === idEquipo);
+      if (eq) {
+        eq.Mes_Inicio_Temporada = payload.mes_inicio_temporada || '';
+        eq.Mes_Fin_Temporada    = payload.mes_fin_temporada || '';
+      }
     }
     closeModal('modal-gestionar-plan');
     showToast('Plan guardado', 'success');
@@ -528,6 +701,7 @@ async function eliminarPlan(idPlan) {
 // PÁGINA DE MANTENIMIENTO
 // ============================================================
 let _pendientesCache = []; // para que filtrarPendientes() pueda acceder sin re-calcular
+let _realizadosCache = []; // ídem para filtrarRealizados()
 
 function _detectarLabEquipo(eq) {
   const u = DATA.ubicaciones.find(u => u.ID_Ubicacion === eq.Ubicacion);
@@ -557,16 +731,25 @@ function renderMantenimiento() {
   if (!container) return;
 
   const curso = getCursoAcademico();
-  const canEdit = puedeHacer('editarEquipos');
+  const esGestorAdmin = puedeHacer('editarEquipos');   // Admin/Gestor
+  const esProfesor    = getUserRole() === 'Profesor';
+  const esAlumno      = getUserRole() === 'Alumno';
   const canLog  = puedeHacer('crearIntervenciones');
-  const esAlumno = getUserRole() === 'Alumno';
+  const puedeExportar   = esGestorAdmin;
+  const puedePlanes     = esGestorAdmin || esProfesor;   // Profesor: acotado a sus equipos
+  const puedeRealizados = esGestorAdmin;                 // editar finalizados: solo Admin/Gestor
+
+  // El Profesor solo ve/gestiona lo de los equipos de los que es responsable.
+  const equiposScope = esProfesor
+    ? DATA.equipos.filter(e => esResponsableDeEquipo(e))
+    : DATA.equipos;
 
   // Calcular todos los status del curso actual
   // Alumnos solo ven planes marcados Con_Alumnado=Sí y dentro de su período (oct-may)
   const mesActual = new Date().getMonth() + 1; // 1-12
   const enPeriodoAlumno = mesActual >= 10 || mesActual <= 5;
   const todoStatus = [];
-  DATA.equipos.forEach(eq => {
+  equiposScope.forEach(eq => {
     const planes = DATA.planesMantenimiento.filter(p => {
       if (p.ID_Equipo !== eq.ID_Activo || p.Activo === 'FALSE') return false;
       if (esAlumno && (!_esConAlumnado(p) || !enPeriodoAlumno)) return false;
@@ -593,6 +776,22 @@ function renderMantenimiento() {
   }));
   const pendientesList = _pendientesCache;
 
+  // Realizados del curso (finalizados) — solo Admin/Gestor los ve/edita.
+  _realizadosCache = puedeRealizados
+    ? DATA.registroMantenimientos
+        .filter(r => r.Curso_Academico === curso && r.Estado !== 'en_curso')
+        .map(r => {
+          const equipo = DATA.equipos.find(e => e.ID_Activo === r.ID_Equipo) || null;
+          const plan   = DATA.planesMantenimiento.find(p => p.ID_Plan === r.ID_Plan) || null;
+          return { reg: r, equipo, plan, lab: equipo ? _detectarLabEquipo(equipo) : 'Otros' };
+        })
+        .sort((a, b) => (b.reg.Fecha_Realizacion || '').localeCompare(a.reg.Fecha_Realizacion || ''))
+    : [];
+  const realizadosList = _realizadosCache;
+  const nPlanes = equiposScope === DATA.equipos
+    ? DATA.planesMantenimiento.length
+    : DATA.planesMantenimiento.filter(p => equiposScope.some(e => e.ID_Activo === p.ID_Equipo)).length;
+
   container.innerHTML = `
     <!-- Resumen -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px">
@@ -602,21 +801,26 @@ function renderMantenimiento() {
       <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Total esperados</div></div>
     </div>
 
+    ${puedeExportar ? `
     <!-- Acciones -->
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
       <button class="btn btn-secondary" onclick="exportarModeloCalidad('${curso}')">📄 Exportar plan de mantenimiento</button>
       <button class="btn btn-secondary" onclick="exportarInventario('${curso}')">📋 Exportar inventario</button>
-    </div>
+    </div>` : ''}
 
     <!-- Pestañas -->
-    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px">
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px;flex-wrap:wrap">
       <button id="tab-btn-pendientes" onclick="switchMantTab('pendientes')"
         style="padding:8px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid var(--accent);margin-bottom:-2px;color:var(--accent)">
         Pendientes <span style="font-size:11px;background:var(--danger);color:#fff;border-radius:99px;padding:1px 7px;margin-left:4px">${pendientes}</span>
       </button>
-      ${canEdit ? `<button id="tab-btn-planes" onclick="switchMantTab('planes')"
+      ${puedeRealizados ? `<button id="tab-btn-realizados" onclick="switchMantTab('realizados')"
         style="padding:8px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted)">
-        Planes configurados <span style="font-size:11px;background:var(--border);color:var(--text-muted);border-radius:99px;padding:1px 7px;margin-left:4px">${DATA.planesMantenimiento.length}</span>
+        Realizados <span style="font-size:11px;background:var(--border);color:var(--text-muted);border-radius:99px;padding:1px 7px;margin-left:4px">${realizadosList.length}</span>
+      </button>` : ''}
+      ${puedePlanes ? `<button id="tab-btn-planes" onclick="switchMantTab('planes')"
+        style="padding:8px 18px;font-size:13px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;color:var(--text-muted)">
+        Planes configurados <span style="font-size:11px;background:var(--border);color:var(--text-muted);border-radius:99px;padding:1px 7px;margin-left:4px">${nPlanes}</span>
       </button>` : ''}
     </div>
 
@@ -649,8 +853,38 @@ function renderMantenimiento() {
       </div>
     </div>
 
-    <!-- Tab: Planes (solo Admin/Gestor) -->
-    ${canEdit ? `
+    <!-- Tab: Realizados (solo Admin/Gestor) -->
+    ${puedeRealizados ? `
+    <div id="tab-realizados" style="display:none">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Mantenimientos realizados — Curso ${curso}</div>
+          <div class="card-actions">
+            <select id="filter-real-lab" onchange="filtrarRealizados()" style="font-size:12px">
+              <option value="">Todos los labs</option>
+              ${[...new Set(realizadosList.map(s => s.lab))]
+                .filter(l => l && l !== 'Otros').sort()
+                .map(l => `<option value="${l}">${l}</option>`).join('')}
+            </select>
+            <select id="filter-real-periodo" onchange="filtrarRealizados()" style="font-size:12px">
+              <option value="">Todos los períodos</option>
+              ${[...new Set(realizadosList.map(s => s.reg.Periodo))].sort()
+                .map(p => `<option value="${p}">${labelPeriodo(p)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Equipo</th><th>Operación</th><th>Período</th><th>Fecha</th><th>Realizado por</th><th>Supervisado por</th><th></th>
+          </tr></thead>
+          <tbody id="tbody-realizados">${_renderFilasRealizados(realizadosList)}</tbody>
+        </table>
+        <div id="real-empty" style="display:none;padding:20px;text-align:center;color:var(--text-muted)">Sin mantenimientos realizados con estos filtros.</div>
+      </div>
+    </div>` : ''}
+
+    <!-- Tab: Planes -->
+    ${puedePlanes ? `
     <div id="tab-planes" style="display:none">
       <div class="card">
         <div class="card-header">
@@ -660,6 +894,7 @@ function renderMantenimiento() {
               <span>🔍</span>
               <input type="text" placeholder="Buscar equipo u operación..." oninput="filtrarPlanesTabla(this.value)" id="filter-planes">
             </div>
+            <button class="btn btn-primary" style="font-size:12px;white-space:nowrap" onclick="openModalPlan()">+ Plan</button>
           </div>
         </div>
         <table id="tabla-planes-mant">
@@ -673,8 +908,14 @@ function renderMantenimiento() {
 }
 
 function _renderFilasPlanesTabla(filtro = '') {
-  const canEdit = puedeHacer('editarEquipos');
+  const esGestorAdmin = puedeHacer('editarEquipos');
+  const esProfesor    = getUserRole() === 'Profesor';
+  // Profesor: solo planes de equipos de los que es responsable.
+  const scope = esProfesor
+    ? new Set(DATA.equipos.filter(e => esResponsableDeEquipo(e)).map(e => e.ID_Activo))
+    : null;
   return DATA.planesMantenimiento.map(plan => {
+    if (scope && !scope.has(plan.ID_Equipo)) return '';
     const eq = DATA.equipos.find(e => e.ID_Activo === plan.ID_Equipo);
     const label = eq
       ? `${eq.ID_Activo} – ${eq.Tipo_Equipo || ''} ${eq.Marca || ''}`.trim()
@@ -684,15 +925,36 @@ function _renderFilasPlanesTabla(filtro = '') {
     const tipoBadge = plan.Tipo_Intervencion === 'Externo' ? 'badge-blue' : 'badge-gray';
     const rowStyle = eq ? '' : 'background:#fff5f5';
     const idStyle  = eq ? '' : 'color:#dc2626';
+    const puedeEditar = esGestorAdmin || (scope && scope.has(plan.ID_Equipo));
     return `<tr style="${rowStyle}">
       <td><strong style="${idStyle}">${label}</strong></td>
       <td><span class="badge ${tipoBadge}" style="font-size:10px">${plan.Tipo_Intervencion}</span></td>
       <td>${plan.Periodicidad}</td>
       <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${plan.Operacion}">${plan.Operacion}</td>
       <td style="white-space:nowrap">
-        ${canEdit ? `<button class="icon-btn" onclick="openModalPlan('${plan.ID_Equipo}','${plan.ID_Plan}')" title="Editar">✏️</button>
+        ${puedeEditar ? `<button class="icon-btn" onclick="openModalPlan(null,'${plan.ID_Plan}')" title="Editar">✏️</button>
           <button class="icon-btn" onclick="eliminarPlan('${plan.ID_Plan}')" title="Eliminar">🗑️</button>` : ''}
       </td>
+    </tr>`;
+  }).join('');
+}
+
+function _renderFilasRealizados(lista) {
+  if (!lista.length) return '';
+  return lista.map(({ reg, equipo, plan }) => {
+    const tipoBadge = plan && plan.Tipo_Intervencion === 'Externo' ? 'badge-blue' : 'badge-gray';
+    const eqTxt = equipo
+      ? `<strong>${equipo.ID_Activo}</strong><br><span style="font-size:11px;color:var(--text-muted)">${equipo.Tipo_Equipo||''} ${equipo.Marca||''}</span>`
+      : `<strong>${reg.ID_Equipo}</strong>`;
+    const oper = (plan && plan.Operacion) || '—';
+    return `<tr>
+      <td>${eqTxt}</td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${oper}"><span class="badge ${tipoBadge}" style="font-size:10px">${plan?.Tipo_Intervencion||'—'}</span> ${oper}</td>
+      <td>${labelPeriodo(reg.Periodo)}</td>
+      <td style="white-space:nowrap">${formatDate(reg.Fecha_Realizacion)||'—'}</td>
+      <td>${reg.Realizado_Por||'—'}</td>
+      <td>${reg.Supervisado_Por||'—'}</td>
+      <td style="white-space:nowrap"><button class="btn btn-secondary" style="padding:2px 8px;font-size:11px" onclick="openModalEditarRegistroMant('${reg.ID_Registro}')">✏️ Editar</button></td>
     </tr>`;
   }).join('');
 }
@@ -750,8 +1012,20 @@ function filtrarPlanesTabla(val) {
   if (tbody) tbody.innerHTML = _renderFilasPlanesTabla(val);
 }
 
+function filtrarRealizados() {
+  const lab     = document.getElementById('filter-real-lab')?.value || '';
+  const periodo = document.getElementById('filter-real-periodo')?.value || '';
+  let lista = _realizadosCache;
+  if (lab)     lista = lista.filter(s => s.lab === lab);
+  if (periodo) lista = lista.filter(s => s.reg.Periodo === periodo);
+  const tbody = document.getElementById('tbody-realizados');
+  const empty = document.getElementById('real-empty');
+  if (tbody) tbody.innerHTML = _renderFilasRealizados(lista);
+  if (empty) empty.style.display = lista.length ? 'none' : '';
+}
+
 function switchMantTab(tab) {
-  const tabs = ['pendientes', 'planes'];
+  const tabs = ['pendientes', 'realizados', 'planes'];
   tabs.forEach(t => {
     const panel = document.getElementById(`tab-${t}`);
     const btn   = document.getElementById(`tab-btn-${t}`);

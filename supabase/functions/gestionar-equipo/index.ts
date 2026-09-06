@@ -71,8 +71,9 @@ Deno.serve(async (req) => {
       observaciones: strField(body.observaciones),
       coste: numField(body.coste),
       protocolo_uso: strField(body.protocolo_uso),
-      mes_inicio_temporada: numField(body.mes_inicio_temporada),
-      mes_fin_temporada: numField(body.mes_fin_temporada),
+      // mes_inicio_temporada / mes_fin_temporada: los escribe gestionar-mantenimiento
+      // desde el modal del plan (planes Pretemporada/Posttemporada). Aquí no se tocan
+      // para no borrarlos en cada edición de la ficha del equipo.
     };
 
     if (accion === "crear") {
