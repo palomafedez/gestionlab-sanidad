@@ -19,8 +19,8 @@
 4. Al registrar la recogida de Consenur: `Estado=recogido`, la fila se elimina físicamente del sheet.
 
 ## Roles
-- Todos los roles (incluido Alumno): pueden ver la Guía y registrar adiciones en contenedores
-- Admin / Gestor / **Profesor**: pueden crear, editar, cerrar y eliminar **contenedores**
+- Todos los roles (incluido Alumno): pueden ver la Guía y registrar adiciones en contenedores (botón "+ Añadir residuo")
+- Admin / Gestor (solo): pueden crear, editar, cerrar y eliminar **contenedores**, ver la pestaña "Pendientes de recogida" y registrar la recogida. El **Profesor** solo añade residuos a los activos (antes también podía gestionarlos; retirado 2026-09-06). La Edge Function `gestionar-residuo` exige `requireAdminOrGestor` para esas acciones.
 - Admin / Gestor (solo): pueden crear, editar y eliminar **tipos de residuo** (Profesor no tiene este permiso)
 
 ## Peligrosidad GHS
